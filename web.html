@@ -489,6 +489,8 @@ textarea{resize:vertical;min-height:80px}
 .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99}
 .sidebar-overlay.show{display:block}
 </style>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
@@ -1214,224 +1216,16 @@ textarea{resize:vertical;min-height:80px}
 </div>
 
 <script>// ═══ GLOBAL SAFETY NET ═══
-// Override getElementById to never return null — returns a dummy element instead
 (function(){
   var _origGetById = document.getElementById.bind(document);
-  var _dummy = document.createElement('div'); // reusable dummy
+  var _dummy = document.createElement('div');
   _dummy.style.display='none';
   document.getElementById = function(id){
     return _origGetById(id) || _dummy;
   };
 })();
-// ═════════════════════════
-
 function _esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-
-
-function hideNewBatchForm(){var el=document.getElementById('newBatchForm');if(el)el.style.display='none';}
-function closeBatchModal(){document.getElementById('batchModal').classList.remove('open');clearInterval(window._incubTimer);}
-function goToAdminKey(){goTab('admin');setTimeout(function(){var el=document.getElementById('apiKeyInput');if(el)el.focus();},400);}
-function store(key,val){try{localStorage.setItem('bd_'+key,JSON.stringify(val));}catch(e){}}
-function load(key,def){try{var v=localStorage.getItem('bd_'+key);return v?JSON.parse(v):def;}catch(e){return def;}}
-var users=load('users',[{username:'admin',password:'barkat2024',role:'admin',name:'Admin (Owner)'},{username:'ops1',password:'ops123',role:'staff',name:'Operations Staff'},{username:'proc1',password:'proc123',role:'staff',name:'Procurement Staff'},{username:'rider1',password:'rider123',role:'rider',name:'Delivery Rider'}]);
-var settings=load('settings',{smp:305,cult:133,fix:3800,p200:18,p400:34,r200:0.6,r400:0.4,pk200:2.7,pk400:4.1,tsnf:8.5});
-var records=load('records',[]);var distRecords=load('distRecords',[]);var testRecords=load('testRecords',[]);
-var savedSuppliers=load('savedSuppliers',[]);var savedDistributors=load('savedDistributors',[]);
-var attRecords=load('attRecords',[]);var attSavedName=load('attSavedName','');
-var invEntries=load('invEntries',[]);var invOpening=load('invOpening',{cups200:1000,cups400:500,foil:2000,smp:50,culture:10,crates:50});
-var productionBatches=load('productionBatches',[]);var cipLogs=load('cipLogs',[]);
-var currentUser=null,currentThermalText='',currentDistBill=null,attSelfieData=null,attCamStream=null,aiHistory=[],aiTyping=false,_alcoholResult=null;
-
-function setText(id,val){var el=document.getElementById(id);if(el)el.textContent=val;}
-function setHtml(id,val){var el=document.getElementById(id);if(el)el.innerHTML=val;}
-// ═══ DATA INIT — must be first ═══
-function _load(key,def){try{const v=localStorage.getItem('bd_'+key);return v?JSON.parse(v):def;}catch(e){return def;}}
-function _store(key,val){try{localStorage.setItem('bd_'+key,JSON.stringify(val));}catch(e){}}
-
-// Core data - declared here so all functions below can access them
-var users        = _load('users',[{username:'admin',password:'barkat2024',role:'admin',name:'Admin (Owner)'},{username:'ops1',password:'ops123',role:'staff',name:'Operations Staff'},{username:'proc1',password:'proc123',role:'staff',name:'Procurement Staff'},{username:'rider1',password:'rider123',role:'rider',name:'Delivery Rider'}]);
-var settings     = _load('settings',{smp:305,cult:133,fix:3800,p200:18,p400:34,r200:0.6,r400:0.4,pk200:2.7,pk400:4.1,tsnf:8.5});
-var records      = _load('records',[]);
-var distRecords  = _load('distRecords',[]);
-var testRecords  = _load('testRecords',[]);
-var savedSuppliers    = _load('savedSuppliers',[]);
-var savedDistributors = _load('savedDistributors',[]);
-var attRecords   = _load('attRecords',[]);
-var attSavedName = _load('attSavedName','');
-var invEntries   = _load('invEntries',[]);
-var invOpening   = _load('invOpening',{cups200:1000,cups400:500,foil:2000,smp:50,culture:10,crates:50});
-var productionBatches = _load('productionBatches',[]);
-var cipLogs      = _load('cipLogs',[]);
-var currentUser  = null;
-var currentThermalText = '';
-var currentDistBill = null;
-var attSelfieData = null;
-var attCamStream = null;
-var aiHistory = [];
-var aiTyping = false;
-var _alcoholResult = null;
-// ═══════════════════════════════════════
-
-
-// ── WEB-SPECIFIC OVERRIDES ──
-function goTab(name, btn){
-  document.querySelectorAll('.page').forEach(p=>{p.style.display='none';p.classList.remove('active');});
-  document.querySelectorAll('.nav-item').forEach(t=>t.classList.remove('active'));
-  const pg=document.getElementById('tab-'+name);
-  if(pg){pg.style.display='block';pg.classList.add('active');}
-  if(btn) btn.classList.add('active');
-  // Update topbar title
-  const titles={dashboard:'Dashboard',ops:'Operations',proc:'Procurement',batch:'Batches',
-    dist:'Distribution',test:'Adulteration Testing',inv:'Inventory',cip:'CIP Cleaning Log',
-    summary:'Daily Summary',recall:'Trace & Recall',attend:'Attendance',rider:'My Deliveries',
-    tracker:'Live Tracker',ai:'Barkat AI Assistant',admin:'Admin Panel'};
-  const titleEl=document.getElementById('topbarTitle');
-  if(titleEl) titleEl.textContent=titles[name]||name;
-  document.querySelectorAll('.ac-list').forEach(l=>l.classList.remove('show'));
-  // Close mobile sidebar
-  closeMobileSidebar();
-}
-
-function doLogin(){
-  var u=document.getElementById('loginUser').value.trim();
-  var p=document.getElementById('loginPass').value.trim();
-  var user=users.find(function(x){return x.username===u&&x.password===p;});
-  var errEl=document.getElementById('loginErr');
-  if(!user){if(errEl)errEl.textContent='❌ Invalid username or password';return;}
-  if(errEl)errEl.textContent='';
-  if(document.getElementById('rememberMe').checked){
-    try{localStorage.setItem('bd_savedCreds',JSON.stringify({u:u,p:p}));}catch(e){}
-  } else {
-    try{localStorage.removeItem('bd_savedCreds');}catch(e){}
-  }
-  currentUser=user;
-  document.getElementById('loginScreen').classList.add('hidden');
-  document.getElementById('appShell').classList.remove('hidden');
-  var snEl=document.getElementById('sidebarUserName'); if(snEl)snEl.textContent=user.name;
-  var srEl=document.getElementById('sidebarUserRole'); if(srEl)srEl.textContent=user.role.toUpperCase();
-  var isAdmin=user.role==='admin', isRider=user.role==='rider';
-  var atb=document.getElementById('adminTabBtn');if(atb)atb.style.display=isAdmin?'block':'none';
-  var ttb=document.getElementById('trackerTabBtn');if(ttb)ttb.style.display=isAdmin?'block':'none';
-  var rtb=document.getElementById('riderTabBtn');if(rtb)rtb.style.display=isRider?'block':'none';
-  setToday();loadSettings();
-  if(!isRider){
-    renderUsers();renderAllRecords();renderDistRecords();renderTestHistory();
-    buildTestCards();calcOps();calcProc();calcDist();
-    renderStockDashboard();renderInvLog();loadOpeningStockFields();
-    checkLowStockAlerts();updateApiKeyStatus();renderBatchList();renderCIPList();renderCIPCalendar();
-    renderSummary();renderDashboard();
-  }
-  if(isRider){goTab('rider');renderRiderView();}
-  else goTab('dashboard');
-}
-
-function doLogout(){
-  stopRiderLocation();currentUser=null;
-  document.getElementById('loginScreen').classList.remove('hidden');
-  document.getElementById('appShell').classList.add('hidden');
-  try{var sv=JSON.parse(localStorage.getItem('bd_savedCreds')||'null');
-    if(!sv){document.getElementById('loginUser').value='';document.getElementById('loginPass').value='';}
-  }catch(e){}
-  document.querySelectorAll('.nav-item').forEach(function(t){t.style.display='';});
-}
-
-function renderDashboard(){
-  const today=new Date().toISOString().split('T')[0];
-  const dayProc=records.filter(r=>r.date===today);
-  const milkIn=dayProc.reduce((a,r)=>a+r.qty,0);
-  const milkCost=dayProc.reduce((a,r)=>a+r.total,0);
-  const activeBatches=typeof productionBatches!=='undefined'?productionBatches.filter(b=>b.status==='active').length:0;
-  const setText=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
-  setText('d-milkin',milkIn>0?milkIn+'L':'—');
-  setText('d-milkcost',milkCost>0?'₹'+milkCost.toFixed(0):'—');
-  setText('d-batches',activeBatches||'—');
-  // Cold store
-  if(typeof productionBatches!=='undefined'&&typeof distRecords!=='undefined'){
-    const passed=productionBatches.filter(b=>b.batchResult==='PASSED'&&b.stages&&b.stages.s5_fill);
-    let total=0;
-    passed.forEach(b=>{
-      const p=parseInt(b.stages.s5_fill.cupsCount||0);
-      const disp=distRecords.filter(d=>(d.batchIds||'').includes(b.batchId)).reduce((s,d)=>s+d.c200+d.c400,0);
-      total+=Math.max(0,p-disp);
-    });
-    setText('d-coldstore',total>0?total+' cups':'—');
-  }
-  // Batch list
-  const bEl=document.getElementById('dash-batch-list');
-  if(bEl&&typeof productionBatches!=='undefined'){
-    const active=productionBatches.filter(b=>b.status==='active').slice(0,5);
-    bEl.innerHTML=active.length?active.map(b=>`<div class="row"><span class="rl">${b.batchId} · ${b.vat||'Vat'}</span><span style="font-size:11px;background:#fff8e7;color:#7a5a00;padding:2px 8px;border-radius:8px;font-weight:700">Stage ${b.currentStage||1}/7</span></div>`).join(''):'<div style="font-size:13px;color:var(--gray);padding:10px 0">No active batches</div>';
-  }
-  // Alerts
-  const aEl=document.getElementById('dash-alerts');
-  if(aEl){
-    const chips=[];
-    if(typeof productionBatches!=='undefined') productionBatches.filter(b=>b.status==='active').forEach(b=>{
-      if(b.currentStage===6&&b.stages&&b.stages.s6_incubate){
-        const st=b.stages.s6_incubate.startTime;
-        if(st){const[h,m]=st.split(':').map(Number);const start=new Date();start.setHours(h,m,0,0);const el=(Date.now()-start)/3600000;if(el>5.25)chips.push('<span class="alert-chip">🔴 '+b.batchId+' incubation OVERDUE</span>');}
-      }
-    });
-    if(dayProc.some(r=>r.alcohol==='fail')) chips.push('<span class="alert-chip">❌ Failed alcohol test today</span>');
-    if(typeof cipLogs!=='undefined'&&!cipLogs.some(r=>r.date===today)) chips.push('<span class="alert-chip warn">⚠️ No CIP log today</span>');
-    if(!chips.length) chips.push('<span class="alert-chip ok">✅ All clear</span>');
-    aEl.innerHTML=chips.join('');
-    const btn=document.getElementById('topbarAlertBtn');
-    const alertCount=chips.filter(c=>!c.includes('ok')).length;
-    if(btn){const ac=btn.querySelector('#topbarAlertCount');if(ac)ac.textContent=alertCount;btn.className='topbar-alert-btn'+(alertCount>0?' has-alerts':'');}
-  }
-  // Proc
-  const pEl=document.getElementById('dash-proc-list');
-  if(pEl) pEl.innerHTML=dayProc.length?dayProc.slice(0,5).map(r=>`<div class="row"><span class="rl">${r.supplier} · ${r.qty}L</span><span class="rv">₹${r.total.toFixed(0)}</span></div>`).join(''):'<div style="font-size:13px;color:var(--gray);padding:10px 0">No procurement today</div>';
-  // Dist balances
-  const dEl=document.getElementById('dash-dist-list');
-  if(dEl&&typeof distRecords!=='undefined'){
-    const balances={};
-    distRecords.forEach(r=>{if(!balances[r.dist])balances[r.dist]={name:r.dist,bal:0};balances[r.dist].bal+=(r.amount-r.paid);});
-    const dists=Object.values(balances).filter(d=>d.bal>0).slice(0,5);
-    dEl.innerHTML=dists.length?dists.map(d=>`<div class="row"><span class="rl">${d.name}</span><span class="rv red">₹${d.bal.toFixed(0)}</span></div>`).join(''):'<div style="font-size:13px;color:var(--green);padding:10px 0">✅ No pending balances</div>';
-  }
-}
-
-function toggleSidebar(){
-  const sb=document.getElementById('sidebar');
-  sb.classList.toggle('collapsed');
-  const btn=sb.querySelector('.sidebar-toggle');
-  if(btn) btn.textContent=sb.classList.contains('collapsed')?'›':'‹';
-}
-function openMobileSidebar(){
-  document.getElementById('sidebar').classList.add('mobile-open');
-  document.getElementById('sidebarOverlay').classList.add('show');
-}
-function closeMobileSidebar(){
-  document.getElementById('sidebar').classList.remove('mobile-open');
-  document.getElementById('sidebarOverlay').classList.remove('show');
-}
-
-// Date in topbar
-function updateTopbarDate(){
-  const el=document.getElementById('topbarDate');
-  if(el){const d=new Date();el.textContent=d.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'});}
-}
-window.addEventListener('DOMContentLoaded',function(){updateTopbarDate();setInterval(updateTopbarDate,60000);});
-
-// Auto-fill credentials
-window.addEventListener('DOMContentLoaded',function(){
-  try{const s=JSON.parse(localStorage.getItem('bd_savedCreds')||'null');if(s){document.getElementById('loginUser').value=s.u;document.getElementById('loginPass').value=s.p;document.getElementById('rememberMe').checked=true;}}catch(e){}
-  const cd=document.getElementById('cip-date');if(cd)cd.value=new Date().toISOString().split('T')[0];
-});
-// duplicate listener removed
-// duplicate listener removed
-document.addEventListener('click',e=>{if(!e.target.closest('.ac-wrap'))document.querySelectorAll('.ac-list').forEach(l=>l.classList.remove('show'));});
-// Dashboard refresh every 30s
-setInterval(function(){var el=document.getElementById('tab-dashboard');if(el&&el.classList.contains('active'))renderDashboard();},30000);
-
-
-// ══════════════════════════════════════════
-// RATE TABLE
-// ══════════════════════════════════════════
-
-
+// ═════════════════════════
 
 // ══════════════════════════════════════════
 // RATE TABLE
@@ -1468,27 +1262,34 @@ function getRateFromTable(fat,snf){
 // ══════════════════════════════════════════
 // STORAGE
 // ══════════════════════════════════════════
-// duplicate store removed
-// duplicate load removed
+function store(key,val){try{localStorage.setItem('bd_'+key,JSON.stringify(val));}catch(e){}}
+function load(key,def){try{const v=localStorage.getItem('bd_'+key);return v?JSON.parse(v):def;}catch(e){return def;}}
 
+
+// ═══════════════════════════════
 // ══════════════════════════════════════════
 // DATA
 // ══════════════════════════════════════════
+const DEFAULT_USERS=[
+  {username:'admin',password:'barkat2024',role:'admin',name:'Admin (Owner)'},
+  {username:'ops1',password:'ops123',role:'staff',name:'Operations Staff'},
+  {username:'proc1',password:'proc123',role:'staff',name:'Procurement Staff'},
+  {username:'rider1',password:'rider123',role:'rider',name:'Delivery Rider'},
+];
+const DEFAULT_SETTINGS={smp:305,cult:133,fix:3800,p200:18,p400:34,r200:0.6,r400:0.4,pk200:2.7,pk400:4.1,tsnf:8.5};
 
-
-
-users=load('users',users);
-settings=load('settings',settings);
-records=load('records',[]);
-distRecords=load('distRecords',[]);
-testRecords=load('testRecords',[]);
-savedSuppliers=load('savedSuppliers',[]);
-savedDistributors=load('savedDistributors',[]);
-attRecords=load('attRecords',[]);
-attSavedName=load('attSavedName','');
-currentUser=null;
-currentThermalText='';
-currentDistBill=null;
+let users=load('users',DEFAULT_USERS);
+let settings=load('settings',DEFAULT_SETTINGS);
+let records=load('records',[]);
+let distRecords=load('distRecords',[]);
+let testRecords=load('testRecords',[]);
+let savedSuppliers=load('savedSuppliers',[]);
+let savedDistributors=load('savedDistributors',[]);
+let attRecords=load('attRecords',[]);
+let attSavedName=load('attSavedName','');
+let currentUser=null;
+let currentThermalText='';
+let currentDistBill=null;
 
 // ══════════════════════════════════════════
 // ADULTERATION TESTS DEFINITION
@@ -1508,7 +1309,7 @@ const TESTS=[
 // ══════════════════════════════════════════
 // LOGIN / LOGOUT
 // ══════════════════════════════════════════
-function _mobile_doLogin(){
+function doLogin(){
   const u=document.getElementById('loginUser').value.trim();
   const p=document.getElementById('loginPass').value.trim();
   const user=users.find(x=>x.username===u&&x.password===p);
@@ -1520,9 +1321,9 @@ function _mobile_doLogin(){
     try{localStorage.removeItem('bd_savedCreds');}catch(e){}
   }
   currentUser=user;
-  (function(){var _zz=document.getElementById('loginErr');if(_zz)_zz.textContent='';})();
+  document.getElementById('loginErr').textContent='';
   document.getElementById('loginScreen').classList.add('hidden');
-  (function(){var _zz=document.getElementById('appbarUser');if(_zz)_zz.textContent=user.name+' · '+user.role.toUpperCase();})();
+  document.getElementById('appbarUser').textContent=user.name+' · '+user.role.toUpperCase();
   // Tab visibility by role
   const isAdmin=user.role==='admin';
   const isRider=user.role==='rider';
@@ -1573,10 +1374,10 @@ window.addEventListener('DOMContentLoaded',function(){
   }catch(e){}
 });
 
-// duplicate listener removed
-// duplicate listener removed
+document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+document.getElementById('loginUser').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
-function _mobile_doLogout(){
+function doLogout(){
   stopRiderLocation();
   currentUser=null;
   document.getElementById('loginScreen').classList.remove('hidden');
@@ -1593,7 +1394,7 @@ function _mobile_doLogout(){
 // ══════════════════════════════════════════
 // TABS
 // ══════════════════════════════════════════
-function _mobile_goTab(name,btn){
+function goTab(name,btn){
   document.querySelectorAll('.page').forEach(p=>{p.style.display='none';p.classList.remove('active');});
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   const pg=document.getElementById('tab-'+name);
@@ -1614,7 +1415,7 @@ function acFilter(inputId, listId, storeKey){
   const data=storeKey==='savedSuppliers'?savedSuppliers:storeKey==='savedDistributors'?savedDistributors:[];
   let matches=val?data.filter(s=>s.toLowerCase().includes(val)):data;
   if(matches.length===0){list.classList.remove('show');return;}
-  list.innerHTML=matches.map(s=>`<div class="ac-item" onmousedown="acSelect('${inputId}','${listId}','${_esc(s).replace(/'/g,"\\'")}')">${_esc(s)}</div>`).join('');
+  list.innerHTML=matches.map(s=>`<div class="ac-item" onmousedown="acSelect('${inputId}','${listId}','${s.replace(/'/g,"\\'")}')">${s}</div>`).join('');
   list.classList.add('show');
 }
 function acSelect(inputId,listId,val){
@@ -1652,7 +1453,7 @@ function loadSettings(){
 function saveSettings(){
   ['smp','cult','fix','p200','p400','r200','r400','pk200','pk400','tsnf'].forEach(k=>{
     const el=document.getElementById('a-'+k);
-    if(el)settings[k]=parseFloat(el.value)||({smp:305,cult:133,fix:3800,p200:18,p400:34,r200:0.6,r400:0.4,pk200:2.7,pk400:4.1,tsnf:8.5})[k];
+    if(el)settings[k]=parseFloat(el.value)||DEFAULT_SETTINGS[k];
   });
   store('settings',settings);
   const a=document.getElementById('settingsAlert');
@@ -1694,15 +1495,15 @@ function calcOps(){
   if(!best){document.getElementById('o-status').textContent='⚠️ Check values';return;}
   const q=best.fFat>=3.5&&best.fSnf>=8.5?'🟢 EXCELLENT':best.fFat>=3.2&&best.fSnf>=8.5?'🟢 THICK':best.fFat>=3.0?'🟡 STANDARD':'🔴 THIN';
   document.getElementById('o-status').textContent=fat>=4&&snf>=8.3?'🟢 Premium Milk':fat>=3.8&&snf>=8?'🟡 Good Milk':'🟠 Average Milk';
-  (function(){var _zz=document.getElementById('r-water');if(_zz)_zz.textContent=best.w;})();
-  (function(){var _zz=document.getElementById('r-smp');if(_zz)_zz.textContent=best.smpKg.toFixed(2);})();
-  (function(){var _zz=document.getElementById('r-vol');if(_zz)_zz.textContent=best.fv.toFixed(1);})();
-  (function(){var _zz=document.getElementById('r-ffat');if(_zz)_zz.textContent=best.fFat.toFixed(3);})();
-  (function(){var _zz=document.getElementById('r-fsnf');if(_zz)_zz.textContent=best.fSnf.toFixed(2);})();
-  (function(){var _zz=document.getElementById('r-qual');if(_zz)_zz.textContent=q;})();
-  (function(){var _zz=document.getElementById('r-c200');if(_zz)_zz.textContent=best.c200;})();
-  (function(){var _zz=document.getElementById('r-c400');if(_zz)_zz.textContent=best.c400;})();
-  (function(){var _zz=document.getElementById('r-ctotal');if(_zz)_zz.textContent=best.c200+best.c400;})();
+  document.getElementById('r-water').textContent=best.w;
+  document.getElementById('r-smp').textContent=best.smpKg.toFixed(2);
+  document.getElementById('r-vol').textContent=best.fv.toFixed(1);
+  document.getElementById('r-ffat').textContent=best.fFat.toFixed(3);
+  document.getElementById('r-fsnf').textContent=best.fSnf.toFixed(2);
+  document.getElementById('r-qual').textContent=q;
+  document.getElementById('r-c200').textContent=best.c200;
+  document.getElementById('r-c400').textContent=best.c400;
+  document.getElementById('r-ctotal').textContent=best.c200+best.c400;
   document.getElementById('opsInstructions').innerHTML=`
     <div class="row"><span class="rl">Step 1 — Add water</span><span class="rv blue">${best.w} litres</span></div>
     <div class="row"><span class="rl">Step 2 — Add SMP</span><span class="rv blue">${best.smpKg.toFixed(2)} kg</span></div>
@@ -1724,12 +1525,12 @@ function calcProc(){
   const qty=parseFloat(document.getElementById('p-qty').value)||0;
   if(!fat||!snf){document.getElementById('p-rate').textContent='—';document.getElementById('p-total').textContent='—';return;}
   const rate=getRateFromTable(fat,snf);
-  (function(){var _zz=document.getElementById('p-rate');if(_zz)_zz.textContent='₹'+rate;})();
-  (function(){var _zz=document.getElementById('p-total');if(_zz)_zz.textContent=qty?'₹'+(qty*rate).toFixed(0):'—';})();
+  document.getElementById('p-rate').textContent='₹'+rate;
+  document.getElementById('p-total').textContent=qty?'₹'+(qty*rate).toFixed(0):'—';
   const dec=fat>=4.5&&snf>=8.4?{l:'🟢 PREMIUM MILK',c:'green'}:fat>=4&&snf>=8.3?{l:'🟢 GOOD BUY',c:'green'}:fat>=3.8&&snf>=8.1?{l:'🟡 SAFE BUY',c:'gold'}:{l:'🔴 POOR QUALITY',c:'red'};
   document.getElementById('p-decision').innerHTML=`<div class="alert alert-${dec.c==='green'?'green':dec.c==='gold'?'gold':'red'}">${dec.l} — Fat: ${fat}% | SNF: ${snf}% | Rate: ₹${rate}/L</div>`;
 }
-function _basic_saveProc(){
+function saveProc(){
   const supplier=document.getElementById('p-supplier').value.trim();
   const qty=parseFloat(document.getElementById('p-qty').value)||0;
   const fat=parseFloat(document.getElementById('p-fat').value)||0;
@@ -1752,7 +1553,7 @@ function renderAllRecords(){
   const todayRecs=records.filter(r=>r.date===today);
   const todayMilk=todayRecs.reduce((a,r)=>a+r.qty,0);
   const todayCost=todayRecs.reduce((a,r)=>a+r.total,0);
-  (function(){var _zz=document.getElementById('todayTotal');if(_zz)_zz.textContent=todayRecs.length?`${todayMilk}L · ₹${todayCost.toFixed(0)}`:'';})();
+  document.getElementById('todayTotal').textContent=todayRecs.length?`${todayMilk}L · ₹${todayCost.toFixed(0)}`:'';
   const listEl=document.getElementById('procList');
   if(todayRecs.length===0){listEl.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No entries yet today</div></div>';return;}
   listEl.innerHTML=todayRecs.map(r=>`
@@ -1873,7 +1674,7 @@ function printThermal(){
   }
 }
 function showThermalFallback(text){
-  (function(){var _zz=document.getElementById('thermalText');if(_zz)_zz.textContent=text;})();
+  document.getElementById('thermalText').textContent=text;
   document.getElementById('slipModal').classList.remove('open');
   document.getElementById('thermalModal').classList.add('open');
 }
@@ -1907,9 +1708,9 @@ function calcDist(){
   const distName=document.getElementById('d-dist').value.trim();
   const prevBal=distRecords.filter(r=>r.dist===distName).reduce((s,r)=>s+(r.amount-r.paid),0);
   const grandTotal=prevBal+total-paid;
-  (function(){var _zz=document.getElementById('d-amt200');if(_zz)_zz.textContent='₹'+amt200.toFixed(0);})();
-  (function(){var _zz=document.getElementById('d-amt400');if(_zz)_zz.textContent='₹'+amt400.toFixed(0);})();
-  (function(){var _zz=document.getElementById('d-total');if(_zz)_zz.textContent='₹'+total.toFixed(0);})();
+  document.getElementById('d-amt200').textContent='₹'+amt200.toFixed(0);
+  document.getElementById('d-amt400').textContent='₹'+amt400.toFixed(0);
+  document.getElementById('d-total').textContent='₹'+total.toFixed(0);
   const bp=document.getElementById('d-balance-preview');
   bp.textContent='₹'+Math.max(0,grandTotal).toFixed(0)+(prevBal>0?' (incl. ₹'+prevBal.toFixed(0)+' prev)':'');
   bp.style.color=grandTotal>0?'var(--red)':'var(--green)';
@@ -1944,7 +1745,7 @@ function renderDistRecords(){
   // Today's entries
   const todayRecs=distRecords.filter(r=>r.date===today);
   const todayTotal=todayRecs.reduce((a,r)=>a+r.amount,0);
-  (function(){var _zz=document.getElementById('distTodayTotal');if(_zz)_zz.textContent=todayRecs.length?`₹${todayTotal.toFixed(0)} billed today`:'';})();
+  document.getElementById('distTodayTotal').textContent=todayRecs.length?`₹${todayTotal.toFixed(0)} billed today`:'';
   const todayEl=document.getElementById('distTodayList');
   if(todayRecs.length===0){todayEl.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No entries today</div></div>';}
   else todayEl.innerHTML=todayRecs.map(r=>distRecordHTML(r)).join('');
@@ -2543,7 +2344,7 @@ function downloadDistBillPDF(r){
 let camStream=null, capturedPhotoData=null, camVerified=false;
 
 function openCamModal(){
-  capturedPhotoData=null;
+  
   camVerified=false;
   document.getElementById('camModal').classList.add('open');
   document.getElementById('camPreviewWrap').style.display='none';
@@ -2551,8 +2352,8 @@ function openCamModal(){
   document.getElementById('camRetakeBtn').style.display='none';
   document.getElementById('camCaptureBtn').disabled=true;
   document.getElementById('camOverlay').style.display='flex';
-  (function(){var _zz=document.getElementById('camOverlay');if(_zz)_zz.textContent='Tap "Start Camera" to begin';})();
-  (function(){var _zz=document.getElementById('camStartBtn');if(_zz)_zz.textContent='▶ Start Camera';})();
+  document.getElementById('camOverlay').textContent='Tap "Start Camera" to begin';
+  document.getElementById('camStartBtn').textContent='▶ Start Camera';
 }
 
 function closeCamModal(){
@@ -2562,7 +2363,7 @@ function closeCamModal(){
 
 function startCamera(){
   const video=document.getElementById('camVideo');
-  (function(){var _zz=document.getElementById('camOverlay');if(_zz)_zz.textContent='Starting camera…';})();
+  document.getElementById('camOverlay').textContent='Starting camera…';
   navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false})
     .then(stream=>{
       camStream=stream;
@@ -2570,10 +2371,10 @@ function startCamera(){
       video.play();
       document.getElementById('camOverlay').style.display='none';
       document.getElementById('camCaptureBtn').disabled=false;
-      (function(){var _zz=document.getElementById('camStartBtn');if(_zz)_zz.textContent='🔄 Restart';})();
+      document.getElementById('camStartBtn').textContent='🔄 Restart';
     })
     .catch(err=>{
-      (function(){var _zz=document.getElementById('camOverlay');if(_zz)_zz.textContent='Camera error: '+err.message+'. Allow camera access and try again.';})();
+      document.getElementById('camOverlay').textContent='Camera error: '+err.message+'. Allow camera access and try again.';
     });
 }
 
@@ -2596,7 +2397,7 @@ function capturePhoto(){
 }
 
 function retakePhoto(){
-  capturedPhotoData=null;
+  
   document.getElementById('camPreviewWrap').style.display='none';
   document.getElementById('camConfirmBtn').style.display='none';
   document.getElementById('camRetakeBtn').style.display='none';
@@ -2632,8 +2433,7 @@ function confirmCapture(){
     stopCamStream();
     closeCamModal();
     const thumb=document.getElementById('camThumb');
-    thumb.src=capturedPhotoData;
-    thumb.style.display='block';
+    // photo stripped
     if(parsed.fat!==null&&parsed.snf!==null){
       document.getElementById('p-fat').value=parsed.fat;
       document.getElementById('p-snf').value=parsed.snf;
@@ -2651,8 +2451,7 @@ function confirmCapture(){
     stopCamStream();
     closeCamModal();
     const thumb=document.getElementById('camThumb');
-    thumb.src=capturedPhotoData;
-    thumb.style.display='block';
+    // photo stripped
     document.getElementById('camVerifyStatus').innerHTML='✅ Photo captured (AI reading unavailable — fill Fat & SNF manually)';
     document.getElementById('camVerifyStatus').style.cssText='background:#f0fdf4;color:#15803d;border:1.5px solid #bbf7d0';
     document.getElementById('saveProcBtn').disabled=false;
@@ -2666,7 +2465,7 @@ function stopCamStream(){
 
 // Override saveProc to embed photo
 const _origSaveProc=saveProc;
-function saveProc(){
+function _oldSaveProc(){
   if(!camVerified){
     showAlert('procAlert','alert-red','📷 Please verify the analyser reading with camera first');
     return;
@@ -2687,7 +2486,7 @@ function saveProc(){
   const rec={id:Date.now(),lotId,supplier,qty,fat,snf,rate,total,date,temp,
     alcohol:window._alcoholResult||'not-tested',
     status:'in-storage',
-    savedBy:currentUser?currentUser.name:'Staff',photo:capturedPhotoData||null};
+    savedBy:currentUser?currentUser.name:'Staff'};
   records.unshift(rec);
   store('records',records);
   saveSupplierName(supplier);
@@ -2695,8 +2494,8 @@ function saveProc(){
   showAlert('procAlert','alert-green','✅ Saved · Lot ID: '+lotId);
   // Reset camera state
   camVerified=false;
-  capturedPhotoData=null;
-  document.getElementById('camThumb').style.display='none';
+  
+  // photo stripped
   document.getElementById('camVerifyStatus').innerHTML='📷 Camera verification required before saving';
   document.getElementById('camVerifyStatus').style.background='#f8faff';
   document.getElementById('camVerifyStatus').style.color='var(--gray)';
@@ -2718,9 +2517,9 @@ const INV_ITEMS={
   crates: {name:'Crates',       icon:'📦', unit:'units',  low:20,   critical:8},
 };
 
-invEntries=load('invEntries',[]);
+let invEntries=load('invEntries',[]);
 // Opening stock (set by admin)
-invOpening=load('invOpening',{cups200:1000,cups400:500,foil:2000,smp:50,culture:10,crates:50});
+let invOpening=load('invOpening',{cups200:1000,cups400:500,foil:2000,smp:50,culture:10,crates:50});
 
 function getStockLevel(key){
   const opening=invOpening[key]||0;
@@ -2896,7 +2695,7 @@ function startRiderLocation(){
   document.getElementById('riderLocBtn').style.display='none';
   document.getElementById('riderLocStopBtn').style.display='block';
 
-  riderLocWatchId=navigator.geolocation.watchPosition(
+  riderLocWatchId=1;function _riderLocTick(){navigator.geolocation.getCurrentPosition(
     pos=>{
       const loc={
         lat:pos.coords.latitude,
@@ -2910,7 +2709,10 @@ function startRiderLocation(){
       showRiderLocStatus('✅ Sharing live location — accuracy ±'+loc.acc+'m','alert-green');
     },
     err=>{showRiderLocStatus('⚠️ Location error: '+err.message,'alert-gold');},
-    {enableHighAccuracy:true,timeout:15000,maximumAge:5000}
+    {enableHighAccuracy:true,timeout:15000,maximumAge:30000}
+    );}
+    _riderLocTick();
+    riderLocInterval=setInterval(_riderLocTick,60000
   );
 }
 
@@ -3014,13 +2816,16 @@ function updateTrackerMap(){
   }).join('');
 }
 
-// init calls moved to doLogin()
+buildTestCards();
+calcOps();
+renderStockDashboard();
+renderInvLog();
 
 // ══════════════════════════════════════════
 // ATTENDANCE
 // ══════════════════════════════════════════
-attSelfieData= null;
-attCamStream = null;
+let attSelfieData= null;
+let attCamStream = null;
 
 // Restore saved name on tab open
 function initAttendance(){
@@ -3064,7 +2869,7 @@ function attOpenCamera(){
 function attCloseCamera(){
   if(attCamStream){ attCamStream.getTracks().forEach(t=>t.stop()); attCamStream=null; }
   document.getElementById('att-cam-wrap').style.display='none';
-  (function(){var _zz=document.getElementById('att-cam-btn');if(_zz)_zz.textContent='📸 Take Selfie';})();
+  document.getElementById('att-cam-btn').textContent='📸 Take Selfie';
   document.getElementById('att-capture-btn').style.display='none';
 }
 
@@ -3096,7 +2901,6 @@ function markAttendance(type){
       id:Date.now(), name, type, date, time,
       lat:lat||null, lng:lng||null, acc:acc||null,
       placeName:placeName||null,
-      photo:attSelfieData||null,
       savedBy: currentUser?currentUser.name:name
     };
     attRecords.unshift(rec);
@@ -3157,9 +2961,7 @@ function renderAttToday(){
   }
   listEl.innerHTML = todayRecs.map(r=>`
     <div class="att-card">
-      ${r.photo
-        ? `<img src="${r.photo}" class="att-selfie"/>`
-        : `<div class="att-selfie-placeholder">${r.type==='arrival'?'🟢':'🔴'}</div>`}
+      ${r.type==="arrival"?"🟢":"🔴"}
       <div class="att-info">
         <div class="att-name">${r.name}</div>
         <div class="att-time">🕐 ${r.time} · ${r.date}</div>
@@ -3196,129 +2998,7 @@ function renderAttHistory(){
 // ══════════════════════════════════════════
 // BARKAT AI ASSISTANT
 // ══════════════════════════════════════════
-const AI_SYSTEM = `You are Barkat AI for Barkat Dairy Plant, Watlar Ganderbal, Kashmir. Help dairy staff with short, direct answers. Key facts: culture = 1 packet per 100L milk; to raise SNF 1% in 100L add 1kg SMP; fat target 3.5%+ SNF 8.5%+. For troubleshooting give numbered steps. Use numbers not vague amounts. Keep replies under 100 words. Mix Urdu naturally if helpful.`;
 
-aiHistory = [];
-aiTyping  = false;
-
-function aiQuickPrompt(btn){
-  const inp = document.getElementById('aiInput');
-  if(inp){ inp.value = btn.textContent; sendAI(); }
-}
-
-function checkAIKey(){
-  const noKey = document.getElementById('aiNoKeyMsg');
-  const welcome = document.getElementById('aiWelcomeMsg');
-  if(!noKey||!welcome) return;
-  if(getApiKey()){
-    noKey.style.display='none';
-    welcome.style.display='block';
-  } else {
-    noKey.style.display='block';
-    welcome.style.display='none';
-  }
-}
-function sendAI(){
-  if(aiTyping) return;
-  const inp = document.getElementById('aiInput');
-  const msg = inp ? inp.value.trim() : '';
-  if(!msg) return;
-  const key = getApiKey();
-  if(!key){
-    document.getElementById('aiNoKeyMsg').style.display='block';
-    document.getElementById('aiWelcomeMsg').style.display='none';
-    return;
-  }
-  inp.value='';
-  appendAIBubble(msg,'user');
-  aiHistory.push({role:'user',content:msg});
-  showAITyping();
-  aiTyping=true;
-  document.getElementById('aiSendBtn').disabled=true;
-
-  // Build Gemini conversation history
-  // Gemini uses {role:'user'|'model', parts:[{text:'...'}]}
-  const geminiHistory = aiHistory.slice(-4).map(m=>({
-    role: m.role==='assistant'?'model':'user',
-    parts:[{text: m.content}]
-  }));
-  // Last message is the current one — already appended above
-  // Gemini API endpoint
-  const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key='+key;
-
-  fetch(url,{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      system_instruction:{parts:[{text:AI_SYSTEM}]},
-      contents: geminiHistory,
-      generationConfig:{maxOutputTokens:600,temperature:0.7}
-    })
-  })
-  .then(r=>r.json())
-  .then(data=>{
-    removeAITyping();
-    aiTyping=false;
-    document.getElementById('aiSendBtn').disabled=false;
-    // Handle Gemini error responses
-    if(data.error){
-      let friendly='❌ ';
-      const code=data.error.code||0;
-      const msg2=data.error.message||'Unknown error';
-      if(code===400) friendly+='Invalid API key. Check the key in Admin settings.';
-      else if(code===403) friendly+='API key not authorised. Make sure you enabled Gemini API at aistudio.google.com.';
-      else if(code===429) friendly+='Rate limit hit ('+data.error.message+'). Wait 60 seconds and try again.';
-      else friendly+=msg2;
-      appendAIBubble(friendly,'bot');
-      return;
-    }
-    // Extract text from Gemini response
-    const reply=data?.candidates?.[0]?.content?.parts?.[0]?.text||'No response. Try again.';
-    aiHistory.push({role:'assistant',content:reply});
-    appendAIBubble(reply,'bot');
-  })
-  .catch(err=>{
-    removeAITyping();
-    aiTyping=false;
-    document.getElementById('aiSendBtn').disabled=false;
-    appendAIBubble('⚠️ Connection error. Check internet and try again. ('+err.message+')','bot');
-  });
-}
-
-function appendAIBubble(text, who){
-  const box = document.getElementById('aiChatBox');
-  if(!box) return;
-  const wrap = document.createElement('div');
-  wrap.className = 'ai-bubble-wrap '+who;
-  // Format bot text: bold **text**, newlines
-  let html = text
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
-    .replace(/\n/g,'<br/>');
-  wrap.innerHTML = `<div class="ai-bubble ${who}">${html}</div>`;
-  box.appendChild(wrap);
-  box.scrollTop = box.scrollHeight;
-}
-
-function showAITyping(){
-  const box = document.getElementById('aiChatBox');
-  if(!box) return;
-  const wrap=document.createElement('div');
-  wrap.className='ai-bubble-wrap bot'; wrap.id='ai-typing-indicator';
-  wrap.innerHTML='<div class="ai-typing"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div></div>';
-  box.appendChild(wrap);
-  box.scrollTop=box.scrollHeight;
-}
-
-function removeAITyping(){
-  const el=document.getElementById('ai-typing-indicator');
-  if(el) el.remove();
-}
-
-
-// ══════════════════════════════════════════
-// API KEY MANAGEMENT
-// ══════════════════════════════════════════
 function getApiKey(){
   return localStorage.getItem('bd_apiKey') || '';
 }
@@ -3383,14 +3063,11 @@ function deleteAttRecord(id){
   renderDeleteAttList();
 }
 
-
-
-
 // ════════════════════════════════════════════════════════════
 // BATCH MANAGEMENT — Full 7-Stage System
 // ════════════════════════════════════════════════════════════
-productionBatches = load('productionBatches', []);
-cipLogs = load('cipLogs', []);
+let productionBatches = load('productionBatches', []);
+let cipLogs = load('cipLogs', []);
 
 // ID generators
 function todayStr(){ return new Date().toISOString().split('T')[0].replace(/-/g,''); }
@@ -4023,7 +3700,7 @@ function recallQuick(type){
   else if(type==='today') inp.value=todayStr();
   runRecall();
 }
-function _mobile_todayStr(){ return new Date().toISOString().split('T')[0].replace(/-/g,''); }
+function _oldTodayStr(){ return new Date().toISOString().split('T')[0].replace(/-/g,''); }
 
 // ════════════════════════════════════════════════════════════
 // CIP LOG
@@ -4179,6 +3856,258 @@ td{padding:7px 10px;border-bottom:1px solid #e5e7eb}
 function clearBatchRecords(){if(confirm('Delete ALL batch records?')){productionBatches=[];store('productionBatches',productionBatches);renderBatchList();}}
 function clearCipRecords(){if(confirm('Delete ALL CIP records?')){cipLogs=[];store('cipLogs',cipLogs);renderCIPList();renderCIPCalendar();}}
 
+// ═══ FIREBASE CLOUD SYNC ═══
+var _fb=null,_fbReady=false,_fbListening=false;
+var _syncKeys=['records','distRecords','testRecords','productionBatches','cipLogs',
+  'users','settings','savedSuppliers','savedDistributors','attRecords',
+  'invEntries','invOpening'];
+
+function _initFB(){
+  try{
+    if(typeof firebase==='undefined')return;
+    if(!firebase.apps.length) firebase.initializeApp({
+      apiKey:"AIzaSyDidHcUpDIBaOpYDOskMO1vXGwdmScURZ8",
+      authDomain:"barkatdairy-583d8.firebaseapp.com",
+      databaseURL:"https://barkatdairy-583d8-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId:"barkatdairy-583d8",
+      storageBucket:"barkatdairy-583d8.firebasestorage.app",
+      messagingSenderId:"518443031250",
+      appId:"1:518443031250:web:1926c44e318c899fe56b0b"
+    });
+    _fb=firebase.database();
+    _fbReady=true;
+    console.log('Firebase connected');
+    _syncDown();
+  }catch(e){console.warn('FB error:',e);}
+}
+function _syncDown(){
+  if(!_fbReady)return;
+  _fb.ref('bd').once('value').then(function(snap){
+    var d=snap.val();
+    if(!d){_syncUp();return;}
+    _syncKeys.forEach(function(k){
+      if(d[k]!=null){
+        var cloud=d[k],local=load(k,null);
+        if(Array.isArray(cloud)&&Array.isArray(local)){
+          var ids={};cloud.forEach(function(x){if(x&&x.id)ids[x.id]=1;});
+          var extra=local.filter(function(x){return x&&x.id&&!ids[x.id];});
+          var merged=cloud.concat(extra);
+          window[k]=merged;
+          try{localStorage.setItem('bd_'+k,JSON.stringify(merged));}catch(e){}
+          if(extra.length)_fb.ref('bd/'+k).set(merged);
+        }else{
+          window[k]=cloud;
+          try{localStorage.setItem('bd_'+k,JSON.stringify(cloud));}catch(e){}
+        }
+      }
+    });
+    if(!_fbListening)_listen();
+    if(currentUser)_refreshUI();
+  }).catch(function(e){console.warn('Sync error:',e);});
+}
+function _syncUp(){
+  if(!_fbReady)return;
+  var d={};
+  _syncKeys.forEach(function(k){
+    try{var v=JSON.parse(localStorage.getItem('bd_'+k)||'null');if(v!=null)d[k]=v;}catch(e){}
+  });
+  _fb.ref('bd').set(d).then(function(){if(!_fbListening)_listen();});
+}
+function _listen(){
+  _fbListening=true;
+  _syncKeys.forEach(function(k){
+    _fb.ref('bd/'+k).on('value',function(snap){
+      var v=snap.val();
+      if(v!=null){
+        window[k]=v;
+        try{localStorage.setItem('bd_'+k,JSON.stringify(v));}catch(e){}
+        clearTimeout(window._fbTimer);
+        window._fbTimer=setTimeout(function(){if(currentUser)_refreshUI();},2000);
+      }
+    });
+  });
+}
+function _refreshUI(){
+  try{
+    if(typeof renderAllRecords==='function')renderAllRecords();
+    if(typeof renderDistRecords==='function')renderDistRecords();
+    if(typeof renderStockDashboard==='function')renderStockDashboard();
+    if(typeof renderBatchList==='function')renderBatchList();
+    if(typeof renderAttToday==='function')renderAttToday();
+    if(typeof renderCIPList==='function')renderCIPList();
+  }catch(e){}
+}
+// Override store to sync to cloud
+var _origStore=typeof store==='function'?store:function(){};
+function store(k,v){
+  _origStore(k,v);
+  if(_fbReady)try{_fb.ref('bd/'+k).set(v);}catch(e){}
+}
+
+
+
+// ═══ WEB OVERRIDES ═══
+// These MUST come AFTER the shared JS so they override mobile versions
+
+// Override goTab for sidebar navigation
+var _mobileGoTab = goTab;
+goTab = function(name, btn){
+  document.querySelectorAll('.page').forEach(function(p){p.style.display='none';p.classList.remove('active');});
+  document.querySelectorAll('.nav-item').forEach(function(t){t.classList.remove('active');});
+  var pg=document.getElementById('tab-'+name);
+  if(pg){pg.style.display='block';pg.classList.add('active');}
+  if(btn)btn.classList.add('active');
+  var titles={dashboard:'Dashboard',ops:'Operations',proc:'Procurement',batch:'Batches',
+    dist:'Distribution',test:'Testing',inv:'Inventory',cip:'CIP Cleaning',
+    summary:'Daily Summary',recall:'Trace & Recall',attend:'Attendance',
+    rider:'My Deliveries',tracker:'Live Tracker',admin:'Admin Panel'};
+  var titleEl=document.getElementById('topbarTitle');
+  if(titleEl)titleEl.textContent=titles[name]||name;
+  document.querySelectorAll('.ac-list').forEach(function(l){l.classList.remove('show');});
+  // Close mobile sidebar
+  var sb=document.getElementById('sidebar');if(sb)sb.classList.remove('mobile-open');
+  var ov=document.getElementById('sidebarOverlay');if(ov)ov.classList.remove('show');
+};
+
+// Override doLogin for web layout
+var _mobileDoLogin = doLogin;
+doLogin = function(){
+  var u=document.getElementById('loginUser').value.trim();
+  var p=document.getElementById('loginPass').value.trim();
+  var user=users.find(function(x){return x.username===u&&x.password===p;});
+  var errEl=document.getElementById('loginErr');
+  if(!user){if(errEl)errEl.textContent='Invalid username or password';return;}
+  if(errEl)errEl.textContent='';
+  if(document.getElementById('rememberMe').checked){
+    try{localStorage.setItem('bd_savedCreds',JSON.stringify({u:u,p:p}));}catch(e){}
+  }else{try{localStorage.removeItem('bd_savedCreds');}catch(e){}}
+  currentUser=user;
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('appShell').classList.remove('hidden');
+  var sn=document.getElementById('sidebarUserName');if(sn)sn.textContent=user.name;
+  var sr=document.getElementById('sidebarUserRole');if(sr)sr.textContent=user.role.toUpperCase();
+  var isAdmin=user.role==='admin',isRider=user.role==='rider';
+  var atb=document.getElementById('adminTabBtn');if(atb)atb.style.display=isAdmin?'flex':'none';
+  var ttb=document.getElementById('trackerTabBtn');if(ttb)ttb.style.display=isAdmin?'flex':'none';
+  var rtb=document.getElementById('riderTabBtn');if(rtb)rtb.style.display=isRider?'flex':'none';
+  setToday();loadSettings();
+  if(!isRider){
+    try{renderUsers();}catch(e){}
+    try{renderAllRecords();}catch(e){}
+    try{renderDistRecords();}catch(e){}
+    try{renderTestHistory();}catch(e){}
+    try{buildTestCards();}catch(e){}
+    try{calcOps();}catch(e){}
+    try{calcProc();}catch(e){}
+    try{calcDist();}catch(e){}
+    try{renderStockDashboard();}catch(e){}
+    try{renderInvLog();}catch(e){}
+    try{loadOpeningStockFields();}catch(e){}
+    try{checkLowStockAlerts();}catch(e){}
+    try{updateApiKeyStatus();}catch(e){}
+    try{renderBatchList();}catch(e){}
+    try{renderCIPList();}catch(e){}
+    try{renderCIPCalendar();}catch(e){}
+    try{renderSummary();}catch(e){}
+    try{renderDashboard();}catch(e){}
+  }
+  if(isRider){goTab('rider');try{renderRiderView();}catch(e){}}
+  else goTab('dashboard');
+};
+
+// Override doLogout for web layout
+var _mobileDoLogout = doLogout;
+doLogout = function(){
+  try{stopRiderLocation();}catch(e){}
+  currentUser=null;
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('appShell').classList.add('hidden');
+  try{var sv=JSON.parse(localStorage.getItem('bd_savedCreds')||'null');
+    if(!sv){document.getElementById('loginUser').value='';document.getElementById('loginPass').value='';}
+  }catch(e){}
+};
+
+// Dashboard rendering
+function renderDashboard(){
+  var today=new Date().toISOString().split('T')[0];
+  var dayProc=records.filter(function(r){return r.date===today;});
+  var milkIn=dayProc.reduce(function(a,r){return a+r.qty;},0);
+  var milkCost=dayProc.reduce(function(a,r){return a+r.total;},0);
+  var activeBatches=productionBatches.filter(function(b){return b.status==='active';}).length;
+  var el;
+  el=document.getElementById('d-milkin');if(el)el.textContent=milkIn>0?milkIn+'L':'—';
+  el=document.getElementById('d-milkcost');if(el)el.textContent=milkCost>0?'₹'+milkCost.toFixed(0):'—';
+  el=document.getElementById('d-batches');if(el)el.textContent=activeBatches||'—';
+  // Cold store
+  var passed=productionBatches.filter(function(b){return b.batchResult==='PASSED'&&b.stages&&b.stages.s5_fill;});
+  var totalCups=0;
+  passed.forEach(function(b){
+    var p=parseInt(b.stages.s5_fill.cupsCount||0);
+    var disp=distRecords.filter(function(d){return(d.batchIds||'').indexOf(b.batchId)>=0;}).reduce(function(s,d){return s+d.c200+d.c400;},0);
+    totalCups+=Math.max(0,p-disp);
+  });
+  el=document.getElementById('d-coldstore');if(el)el.textContent=totalCups>0?totalCups+' cups':'—';
+  // Batch list
+  var bEl=document.getElementById('dash-batch-list');
+  if(bEl){
+    var active=productionBatches.filter(function(b){return b.status==='active';}).slice(0,5);
+    bEl.innerHTML=active.length?active.map(function(b){return'<div class="row"><span class="rl">'+b.batchId+' · '+(b.vat||'Vat')+'</span><span style="font-size:11px;background:#fff8e7;color:#7a5a00;padding:2px 8px;border-radius:8px;font-weight:700">Stage '+(b.currentStage||1)+'/7</span></div>';}).join(''):'<div style="padding:10px 0;color:var(--gray);font-size:13px">No active batches</div>';
+  }
+  // Alerts
+  var aEl=document.getElementById('dash-alerts');
+  if(aEl){
+    var chips=[];
+    productionBatches.filter(function(b){return b.status==='active';}).forEach(function(b){
+      if(b.currentStage===6&&b.stages&&b.stages.s6_incubate&&b.stages.s6_incubate.startTime){
+        var parts=b.stages.s6_incubate.startTime.split(':').map(Number);
+        var st=new Date();st.setHours(parts[0],parts[1],0,0);
+        if((Date.now()-st)/3600000>5.25)chips.push('<span class="alert-chip">🔴 '+b.batchId+' incubation OVERDUE</span>');
+      }
+    });
+    if(dayProc.some(function(r){return r.alcohol==='fail';}))chips.push('<span class="alert-chip">❌ Failed alcohol test</span>');
+    if(!cipLogs.some(function(r){return r.date===today;}))chips.push('<span class="alert-chip warn">⚠️ No CIP log today</span>');
+    if(!chips.length)chips.push('<span class="alert-chip ok">✅ All clear</span>');
+    aEl.innerHTML=chips.join('');
+  }
+  // Proc list
+  var pEl=document.getElementById('dash-proc-list');
+  if(pEl)pEl.innerHTML=dayProc.length?dayProc.slice(0,5).map(function(r){return'<div class="row"><span class="rl">'+r.supplier+' · '+r.qty+'L</span><span class="rv">₹'+r.total.toFixed(0)+'</span></div>';}).join(''):'<div style="padding:10px 0;color:var(--gray);font-size:13px">No procurement today</div>';
+  // Dist
+  var dEl=document.getElementById('dash-dist-list');
+  if(dEl){
+    var balances={};
+    distRecords.forEach(function(r){if(!balances[r.dist])balances[r.dist]={name:r.dist,bal:0};balances[r.dist].bal+=(r.amount-r.paid);});
+    var dists=Object.values(balances).filter(function(d){return d.bal>0;}).slice(0,5);
+    dEl.innerHTML=dists.length?dists.map(function(d){return'<div class="row"><span class="rl">'+d.name+'</span><span class="rv red">₹'+d.bal.toFixed(0)+'</span></div>';}).join(''):'<div style="padding:10px 0;color:var(--green);font-size:13px">✅ No pending balances</div>';
+  }
+}
+// Sidebar toggle
+function toggleSidebar(){
+  var sb=document.getElementById('sidebar');if(sb)sb.classList.toggle('collapsed');
+}
+function openMobileSidebar(){
+  var sb=document.getElementById('sidebar');if(sb)sb.classList.add('mobile-open');
+  var ov=document.getElementById('sidebarOverlay');if(ov)ov.classList.add('show');
+}
+// Update topbar date
+setInterval(function(){
+  var el=document.getElementById('topbarDate');
+  if(el)el.textContent=new Date().toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+},60000);
+(function(){var el=document.getElementById('topbarDate');if(el)el.textContent=new Date().toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'});})();
+// Auto-fill credentials
+window.addEventListener('DOMContentLoaded',function(){
+  try{var s=JSON.parse(localStorage.getItem('bd_savedCreds')||'null');
+    if(s){document.getElementById('loginUser').value=s.u;document.getElementById('loginPass').value=s.p;document.getElementById('rememberMe').checked=true;}
+  }catch(e){}
+});
+// Dashboard auto-refresh
+setInterval(function(){var el=document.getElementById('tab-dashboard');if(el&&el.classList.contains('active'))renderDashboard();},30000);
+// Key listeners
+document.addEventListener('DOMContentLoaded',function(){
+  document.getElementById('loginPass').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
+  document.getElementById('loginUser').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
+});
 </script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script async src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

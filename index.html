@@ -403,7 +403,6 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
     <button class="tab" onclick="goTab('cip',this)">🧼 CIP</button>
     <button class="tab" onclick="goTab('summary',this);renderSummary()">📊 Summary</button>
     <button class="tab" onclick="goTab('attend',this);initAttendance()">🕐 Attendance</button>
-    <button class="tab" onclick="goTab('ai',this);checkAIKey()">🤖 Barkat AI</button>
     <button class="tab" id="riderTabBtn" onclick="goTab('rider',this)" style="display:none">🛵 My Deliveries</button>
     <button class="tab" id="trackerTabBtn" onclick="goTab('tracker',this);initTracker()" style="display:none">🗺️ Tracker</button>
     <button class="tab" id="adminTabBtn" onclick="goTab('admin',this)" style="display:none">🔑 Admin</button>
@@ -881,56 +880,6 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
   </div>
 </div>
 
-<!-- ══ BARKAT AI TAB ══ -->
-<div class="page" id="tab-ai">
-  <!-- Header -->
-  <div class="hero" style="margin-bottom:0;border-radius:18px 18px 0 0">
-    <div class="hero-label">🤖 Barkat AI Assistant</div>
-    <div class="gold-bar"></div>
-    <div class="hero-val" style="font-size:16px">Your Dairy Expert</div>
-    <div class="hero-sub">Ask anything about production, recipes, troubleshooting…</div>
-  </div>
-
-  <!-- Quick prompts -->
-  <div style="background:#fff;padding:10px 12px;display:flex;gap:6px;overflow-x:auto;border-bottom:1px solid #f3f4f8;flex-shrink:0">
-    <button class="btn btn-sm" style="background:#e8eef8;color:var(--blue);border:none;white-space:nowrap;flex-shrink:0" onclick="aiQuickPrompt(this)">Culture for 240L?</button>
-    <button class="btn btn-sm" style="background:#e8eef8;color:var(--blue);border:none;white-space:nowrap;flex-shrink:0" onclick="aiQuickPrompt(this)">Machine not filling</button>
-    <button class="btn btn-sm" style="background:#e8eef8;color:var(--blue);border:none;white-space:nowrap;flex-shrink:0" onclick="aiQuickPrompt(this)">SMP for low SNF milk?</button>
-    <button class="btn btn-sm" style="background:#e8eef8;color:var(--blue);border:none;white-space:nowrap;flex-shrink:0" onclick="aiQuickPrompt(this)">Signs of adulteration?</button>
-    <button class="btn btn-sm" style="background:#e8eef8;color:var(--blue);border:none;white-space:nowrap;flex-shrink:0" onclick="aiQuickPrompt(this)">Yogurt not setting?</button>
-  </div>
-
-  <!-- Chat messages -->
-  <div id="aiChatBox" style="background:#f2f5fb;padding:12px;overflow-y:auto;min-height:280px;max-height:380px;-webkit-overflow-scrolling:touch">
-    <div id="aiWelcomeMsg" style="text-align:center;padding:20px 10px">
-      <div style="font-size:36px;margin-bottom:8px">🥛</div>
-      <div style="font-size:13px;font-weight:700;color:var(--blue)">Barkat AI is ready!</div>
-      <div style="font-size:11px;color:var(--gray);margin-top:4px">Ask about culture ratios, troubleshooting, milk quality, recipes, anything dairy.</div>
-    </div>
-    <div id="aiNoKeyMsg" style="display:none;margin:12px;background:#fff8e7;border:1px solid #fde68a;border-radius:12px;padding:14px">
-      <div style="font-size:14px;font-weight:700;color:#7a5a00;margin-bottom:6px">🔑 Gemini API Key Required</div>
-      <div style="font-size:12px;color:#7a5a00;margin-bottom:10px">
-        To use Barkat AI, add your <b>free</b> Google Gemini key:<br/>
-        1. Go to <b>aistudio.google.com</b><br/>
-        2. Sign in with your Google account<br/>
-        3. Click <b>Get API Key → Create API Key</b><br/>
-        4. Copy and paste it in <b>🔑 Admin → API Key</b>
-      </div>
-      <button class="btn btn-gold btn-full" onclick="goTab('admin',document.querySelector('[onclick*=admin]'));setTimeout(()=>document.getElementById('apiKeyInput').focus(),300)">Go to Admin → Add Free Key</button>
-    </div>
-  </div>
-
-  <!-- Input area -->
-  <div style="background:#fff;padding:10px 12px;display:flex;gap:8px;align-items:flex-end;border-top:1px solid #e5e7eb;flex-shrink:0">
-    <textarea id="aiInput" rows="2" placeholder="Type your question… e.g. How much culture for 300 litres?" style="flex:1;resize:none;border-radius:12px;font-size:13px;padding:10px 12px;border:1.5px solid #e2e8f0;background:#f8faff;outline:none;font-family:inherit;max-height:100px" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAI()}"></textarea>
-    <button class="btn btn-primary" style="padding:11px 14px;flex-shrink:0;border-radius:12px" onclick="sendAI()" id="aiSendBtn">➤</button>
-  </div>
-  <div style="padding:6px 12px;font-size:9px;color:#bbb;text-align:center;background:#fff">Powered by Claude AI · For guidance only — always verify critical decisions</div>
-</div>
-
-
-
-<!-- ══ BATCH TRACKER TAB ══ -->
 <div class="page" id="tab-batch">
   <div class="hero">
     <div class="hero-label">🧫 Production Batches</div>
@@ -1197,6 +1146,8 @@ function getRateFromTable(fat,snf){
 function store(key,val){try{localStorage.setItem('bd_'+key,JSON.stringify(val));}catch(e){}}
 function load(key,def){try{const v=localStorage.getItem('bd_'+key);return v?JSON.parse(v):def;}catch(e){return def;}}
 
+
+// ═══════════════════════════════
 // ══════════════════════════════════════════
 // DATA
 // ══════════════════════════════════════════
@@ -2274,7 +2225,7 @@ function downloadDistBillPDF(r){
 let camStream=null, capturedPhotoData=null, camVerified=false;
 
 function openCamModal(){
-  capturedPhotoData=null;
+  
   camVerified=false;
   document.getElementById('camModal').classList.add('open');
   document.getElementById('camPreviewWrap').style.display='none';
@@ -2327,7 +2278,7 @@ function capturePhoto(){
 }
 
 function retakePhoto(){
-  capturedPhotoData=null;
+  
   document.getElementById('camPreviewWrap').style.display='none';
   document.getElementById('camConfirmBtn').style.display='none';
   document.getElementById('camRetakeBtn').style.display='none';
@@ -2363,8 +2314,7 @@ function confirmCapture(){
     stopCamStream();
     closeCamModal();
     const thumb=document.getElementById('camThumb');
-    thumb.src=capturedPhotoData;
-    thumb.style.display='block';
+    // photo stripped
     if(parsed.fat!==null&&parsed.snf!==null){
       document.getElementById('p-fat').value=parsed.fat;
       document.getElementById('p-snf').value=parsed.snf;
@@ -2382,8 +2332,7 @@ function confirmCapture(){
     stopCamStream();
     closeCamModal();
     const thumb=document.getElementById('camThumb');
-    thumb.src=capturedPhotoData;
-    thumb.style.display='block';
+    // photo stripped
     document.getElementById('camVerifyStatus').innerHTML='✅ Photo captured (AI reading unavailable — fill Fat & SNF manually)';
     document.getElementById('camVerifyStatus').style.cssText='background:#f0fdf4;color:#15803d;border:1.5px solid #bbf7d0';
     document.getElementById('saveProcBtn').disabled=false;
@@ -2397,7 +2346,7 @@ function stopCamStream(){
 
 // Override saveProc to embed photo
 const _origSaveProc=saveProc;
-function saveProc(){
+function _oldSaveProc(){
   if(!camVerified){
     showAlert('procAlert','alert-red','📷 Please verify the analyser reading with camera first');
     return;
@@ -2418,7 +2367,7 @@ function saveProc(){
   const rec={id:Date.now(),lotId,supplier,qty,fat,snf,rate,total,date,temp,
     alcohol:window._alcoholResult||'not-tested',
     status:'in-storage',
-    savedBy:currentUser?currentUser.name:'Staff',photo:capturedPhotoData||null};
+    savedBy:currentUser?currentUser.name:'Staff'};
   records.unshift(rec);
   store('records',records);
   saveSupplierName(supplier);
@@ -2426,8 +2375,8 @@ function saveProc(){
   showAlert('procAlert','alert-green','✅ Saved · Lot ID: '+lotId);
   // Reset camera state
   camVerified=false;
-  capturedPhotoData=null;
-  document.getElementById('camThumb').style.display='none';
+  
+  // photo stripped
   document.getElementById('camVerifyStatus').innerHTML='📷 Camera verification required before saving';
   document.getElementById('camVerifyStatus').style.background='#f8faff';
   document.getElementById('camVerifyStatus').style.color='var(--gray)';
@@ -2627,7 +2576,7 @@ function startRiderLocation(){
   document.getElementById('riderLocBtn').style.display='none';
   document.getElementById('riderLocStopBtn').style.display='block';
 
-  riderLocWatchId=navigator.geolocation.watchPosition(
+  riderLocWatchId=1;function _riderLocTick(){navigator.geolocation.getCurrentPosition(
     pos=>{
       const loc={
         lat:pos.coords.latitude,
@@ -2641,7 +2590,10 @@ function startRiderLocation(){
       showRiderLocStatus('✅ Sharing live location — accuracy ±'+loc.acc+'m','alert-green');
     },
     err=>{showRiderLocStatus('⚠️ Location error: '+err.message,'alert-gold');},
-    {enableHighAccuracy:true,timeout:15000,maximumAge:5000}
+    {enableHighAccuracy:true,timeout:15000,maximumAge:30000}
+    );}
+    _riderLocTick();
+    riderLocInterval=setInterval(_riderLocTick,60000
   );
 }
 
@@ -2830,7 +2782,6 @@ function markAttendance(type){
       id:Date.now(), name, type, date, time,
       lat:lat||null, lng:lng||null, acc:acc||null,
       placeName:placeName||null,
-      photo:attSelfieData||null,
       savedBy: currentUser?currentUser.name:name
     };
     attRecords.unshift(rec);
@@ -2891,9 +2842,7 @@ function renderAttToday(){
   }
   listEl.innerHTML = todayRecs.map(r=>`
     <div class="att-card">
-      ${r.photo
-        ? `<img src="${r.photo}" class="att-selfie"/>`
-        : `<div class="att-selfie-placeholder">${r.type==='arrival'?'🟢':'🔴'}</div>`}
+      ${r.type==="arrival"?"🟢":"🔴"}
       <div class="att-info">
         <div class="att-name">${r.name}</div>
         <div class="att-time">🕐 ${r.time} · ${r.date}</div>
@@ -2930,129 +2879,7 @@ function renderAttHistory(){
 // ══════════════════════════════════════════
 // BARKAT AI ASSISTANT
 // ══════════════════════════════════════════
-const AI_SYSTEM = `You are Barkat AI for Barkat Dairy Plant, Watlar Ganderbal, Kashmir. Help dairy staff with short, direct answers. Key facts: culture = 1 packet per 100L milk; to raise SNF 1% in 100L add 1kg SMP; fat target 3.5%+ SNF 8.5%+. For troubleshooting give numbered steps. Use numbers not vague amounts. Keep replies under 100 words. Mix Urdu naturally if helpful.`;
 
-let aiHistory = [];
-let aiTyping  = false;
-
-function aiQuickPrompt(btn){
-  const inp = document.getElementById('aiInput');
-  if(inp){ inp.value = btn.textContent; sendAI(); }
-}
-
-function checkAIKey(){
-  const noKey = document.getElementById('aiNoKeyMsg');
-  const welcome = document.getElementById('aiWelcomeMsg');
-  if(!noKey||!welcome) return;
-  if(getApiKey()){
-    noKey.style.display='none';
-    welcome.style.display='block';
-  } else {
-    noKey.style.display='block';
-    welcome.style.display='none';
-  }
-}
-function sendAI(){
-  if(aiTyping) return;
-  const inp = document.getElementById('aiInput');
-  const msg = inp ? inp.value.trim() : '';
-  if(!msg) return;
-  const key = getApiKey();
-  if(!key){
-    document.getElementById('aiNoKeyMsg').style.display='block';
-    document.getElementById('aiWelcomeMsg').style.display='none';
-    return;
-  }
-  inp.value='';
-  appendAIBubble(msg,'user');
-  aiHistory.push({role:'user',content:msg});
-  showAITyping();
-  aiTyping=true;
-  document.getElementById('aiSendBtn').disabled=true;
-
-  // Build Gemini conversation history
-  // Gemini uses {role:'user'|'model', parts:[{text:'...'}]}
-  const geminiHistory = aiHistory.slice(-4).map(m=>({
-    role: m.role==='assistant'?'model':'user',
-    parts:[{text: m.content}]
-  }));
-  // Last message is the current one — already appended above
-  // Gemini API endpoint
-  const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key='+key;
-
-  fetch(url,{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      system_instruction:{parts:[{text:AI_SYSTEM}]},
-      contents: geminiHistory,
-      generationConfig:{maxOutputTokens:600,temperature:0.7}
-    })
-  })
-  .then(r=>r.json())
-  .then(data=>{
-    removeAITyping();
-    aiTyping=false;
-    document.getElementById('aiSendBtn').disabled=false;
-    // Handle Gemini error responses
-    if(data.error){
-      let friendly='❌ ';
-      const code=data.error.code||0;
-      const msg2=data.error.message||'Unknown error';
-      if(code===400) friendly+='Invalid API key. Check the key in Admin settings.';
-      else if(code===403) friendly+='API key not authorised. Make sure you enabled Gemini API at aistudio.google.com.';
-      else if(code===429) friendly+='Rate limit hit ('+data.error.message+'). Wait 60 seconds and try again.';
-      else friendly+=msg2;
-      appendAIBubble(friendly,'bot');
-      return;
-    }
-    // Extract text from Gemini response
-    const reply=data?.candidates?.[0]?.content?.parts?.[0]?.text||'No response. Try again.';
-    aiHistory.push({role:'assistant',content:reply});
-    appendAIBubble(reply,'bot');
-  })
-  .catch(err=>{
-    removeAITyping();
-    aiTyping=false;
-    document.getElementById('aiSendBtn').disabled=false;
-    appendAIBubble('⚠️ Connection error. Check internet and try again. ('+err.message+')','bot');
-  });
-}
-
-function appendAIBubble(text, who){
-  const box = document.getElementById('aiChatBox');
-  if(!box) return;
-  const wrap = document.createElement('div');
-  wrap.className = 'ai-bubble-wrap '+who;
-  // Format bot text: bold **text**, newlines
-  let html = text
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
-    .replace(/\n/g,'<br/>');
-  wrap.innerHTML = `<div class="ai-bubble ${who}">${html}</div>`;
-  box.appendChild(wrap);
-  box.scrollTop = box.scrollHeight;
-}
-
-function showAITyping(){
-  const box = document.getElementById('aiChatBox');
-  if(!box) return;
-  const wrap=document.createElement('div');
-  wrap.className='ai-bubble-wrap bot'; wrap.id='ai-typing-indicator';
-  wrap.innerHTML='<div class="ai-typing"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div></div>';
-  box.appendChild(wrap);
-  box.scrollTop=box.scrollHeight;
-}
-
-function removeAITyping(){
-  const el=document.getElementById('ai-typing-indicator');
-  if(el) el.remove();
-}
-
-
-// ══════════════════════════════════════════
-// API KEY MANAGEMENT
-// ══════════════════════════════════════════
 function getApiKey(){
   return localStorage.getItem('bd_apiKey') || '';
 }
@@ -3116,9 +2943,6 @@ function deleteAttRecord(id){
   renderAttHistory();
   renderDeleteAttList();
 }
-
-
-
 
 // ════════════════════════════════════════════════════════════
 // BATCH MANAGEMENT — Full 7-Stage System
@@ -3757,7 +3581,7 @@ function recallQuick(type){
   else if(type==='today') inp.value=todayStr();
   runRecall();
 }
-function todayStr(){ return new Date().toISOString().split('T')[0].replace(/-/g,''); }
+function _oldTodayStr(){ return new Date().toISOString().split('T')[0].replace(/-/g,''); }
 
 // ════════════════════════════════════════════════════════════
 // CIP LOG
@@ -3913,7 +3737,97 @@ td{padding:7px 10px;border-bottom:1px solid #e5e7eb}
 function clearBatchRecords(){if(confirm('Delete ALL batch records?')){productionBatches=[];store('productionBatches',productionBatches);renderBatchList();}}
 function clearCipRecords(){if(confirm('Delete ALL CIP records?')){cipLogs=[];store('cipLogs',cipLogs);renderCIPList();renderCIPCalendar();}}
 
+// ═══ FIREBASE CLOUD SYNC ═══
+var _fb=null,_fbReady=false,_fbListening=false;
+var _syncKeys=['records','distRecords','testRecords','productionBatches','cipLogs',
+  'users','settings','savedSuppliers','savedDistributors','attRecords',
+  'invEntries','invOpening'];
+
+function _initFB(){
+  try{
+    if(typeof firebase==='undefined')return;
+    if(!firebase.apps.length) firebase.initializeApp({
+      apiKey:"AIzaSyDidHcUpDIBaOpYDOskMO1vXGwdmScURZ8",
+      authDomain:"barkatdairy-583d8.firebaseapp.com",
+      databaseURL:"https://barkatdairy-583d8-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId:"barkatdairy-583d8",
+      storageBucket:"barkatdairy-583d8.firebasestorage.app",
+      messagingSenderId:"518443031250",
+      appId:"1:518443031250:web:1926c44e318c899fe56b0b"
+    });
+    _fb=firebase.database();
+    _fbReady=true;
+    console.log('Firebase connected');
+    _syncDown();
+  }catch(e){console.warn('FB error:',e);}
+}
+function _syncDown(){
+  if(!_fbReady)return;
+  _fb.ref('bd').once('value').then(function(snap){
+    var d=snap.val();
+    if(!d){_syncUp();return;}
+    _syncKeys.forEach(function(k){
+      if(d[k]!=null){
+        var cloud=d[k],local=load(k,null);
+        if(Array.isArray(cloud)&&Array.isArray(local)){
+          var ids={};cloud.forEach(function(x){if(x&&x.id)ids[x.id]=1;});
+          var extra=local.filter(function(x){return x&&x.id&&!ids[x.id];});
+          var merged=cloud.concat(extra);
+          window[k]=merged;
+          try{localStorage.setItem('bd_'+k,JSON.stringify(merged));}catch(e){}
+          if(extra.length)_fb.ref('bd/'+k).set(merged);
+        }else{
+          window[k]=cloud;
+          try{localStorage.setItem('bd_'+k,JSON.stringify(cloud));}catch(e){}
+        }
+      }
+    });
+    if(!_fbListening)_listen();
+    if(currentUser)_refreshUI();
+  }).catch(function(e){console.warn('Sync error:',e);});
+}
+function _syncUp(){
+  if(!_fbReady)return;
+  var d={};
+  _syncKeys.forEach(function(k){
+    try{var v=JSON.parse(localStorage.getItem('bd_'+k)||'null');if(v!=null)d[k]=v;}catch(e){}
+  });
+  _fb.ref('bd').set(d).then(function(){if(!_fbListening)_listen();});
+}
+function _listen(){
+  _fbListening=true;
+  _syncKeys.forEach(function(k){
+    _fb.ref('bd/'+k).on('value',function(snap){
+      var v=snap.val();
+      if(v!=null){
+        window[k]=v;
+        try{localStorage.setItem('bd_'+k,JSON.stringify(v));}catch(e){}
+        clearTimeout(window._fbTimer);
+        window._fbTimer=setTimeout(function(){if(currentUser)_refreshUI();},2000);
+      }
+    });
+  });
+}
+function _refreshUI(){
+  try{
+    if(typeof renderAllRecords==='function')renderAllRecords();
+    if(typeof renderDistRecords==='function')renderDistRecords();
+    if(typeof renderStockDashboard==='function')renderStockDashboard();
+    if(typeof renderBatchList==='function')renderBatchList();
+    if(typeof renderAttToday==='function')renderAttToday();
+    if(typeof renderCIPList==='function')renderCIPList();
+  }catch(e){}
+}
+// Override store to sync to cloud
+var _origStore=typeof store==='function'?store:function(){};
+function store(k,v){
+  _origStore(k,v);
+  if(_fbReady)try{_fb.ref('bd/'+k).set(v);}catch(e){}
+}
 </script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>setTimeout(_initFB,500);</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script async src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </body>
