@@ -554,7 +554,6 @@ textarea{resize:vertical;min-height:80px}
       <button class="nav-item" id="trackerTabBtn" onclick="goTab('tracker',this);initTracker()" style="display:none"><span class="nav-icon">🗺️</span><span class="nav-label">Live Tracker</span></button>
 
       <div class="nav-group-label">AI & Admin</div>
-      <button class="nav-item" onclick="goTab('ai',this);checkAIKey()"><span class="nav-icon">🤖</span><span class="nav-label">Barkat AI</span></button>
       <button class="nav-item" id="adminTabBtn" onclick="goTab('admin',this)" style="display:none"><span class="nav-icon">🔑</span><span class="nav-label">Admin</span></button>
     </nav>
 
@@ -1017,39 +1016,6 @@ textarea{resize:vertical;min-height:80px}
         </div>
       </div>
 
-      <!-- Barkat AI -->
-      <div class="page" id="tab-ai">
-        <div style="max-width:700px">
-          <div class="card">
-            <div class="card-header"><div class="card-title">🤖 Barkat AI Assistant</div><div style="font-size:11px;color:var(--gray)">Powered by Gemini</div></div>
-            <div id="aiNoKeyMsg" style="display:none" class="alert alert-gold">
-              <b>🔑 Gemini API Key Required</b><br/>
-              1. Go to <b>aistudio.google.com</b> · Sign in with Google<br/>
-              2. Get API Key → Create API Key → Copy it<br/>
-              3. Go to <b>Admin</b> in sidebar → paste key → Save<br/>
-              <button class="btn btn-gold btn-sm" style="margin-top:8px" onclick="goToAdminKey()">Go to Admin → Add Key</button>
-            </div>
-            <div class="quick-chips">
-              <button class="quick-chip" onclick="aiQuickPrompt(this)">Culture for 240L?</button>
-              <button class="quick-chip" onclick="aiQuickPrompt(this)">Machine not filling</button>
-              <button class="quick-chip" onclick="aiQuickPrompt(this)">SMP for low SNF?</button>
-              <button class="quick-chip" onclick="aiQuickPrompt(this)">Yogurt not setting?</button>
-              <button class="quick-chip" onclick="aiQuickPrompt(this)">Signs of adulteration?</button>
-            </div>
-            <div id="aiChatBox" style="background:#f8faff;border-radius:12px;border:1.5px solid #e2e8f0;min-height:300px;max-height:440px;overflow-y:auto;padding:16px">
-              <div id="aiWelcomeMsg" style="text-align:center;padding:30px">
-                <div style="font-size:48px;margin-bottom:10px">🥛</div>
-                <div style="font-size:14px;font-weight:700;color:var(--blue)">Barkat AI is ready!</div>
-                <div style="font-size:12px;color:var(--gray);margin-top:4px">Ask about culture ratios, troubleshooting, milk quality…</div>
-              </div>
-            </div>
-            <div style="display:flex;gap:10px;margin-top:12px">
-              <textarea id="aiInput" rows="2" placeholder="Type your question… (Enter to send, Shift+Enter for new line)" style="flex:1;resize:none" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAI()}"></textarea>
-              <button class="btn btn-primary" onclick="sendAI()" id="aiSendBtn" style="padding:0 20px;align-self:flex-end;height:48px">➤ Send</button>
-            </div>
-            <div style="font-size:10px;color:var(--gray);margin-top:6px;text-align:center">For guidance only — always verify critical decisions</div>
-          </div>
-        </div>
       </div>
 
       <!-- Admin -->
