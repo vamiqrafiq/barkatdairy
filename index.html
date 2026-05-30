@@ -3819,11 +3819,14 @@ function _refreshUI(){
   }catch(e){}
 }
 // Override store to sync to cloud
-var _origStore=typeof store==='function'?store:function(){};
-function store(k,v){
-  _origStore(k,v);
+// Capture original store, then override with cloud sync
+var _origStore = store;
+store = function(k,v){
+  // Save to localStorage (original)
+  try{localStorage.setItem('bd_'+k,JSON.stringify(v));}catch(e){}
+  // Save to Firebase cloud
   if(_fbReady)try{_fb.ref('bd/'+k).set(v);}catch(e){}
-}
+};
 </script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
