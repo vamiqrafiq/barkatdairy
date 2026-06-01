@@ -401,6 +401,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
     <button class="tab" onclick="goTab('batch',this);initBatchTab()">🧫 Batches</button>
     <button class="tab" onclick="goTab('recall',this)">🔍 Recall</button>
     <button class="tab" onclick="goTab('cip',this)">🧼 CIP</button>
+    <button class="tab" onclick="goTab('returns',this);renderReturns()">↩️ Returns/Loss</button>
+    <button class="tab" onclick="goTab('payments',this);renderPayments()">💰 Payments</button>
     <button class="tab" onclick="goTab('summary',this);renderSummary()">📊 Summary</button>
     <button class="tab" onclick="goTab('attend',this);initAttendance()">🕐 Attendance</button>
     <button class="tab" id="riderTabBtn" onclick="goTab('rider',this)" style="display:none">🛵 My Deliveries</button>
@@ -660,6 +662,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
       <div><label class="inp-label">200g Pack Cost</label><input type="number" id="a-pk200" value="2.7" step="0.1" oninput="saveSettings()"/></div>
       <div><label class="inp-label">400g Pack Cost</label><input type="number" id="a-pk400" value="4.1" step="0.1" oninput="saveSettings()"/></div>
       <div><label class="inp-label">Target SNF</label><input type="number" id="a-tsnf" value="8.5" step="0.1" oninput="saveSettings()"/></div>
+    <div style="margin-bottom:10px"><label class="inp-label">Credit Limit (₹)</label><input type="number" id="a-creditLimit" value="20000" oninput="saveSettings()"/></div>
     </div>
     <div id="settingsAlert"></div>
   </div>
@@ -699,7 +702,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
       <div id="deleteAttList" style="max-height:200px;overflow-y:auto"></div>
     </div>
     <div style="margin-top:10px;border-top:1px solid #f3f4f8;padding-top:10px">
-      <button class="btn btn-outline btn-full" onclick="exportRecords()">Export Procurement as Text</button>
+      <button class="btn btn-green btn-full" onclick="exportAllData()" style="margin-bottom:8px">💾 Full Backup (JSON)</button>
+    <button class="btn btn-primary btn-full" onclick="exportExcel()" style="margin-bottom:8px">📊 Export Data (Excel/CSV)</button>
+    <button class="btn btn-outline btn-full" onclick="exportRecords()">Export Procurement as Text</button>
     </div>
   </div>
 </div>
@@ -1044,6 +1049,112 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
   <div class="section"><div class="sec-title">🚚 Distribution</div><div id="sum-dist-list"></div></div>
 </div>
 
+
+<!-- ══ RETURNS / WASTAGE TAB ══ -->
+<div class="page" id="tab-returns">
+  <div class="hero">
+    <div class="hero-label">↩️ Returns & Wastage</div>
+    <div class="gold-bar"></div>
+    <div class="hero-val" id="returnsHeroVal">Track Losses</div>
+    <div class="hero-sub">Returns, spillage, damage, free samples</div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">➕ Record Entry</div>
+    <div style="margin-bottom:9px">
+      <label class="inp-label">Type</label>
+      <select id="ret-type" onchange="retTypeChange()">
+        <option value="return">Product Return (from distributor)</option>
+        <option value="spillage">Milk Spillage</option>
+        <option value="damage">Damaged Cups/Packaging</option>
+        <option value="sample">Free Sample Given</option>
+      </select>
+    </div>
+    <div id="ret-dist-wrap" style="margin-bottom:9px">
+      <label class="inp-label">Distributor / Given To</label>
+      <input type="text" id="ret-dist" placeholder="Name"/>
+    </div>
+    <div id="ret-batch-wrap" style="margin-bottom:9px">
+      <label class="inp-label">Batch Code (if known)</label>
+      <input type="text" id="ret-batch" placeholder="e.g. B-20260601-001"/>
+    </div>
+    <div class="grid2" style="margin-bottom:9px">
+      <div id="ret-sku-wrap"><label class="inp-label">Product</label>
+        <select id="ret-sku"><option value="200g">200g Cups</option><option value="400g">400g Cups</option><option value="milk">Milk (L)</option></select>
+      </div>
+      <div><label class="inp-label">Quantity</label><input type="number" id="ret-qty" placeholder="0"/></div>
+    </div>
+    <div class="grid2" style="margin-bottom:9px">
+      <div><label class="inp-label">Date</label><input type="date" id="ret-date"/></div>
+      <div><label class="inp-label">Reason</label>
+        <select id="ret-reason">
+          <option>Expired</option><option>Damaged</option><option>Low sales</option>
+          <option>Quality complaint</option><option>Spillage</option><option>Machine loss</option>
+          <option>Packing loss</option><option>Power failure</option><option>Marketing sample</option><option>Other</option>
+        </select>
+      </div>
+    </div>
+    <div id="ret-restock-wrap" style="margin-bottom:9px">
+      <label class="inp-label">Add returned stock back to inventory?</label>
+      <select id="ret-restock"><option value="no">No — discard (damaged/expired)</option><option value="yes">Yes — good condition, restock</option></select>
+    </div>
+    <div style="margin-bottom:12px"><label class="inp-label">Notes</label><input type="text" id="ret-notes" placeholder="Optional"/></div>
+    <button class="btn btn-primary btn-full" onclick="saveReturn()">💾 Save Entry</button>
+    <div id="retAlert" style="margin-top:8px"></div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title-row"><div class="sec-title">📋 Recent Entries</div><span id="retCount" style="font-size:11px;color:var(--gray)"></span></div>
+    <div id="returnsList"></div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">📊 This Month's Losses</div>
+    <div id="lossSnapshot"></div>
+  </div>
+</div>
+
+<!-- ══ PAYMENTS / CREDIT TAB ══ -->
+<div class="page" id="tab-payments">
+  <div class="hero">
+    <div class="hero-label">💰 Payments & Credit</div>
+    <div class="gold-bar"></div>
+    <div class="hero-val" id="payHeroVal">₹0</div>
+    <div class="hero-sub">Total outstanding from all distributors</div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">➕ Record Payment Received</div>
+    <div style="margin-bottom:9px"><label class="inp-label">Distributor</label>
+      <select id="pay-dist" onchange="payDistChange()"><option value="">— Select distributor —</option></select>
+    </div>
+    <div class="auto-box" style="margin-bottom:9px"><div class="auto-box-label">Current Outstanding Balance</div><div class="auto-box-val" id="pay-current-bal" style="color:var(--red)">₹0</div></div>
+    <div class="grid2" style="margin-bottom:9px">
+      <div><label class="inp-label">Amount Received (₹)</label><input type="number" id="pay-amount" placeholder="0" oninput="payPreview()"/></div>
+      <div><label class="inp-label">Date</label><input type="date" id="pay-date"/></div>
+    </div>
+    <div class="grid2" style="margin-bottom:9px">
+      <div><label class="inp-label">Payment Mode</label>
+        <select id="pay-mode"><option>Cash</option><option>UPI / Online</option><option>Bank Transfer</option><option>Cheque</option></select>
+      </div>
+      <div><label class="inp-label">Collected By</label><input type="text" id="pay-by" placeholder="Staff/Rider name"/></div>
+    </div>
+    <div class="auto-box" style="margin-bottom:12px"><div class="auto-box-label">Balance After Payment</div><div class="auto-box-val" id="pay-after-bal" style="font-size:16px">₹0</div></div>
+    <button class="btn btn-green btn-full" onclick="savePayment()">💾 Record Payment</button>
+    <div id="payAlert" style="margin-top:8px"></div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">📊 Distributor Balances & Credit</div>
+    <div id="creditList"></div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title-row"><div class="sec-title">📋 Payment History</div><span id="payCount" style="font-size:11px;color:var(--gray)"></span></div>
+    <div id="paymentHistory"></div>
+  </div>
+</div>
+
 </div><!-- end body -->
 </div><!-- end app -->
 
@@ -1329,12 +1440,13 @@ function loadSettings(){
   ['smp','cult','fix','p200','p400','r200','r400','pk200','pk400','tsnf'].forEach(k=>{
     const el=document.getElementById('a-'+k);
     if(el&&s[k]!==undefined)el.value=s[k];
-  });
+  
+  var clEl2=document.getElementById('a-creditLimit');if(clEl2&&settings.creditLimit)clEl2.value=settings.creditLimit;});
 }
 function saveSettings(){
-  ['smp','cult','fix','p200','p400','r200','r400','pk200','pk400','tsnf'].forEach(k=>{
+  ['smp','cult','fix','p200','p400','r200','r400','pk200','pk400','tsnf','creditLimit'].forEach(k=>{
     const el=document.getElementById('a-'+k);
-    if(el)settings[k]=parseFloat(el.value)||DEFAULT_SETTINGS[k];
+    if(el)settings[k]=parseFloat(el.value)||DEFAULT_SETTINGS[k]||(k==='creditLimit'?20000:0);
   });
   store('settings',settings);
   const a=document.getElementById('settingsAlert');
@@ -1439,7 +1551,7 @@ function renderAllRecords(){
   if(todayRecs.length===0){listEl.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No entries yet today</div></div>';return;}
   listEl.innerHTML=todayRecs.map(r=>`
     <div class="proc-record">
-      <div class="proc-record-top"><div class="proc-supplier">${r.supplier}</div><div class="proc-date">${r.date}</div></div>
+      <div class="proc-record-top"><div class="proc-supplier">${_esc(r.supplier)}</div><div class="proc-date">${r.date}</div></div>
       <div class="proc-details">
         <div class="proc-detail"><div class="proc-detail-label">Qty</div><div class="proc-detail-val">${r.qty}L</div></div>
         <div class="proc-detail"><div class="proc-detail-label">Fat</div><div class="proc-detail-val">${r.fat}%</div></div>
@@ -1459,7 +1571,7 @@ function renderAllRecords(){
     const totalCost=recs.reduce((a,r)=>a+r.total,0);
     return`<div style="margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:6px;display:flex;justify-content:space-between"><span>${date}</span><span>${totalMilk}L · ₹${totalCost.toFixed(0)}</span></div>
-      ${recs.map(r=>`<div class="row"><span class="rl">${r.supplier} · ${r.qty}L · ${r.fat}%F · ${r.snf}%S</span><span class="rv">₹${r.rate}/L = ₹${r.total.toFixed(0)}</span></div>`).join('')}
+      ${recs.map(r=>`<div class="row"><span class="rl">${_esc(r.supplier)} · ${r.qty}L · ${r.fat}%F · ${r.snf}%S</span><span class="rv">₹${r.rate}/L = ₹${r.total.toFixed(0)}</span></div>`).join('')}
     </div>`;
   }).join('');
 }
@@ -1660,7 +1772,7 @@ function renderDistRecords(){
     return`<div style="margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:#0f766e;margin-bottom:6px;display:flex;justify-content:space-between"><span>${date}</span><span>₹${dayTotal.toFixed(0)}</span></div>
       ${recs.map(r=>`<div class="dist-record">
-        <div class="proc-record-top"><div class="dist-sup">${r.dist}</div><div style="display:flex;gap:6px">
+        <div class="proc-record-top"><div class="dist-sup">${_esc(r.dist)}</div><div style="display:flex;gap:6px">
           <button class="btn btn-sm btn-teal" onclick="showDistBill(${r.id})">📄 Bill</button>
         </div></div>
         <div class="proc-details">
@@ -1676,7 +1788,7 @@ function renderDistRecords(){
 }
 function distRecordHTML(r){
   return`<div class="dist-record">
-    <div class="proc-record-top"><div class="dist-sup">${r.dist}</div>
+    <div class="proc-record-top"><div class="dist-sup">${_esc(r.dist)}</div>
       <button class="btn btn-sm btn-teal" onclick="showDistBill(${r.id})">🖨️ Bill</button>
     </div>
     <div class="proc-details">
@@ -1703,7 +1815,7 @@ function showDistBill(id){
     </div>
     <div class="dist-bill-title">DISTRIBUTION BILL</div>
     <div class="dist-bill-info">
-      <div><b>Bill To:</b> ${r.dist}</div>
+      <div><b>Bill To:</b> ${_esc(r.dist)}</div>
       <div><b>Date:</b> ${r.date}<br/><b>Bill No:</b> ${billNo}</div>
     </div>
     <table class="dist-bill-table">
@@ -1753,7 +1865,7 @@ function buildBillBodyHTML(r){
     <div style="display:flex;gap:8px;margin-bottom:16px">
       <div style="background:#f8faff;border-radius:8px;padding:10px 12px;flex:1">
         <div style="font-size:10px;color:#6b7280;text-transform:uppercase;margin-bottom:3px">Bill To</div>
-        <div style="font-size:14px;font-weight:700;color:#0d1b4b">${r.dist}</div>
+        <div style="font-size:14px;font-weight:700;color:#0d1b4b">${_esc(r.dist)}</div>
       </div>
       <div style="background:#f8faff;border-radius:8px;padding:10px 12px;flex:1">
         <div style="font-size:10px;color:#6b7280;text-transform:uppercase;margin-bottom:3px">Date</div>
@@ -1924,13 +2036,13 @@ function renderTestHistory(){
   el.innerHTML=testRecords.map(r=>`
     <div class="test-history-item">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <div style="font-size:13px;font-weight:700;color:var(--dark)">${r.supplier}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--dark)">${_esc(r.supplier)}</div>
         <span class="${r.overall==='pass'?'test-overall-pass':'test-overall-fail'}">${r.overall==='pass'?'✅ CLEAN':'❌ ADULTERATED'}</span>
       </div>
       <div style="font-size:10px;color:var(--gray);margin-bottom:6px">${r.date}${r.qty?' · '+r.qty+'L':''}</div>
       ${r.overall==='fail'?`<div style="font-size:11px;color:var(--red);background:#fff1f2;padding:6px 8px;border-radius:8px;margin-bottom:4px">⚠️ Failed: ${r.failedTests.join(', ')}</div>`:''}
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px">${TESTS.map(t=>r.results[t.id]?`<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:${r.results[t.id]==='pass'?'#f0fdf4':'#fff1f2'};color:${r.results[t.id]==='pass'?'var(--green)':'var(--red)'}">${t.name.split(' ')[0]}: ${r.results[t.id].toUpperCase()}</span>`:'').join('')}</div>
-      ${r.notes?`<div style="font-size:10px;color:var(--gray);font-style:italic">${r.notes}</div>`:''}
+      ${r.notes?`<div style="font-size:10px;color:var(--gray);font-style:italic">${_esc(r.notes)}</div>`:''}
       <div style="font-size:9px;color:#bbb;margin-top:4px">By: ${r.savedBy||'Staff'}</div>
     </div>`).join('');
 }
@@ -1976,7 +2088,7 @@ function showAlert(containerId,cls,msg){
   setTimeout(()=>el.innerHTML='',3000);
 }
 function exportRecords(){
-  const txt=records.map(r=>`${r.date} | ${r.supplier} | ${r.qty}L | Fat:${r.fat}% | SNF:${r.snf}% | ₹${r.rate}/L | Total:₹${r.total.toFixed(0)} | By:${r.savedBy}`).join('\n');
+  const txt=records.map(r=>`${r.date} | ${_esc(r.supplier)} | ${r.qty}L | Fat:${r.fat}% | SNF:${r.snf}% | ₹${r.rate}/L | Total:₹${r.total.toFixed(0)} | By:${r.savedBy}`).join('\n');
   const blob=new Blob(['BARKAT DAIRY PLANT - PROCUREMENT RECORDS\n\n'+txt],{type:'text/plain'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='BarkatDairy_Records.txt';a.click();
 }
@@ -2529,7 +2641,7 @@ function renderRiderView(){
       if(subEl)subEl.textContent=todayProc.length+' pickups · '+total+'L collected today';
       procEl.innerHTML=todayProc.map(r=>`
         <div class="proc-record">
-          <div class="proc-record-top"><div class="proc-supplier">${r.supplier}</div><div class="proc-date">${r.date}</div></div>
+          <div class="proc-record-top"><div class="proc-supplier">${_esc(r.supplier)}</div><div class="proc-date">${r.date}</div></div>
           <div class="proc-details">
             <div class="proc-detail"><div class="proc-detail-label">Qty</div><div class="proc-detail-val">${r.qty}L</div></div>
             <div class="proc-detail"><div class="proc-detail-label">Fat</div><div class="proc-detail-val">${r.fat}%</div></div>
@@ -2549,7 +2661,7 @@ function renderRiderView(){
     } else {
       distEl.innerHTML=todayDist.map(r=>`
         <div class="dist-record">
-          <div class="proc-record-top"><div class="dist-sup">${r.dist}</div><span class="badge ${r.balance>0?'badge-red':'badge-green'}">${r.balance>0?'₹'+r.balance.toFixed(0)+' due':'Paid'}</span></div>
+          <div class="proc-record-top"><div class="dist-sup">${_esc(r.dist)}</div><span class="badge ${r.balance>0?'badge-red':'badge-green'}">${r.balance>0?'₹'+r.balance.toFixed(0)+' due':'Paid'}</span></div>
           <div class="proc-details">
             <div class="proc-detail"><div class="proc-detail-label">200g</div><div class="proc-detail-val">${r.c200}</div></div>
             <div class="proc-detail"><div class="proc-detail-label">400g</div><div class="proc-detail-val">${r.c400}</div></div>
@@ -2844,7 +2956,7 @@ function renderAttToday(){
     <div class="att-card">
       ${r.type==="arrival"?"🟢":"🔴"}
       <div class="att-info">
-        <div class="att-name">${r.name}</div>
+        <div class="att-name">${_esc(r.name)}</div>
         <div class="att-time">🕐 ${r.time} · ${r.date}</div>
         ${r.lat?(r.placeName?`<div class="att-gps">📍 ${r.placeName} (${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}) ±${Math.round(r.acc)}m</div>`:`<div class="att-gps">📍 ${r.lat.toFixed(4)}, ${r.lng.toFixed(4)} ±${Math.round(r.acc)}m</div>`):'<div class="att-gps">📍 GPS not recorded</div>'}
         <span class="${r.type==='arrival'?'att-badge-arr':'att-badge-lev'}">${r.type==='arrival'?'✅ ARRIVAL':'🚪 LEAVING'}</span>
@@ -2869,7 +2981,7 @@ function renderAttHistory(){
         <span>${date}</span><span>${recs.length} entries</span>
       </div>
       ${recs.map(r=>`<div class="row">
-        <span class="rl">${r.name} · ${r.time}</span>
+        <span class="rl">${_esc(r.name)} · ${r.time}</span>
         <span class="${r.type==='arrival'?'rv green':'rv red'}">${r.type==='arrival'?'✅ In':'🚪 Out'}</span>
       </div>`).join('')}
     </div>`;
@@ -2928,7 +3040,7 @@ function renderDeleteAttList(){
   el.innerHTML=filtered.slice(0,30).map(r=>`
     <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f3f4f8">
       <div>
-        <div style="font-size:12px;font-weight:600;color:var(--dark)">${r.name}</div>
+        <div style="font-size:12px;font-weight:600;color:var(--dark)">${_esc(r.name)}</div>
         <div style="font-size:10px;color:var(--gray)">${r.date} · ${r.time} · ${r.type==='arrival'?'✅ Arrival':'🚪 Leaving'}</div>
         ${r.placeName?`<div style="font-size:9px;color:var(--gray)">📍 ${r.placeName}</div>`:''}
       </div>
@@ -3557,7 +3669,7 @@ function runRecall(){
   let html='';
   if(matchLots.length){
     html+='<div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:6px">🐄 Raw Milk Lots ('+matchLots.length+')</div>';
-    matchLots.forEach(r=>{html+=`<div class="recall-card recall-upstream"><div class="batch-id">${r.lotId||'No Lot'}</div><div style="font-size:13px;font-weight:700;color:var(--dark)">${r.supplier}</div><div style="font-size:10px;color:var(--gray)">${r.date} · ${r.qty}L · Fat ${r.fat}% · SNF ${r.snf}% · Alcohol: ${r.alcohol||'?'}</div></div>`;});
+    matchLots.forEach(r=>{html+=`<div class="recall-card recall-upstream"><div class="batch-id">${r.lotId||'No Lot'}</div><div style="font-size:13px;font-weight:700;color:var(--dark)">${_esc(r.supplier)}</div><div style="font-size:10px;color:var(--gray)">${r.date} · ${r.qty}L · Fat ${r.fat}% · SNF ${r.snf}% · Alcohol: ${r.alcohol||'?'}</div></div>`;});
   }
   if(matchBatches.length){
     html+='<div style="font-size:12px;font-weight:700;color:var(--gold);margin:10px 0 6px">🧫 Batches ('+matchBatches.length+')</div>';
@@ -3569,7 +3681,7 @@ function runRecall(){
   }
   if(matchDist.length){
     html+='<div style="font-size:12px;font-weight:700;color:var(--teal);margin:10px 0 6px">🚚 Distribution ('+matchDist.length+')</div>';
-    matchDist.forEach(r=>{html+=`<div class="recall-card recall-downstream"><div style="font-size:13px;font-weight:700">${r.dist}</div><div style="font-size:10px;color:var(--gray)">${r.date} · 200g:${r.c200} · 400g:${r.c400} · ₹${r.amount.toFixed(0)}</div></div>`;});
+    matchDist.forEach(r=>{html+=`<div class="recall-card recall-downstream"><div style="font-size:13px;font-weight:700">${_esc(r.dist)}</div><div style="font-size:10px;color:var(--gray)">${r.date} · 200g:${r.c200} · 400g:${r.c400} · ₹${r.amount.toFixed(0)}</div></div>`;});
   }
   if(!html) html='<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">No results for "'+query+'"</div></div>';
   el.innerHTML=html;
@@ -3685,9 +3797,9 @@ function renderSummary(){
   const bEl=document.getElementById('sum-batch-list');
   if(bEl) bEl.innerHTML=dayB.length?dayB.map(b=>`<div class="row"><span class="rl">${b.batchId} · ${b.vat||'Vat'}</span><span class="rv ${b.batchResult==='PASSED'?'green':b.status==='active'?'gold':'red'}">${b.batchResult||b.status}</span></div>`).join(''):'<div class="empty"><div class="empty-icon">🧫</div><div class="empty-text">No batches</div></div>';
   const pEl=document.getElementById('sum-proc-list');
-  if(pEl) pEl.innerHTML=dayP.length?dayP.map(r=>`<div class="row"><span class="rl">${r.lotId||'-'} · ${r.supplier} · ${r.qty}L</span><span class="rv">₹${r.total.toFixed(0)}</span></div>`).join(''):' <div class="empty"><div class="empty-icon">🐄</div><div class="empty-text">No procurement</div></div>';
+  if(pEl) pEl.innerHTML=dayP.length?dayP.map(r=>`<div class="row"><span class="rl">${r.lotId||'-'} · ${_esc(r.supplier)} · ${r.qty}L</span><span class="rv">₹${r.total.toFixed(0)}</span></div>`).join(''):' <div class="empty"><div class="empty-icon">🐄</div><div class="empty-text">No procurement</div></div>';
   const dEl=document.getElementById('sum-dist-list');
-  if(dEl) dEl.innerHTML=dayD.length?dayD.map(r=>`<div class="row"><span class="rl">${r.dist} · ${r.c200+r.c400} cups</span><span class="rv">₹${r.amount.toFixed(0)}</span></div>`).join(''):'<div class="empty"><div class="empty-icon">🚚</div><div class="empty-text">No distribution</div></div>';
+  if(dEl) dEl.innerHTML=dayD.length?dayD.map(r=>`<div class="row"><span class="rl">${_esc(r.dist)} · ${r.c200+r.c400} cups</span><span class="rv">₹${r.amount.toFixed(0)}</span></div>`).join(''):'<div class="empty"><div class="empty-icon">🚚</div><div class="empty-text">No distribution</div></div>';
 }
 function downloadSummaryPDF(){
   const picker=document.getElementById('summaryDatePicker');
@@ -3720,10 +3832,10 @@ td{padding:7px 10px;border-bottom:1px solid #e5e7eb}
 <tbody>${dayB.map(b=>`<tr><td>${b.batchId}</td><td>${b.vat||'-'}</td><td>${b.batchResult||b.status}</td><td>${b.stages.s7_qc?b.stages.s7_qc.cupsPassed||0:'-'}</td><td>${b.stages.s7_qc?b.stages.s7_qc.cupsRejected||0:'-'}</td></tr>`).join('')||'<tr><td colspan="5">No batches</td></tr>'}</tbody></table>
 <h2>Raw Milk Received</h2>
 <table><thead><tr><th>Lot ID</th><th>Supplier</th><th>Qty</th><th>Fat</th><th>SNF</th><th>Cost</th></tr></thead>
-<tbody>${dayP.map(r=>`<tr><td>${r.lotId||'-'}</td><td>${r.supplier}</td><td>${r.qty}L</td><td>${r.fat}%</td><td>${r.snf}%</td><td>₹${r.total.toFixed(0)}</td></tr>`).join('')||'<tr><td colspan="6">None</td></tr>'}</tbody></table>
+<tbody>${dayP.map(r=>`<tr><td>${r.lotId||'-'}</td><td>${_esc(r.supplier)}</td><td>${r.qty}L</td><td>${r.fat}%</td><td>${r.snf}%</td><td>₹${r.total.toFixed(0)}</td></tr>`).join('')||'<tr><td colspan="6">None</td></tr>'}</tbody></table>
 <h2>Distribution</h2>
 <table><thead><tr><th>Distributor</th><th>200g</th><th>400g</th><th>Bill</th><th>Balance</th></tr></thead>
-<tbody>${dayD.map(r=>`<tr><td>${r.dist}</td><td>${r.c200}</td><td>${r.c400}</td><td>₹${r.amount.toFixed(0)}</td><td>₹${r.balance.toFixed(0)}</td></tr>`).join('')||'<tr><td colspan="5">None</td></tr>'}</tbody></table>
+<tbody>${dayD.map(r=>`<tr><td>${_esc(r.dist)}</td><td>${r.c200}</td><td>${r.c400}</td><td>₹${r.amount.toFixed(0)}</td><td>₹${r.balance.toFixed(0)}</td></tr>`).join('')||'<tr><td colspan="5">None</td></tr>'}</tbody></table>
 <p style="font-size:10px;color:#999;margin-top:20px;border-top:1px solid #eee;padding-top:10px">Barkat Dairy Plant · Watlar Ganderbal · Generated ${new Date().toLocaleString()}</p>
 </body></html>`;
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});
@@ -3741,7 +3853,7 @@ function clearCipRecords(){if(confirm('Delete ALL CIP records?')){cipLogs=[];sto
 var _fb=null,_fbReady=false,_fbListening=false;
 var _syncKeys=['records','distRecords','testRecords','productionBatches','cipLogs',
   'users','settings','savedSuppliers','savedDistributors','attRecords',
-  'invEntries','invOpening'];
+  'invEntries','invOpening','returnsLog','paymentsLog','auditLog'];
 
 function _initFB(){
   try{
@@ -3827,6 +3939,260 @@ store = function(k,v){
   // Save to Firebase cloud
   if(_fbReady)try{_fb.ref('bd/'+k).set(v);}catch(e){}
 };
+
+// ════════════════════════════════════════════════
+// RETURNS / WASTAGE MODULE
+// ════════════════════════════════════════════════
+var returnsLog = load('returnsLog', []);
+var paymentsLog = load('paymentsLog', []);
+var auditLog = load('auditLog', []);
+
+function retTypeChange(){
+  var type=document.getElementById('ret-type').value;
+  var distWrap=document.getElementById('ret-dist-wrap');
+  var restockWrap=document.getElementById('ret-restock-wrap');
+  var batchWrap=document.getElementById('ret-batch-wrap');
+  var distLabel=distWrap.querySelector('.inp-label');
+  if(type==='return'){
+    distWrap.style.display='block';restockWrap.style.display='block';batchWrap.style.display='block';
+    distLabel.textContent='Distributor';
+  } else if(type==='sample'){
+    distWrap.style.display='block';restockWrap.style.display='none';batchWrap.style.display='block';
+    distLabel.textContent='Given To';
+  } else {
+    distWrap.style.display='none';restockWrap.style.display='none';
+    batchWrap.style.display=type==='damage'?'block':'none';
+  }
+}
+
+function saveReturn(){
+  var type=document.getElementById('ret-type').value;
+  var dist=document.getElementById('ret-dist').value.trim();
+  var batch=document.getElementById('ret-batch').value.trim();
+  var sku=document.getElementById('ret-sku').value;
+  var qty=parseFloat(document.getElementById('ret-qty').value)||0;
+  var date=document.getElementById('ret-date').value;
+  var reason=document.getElementById('ret-reason').value;
+  var restock=document.getElementById('ret-restock').value;
+  var notes=document.getElementById('ret-notes').value.trim();
+  if(!qty||!date){showAlert('retAlert','alert-red','⚠️ Enter quantity and date');return;}
+
+  var rec={id:Date.now(),type:type,dist:dist,batch:batch,sku:sku,qty:qty,date:date,
+    reason:reason,restock:restock,notes:notes,
+    savedBy:currentUser?currentUser.name:'Staff'};
+  returnsLog.unshift(rec);
+  store('returnsLog',returnsLog);
+
+  // Restock if it's a good return
+  if(type==='return' && restock==='yes' && (sku==='200g'||sku==='400g')){
+    var invItem=sku==='200g'?'cups200':'cups400';
+    invEntries.unshift({id:Date.now()+1,item:invItem,date:date,recv:qty,used:0,
+      note:'Return restock from '+(dist||'distributor'),savedBy:currentUser?currentUser.name:'Staff'});
+    store('invEntries',invEntries);
+  }
+  // Damaged cups reduce inventory
+  if(type==='damage' && (sku==='200g'||sku==='400g')){
+    var invItem2=sku==='200g'?'cups200':'cups400';
+    invEntries.unshift({id:Date.now()+2,item:invItem2,date:date,recv:0,used:qty,
+      note:'Damaged: '+reason,savedBy:currentUser?currentUser.name:'Staff'});
+    store('invEntries',invEntries);
+  }
+  _audit('returns','add',rec.id,'','+'+qty+' '+sku+' '+type,reason);
+  showAlert('retAlert','alert-green','✅ '+type+' recorded');
+  renderReturns();
+  if(typeof renderStockDashboard==='function')renderStockDashboard();
+  ['ret-qty','ret-batch','ret-notes','ret-dist'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+}
+
+function renderReturns(){
+  var d=document.getElementById('ret-date');if(d&&!d.value)d.value=new Date().toISOString().split('T')[0];
+  retTypeChange();
+  var el=document.getElementById('returnsList');
+  var cnt=document.getElementById('retCount');
+  if(cnt)cnt.textContent=returnsLog.length+' entries';
+  if(el){
+    if(!returnsLog.length){el.innerHTML='<div class="empty"><div class="empty-icon">↩️</div><div class="empty-text">No entries yet</div></div>';}
+    else{
+      var icons={'return':'↩️','spillage':'💧','damage':'📦','sample':'🎁'};
+      el.innerHTML=returnsLog.slice(0,20).map(function(r){
+        return '<div class="cip-card" style="border-left-color:'+(r.type==='return'?'#c2410c':r.type==='sample'?'#7c3aed':'#dc2626')+'">'+
+          '<div style="display:flex;justify-content:space-between"><div style="font-size:12px;font-weight:700;color:var(--dark)">'+(icons[r.type]||'')+' '+r.type.toUpperCase()+'</div><div style="font-size:10px;color:var(--gray)">'+r.date+'</div></div>'+
+          '<div style="font-size:13px;font-weight:700;color:var(--dark);margin-top:2px">'+r.qty+' × '+r.sku+(r.dist?' · '+r.dist:'')+'</div>'+
+          '<div style="font-size:10px;color:var(--gray)">Reason: '+r.reason+(r.batch?' · Batch: '+r.batch:'')+'</div>'+
+          (r.notes?'<div style="font-size:10px;color:var(--gray)">'+_esc(r.notes)+'</div>':'')+
+          '<div style="font-size:9px;color:#bbb;margin-top:2px">By: '+(r.savedBy||'-')+'</div>'+
+        '</div>';
+      }).join('');
+    }
+  }
+  // Month snapshot
+  var snap=document.getElementById('lossSnapshot');
+  if(snap){
+    var month=new Date().toISOString().slice(0,7);
+    var monthLog=returnsLog.filter(function(r){return r.date&&r.date.slice(0,7)===month;});
+    var byType={};
+    monthLog.forEach(function(r){byType[r.type]=(byType[r.type]||0)+r.qty;});
+    var rows=Object.keys(byType).map(function(t){
+      return '<div class="row"><span class="rl">'+t+'</span><span class="rv">'+byType[t]+' units</span></div>';
+    }).join('');
+    snap.innerHTML=rows||'<div style="font-size:12px;color:var(--gray);padding:8px 0">No losses this month ✅</div>';
+  }
+}
+
+// ════════════════════════════════════════════════
+// PAYMENTS / CREDIT MODULE
+// ════════════════════════════════════════════════
+function getDistBalance(dist){
+  // Total billed minus total paid (from dist records) minus separate payments
+  var billed=distRecords.filter(function(r){return r.dist===dist;}).reduce(function(s,r){return s+r.amount;},0);
+  var paidInBills=distRecords.filter(function(r){return r.dist===dist;}).reduce(function(s,r){return s+(r.paid||0);},0);
+  var sepPayments=paymentsLog.filter(function(p){return p.dist===dist;}).reduce(function(s,p){return s+p.amount;},0);
+  return billed-paidInBills-sepPayments;
+}
+
+function getAllDistributors(){
+  var set={};
+  distRecords.forEach(function(r){if(r.dist)set[r.dist]=1;});
+  return Object.keys(set);
+}
+
+function renderPayments(){
+  var pd=document.getElementById('pay-date');if(pd&&!pd.value)pd.value=new Date().toISOString().split('T')[0];
+  // Populate distributor dropdown
+  var sel=document.getElementById('pay-dist');
+  if(sel){
+    var dists=getAllDistributors();
+    sel.innerHTML='<option value="">— Select distributor —</option>'+dists.map(function(d){return '<option value="'+_esc(d)+'">'+_esc(d)+'</option>';}).join('');
+  }
+  // Total outstanding
+  var totalOut=getAllDistributors().reduce(function(s,d){return s+Math.max(0,getDistBalance(d));},0);
+  var hv=document.getElementById('payHeroVal');if(hv)hv.textContent='₹'+totalOut.toFixed(0);
+  // Credit list
+  var cl=document.getElementById('creditList');
+  if(cl){
+    var dists=getAllDistributors().map(function(d){return {name:d,bal:getDistBalance(d)};}).filter(function(x){return x.bal>0.5;}).sort(function(a,b){return b.bal-a.bal;});
+    if(!dists.length){cl.innerHTML='<div style="font-size:13px;color:var(--green);padding:10px 0">✅ No outstanding balances</div>';}
+    else{
+      var limit=settings.creditLimit||20000;
+      cl.innerHTML=dists.map(function(d){
+        var over=d.bal>limit;
+        return '<div class="dist-balance-card" style="background:'+(over?'linear-gradient(135deg,#b91c1c,#dc2626)':'linear-gradient(135deg,#0f766e,#0d9488)')+'">'+
+          '<div><div class="dist-balance-name">'+_esc(d.name)+'</div><div class="dist-balance-sub">'+(over?'⚠️ Over credit limit (₹'+limit+')':'Outstanding')+'</div></div>'+
+          '<div class="dist-balance-amt">₹'+d.bal.toFixed(0)+'</div>'+
+        '</div>';
+      }).join('');
+    }
+  }
+  // Payment history
+  var ph=document.getElementById('paymentHistory');
+  var pc=document.getElementById('payCount');
+  if(pc)pc.textContent=paymentsLog.length+' payments';
+  if(ph){
+    if(!paymentsLog.length){ph.innerHTML='<div class="empty"><div class="empty-icon">💰</div><div class="empty-text">No payments recorded</div></div>';}
+    else{
+      ph.innerHTML=paymentsLog.slice(0,20).map(function(p){
+        return '<div class="row"><span class="rl">'+_esc(p.dist)+' · '+p.date+'<br/><span style="font-size:9px">'+p.mode+' · by '+(p.by||'-')+'</span></span><span class="rv green">₹'+p.amount.toFixed(0)+'</span></div>';
+      }).join('');
+    }
+  }
+}
+
+function payDistChange(){
+  var dist=document.getElementById('pay-dist').value;
+  var bal=dist?getDistBalance(dist):0;
+  var el=document.getElementById('pay-current-bal');if(el)el.textContent='₹'+bal.toFixed(0);
+  payPreview();
+}
+function payPreview(){
+  var dist=document.getElementById('pay-dist').value;
+  var bal=dist?getDistBalance(dist):0;
+  var amt=parseFloat(document.getElementById('pay-amount').value)||0;
+  var after=bal-amt;
+  var el=document.getElementById('pay-after-bal');
+  if(el){el.textContent='₹'+after.toFixed(0);el.style.color=after>0?'var(--red)':'var(--green)';}
+}
+function savePayment(){
+  var dist=document.getElementById('pay-dist').value;
+  var amount=parseFloat(document.getElementById('pay-amount').value)||0;
+  var date=document.getElementById('pay-date').value;
+  var mode=document.getElementById('pay-mode').value;
+  var by=document.getElementById('pay-by').value.trim();
+  if(!dist||!amount||!date){showAlert('payAlert','alert-red','⚠️ Select distributor, amount and date');return;}
+  var rec={id:Date.now(),dist:dist,amount:amount,date:date,mode:mode,by:by,
+    savedBy:currentUser?currentUser.name:'Staff'};
+  paymentsLog.unshift(rec);
+  store('paymentsLog',paymentsLog);
+  _audit('payments','add',rec.id,'','₹'+amount+' from '+dist,'Payment received');
+  showAlert('payAlert','alert-green','✅ Payment of ₹'+amount+' recorded for '+dist);
+  document.getElementById('pay-amount').value='';
+  renderPayments();
+}
+
+// ════════════════════════════════════════════════
+// AUDIT TRAIL
+// ════════════════════════════════════════════════
+function _audit(module, action, recordId, oldVal, newVal, reason){
+  try{
+    auditLog.unshift({
+      id:Date.now()+Math.random(),
+      module:module,action:action,recordId:recordId,
+      oldVal:String(oldVal||''),newVal:String(newVal||''),reason:reason||'',
+      user:currentUser?currentUser.name:'Unknown',
+      ts:new Date().toISOString()
+    });
+    // Keep last 500 audit entries to save space
+    if(auditLog.length>500) auditLog=auditLog.slice(0,500);
+    store('auditLog',auditLog);
+  }catch(e){}
+}
+
+// ════════════════════════════════════════════════
+// DATA EXPORT / BACKUP
+// ════════════════════════════════════════════════
+function exportAllData(){
+  var data={
+    exported:new Date().toISOString(),
+    business:'Barkat Dairy Plant',
+    records:records,distRecords:distRecords,testRecords:testRecords,
+    productionBatches:productionBatches,cipLogs:cipLogs,attRecords:attRecords,
+    invEntries:invEntries,invOpening:invOpening,returnsLog:returnsLog,
+    paymentsLog:paymentsLog,auditLog:auditLog,settings:settings,users:users
+  };
+  var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download='BarkatDairy-Backup-'+new Date().toISOString().split('T')[0]+'.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},10000);
+}
+
+function exportExcel(){
+  // Build CSV for procurement + distribution + payments
+  var rows=[];
+  rows.push('=== PROCUREMENT ===');
+  rows.push('Lot ID,Date,Supplier,Qty(L),Fat%,SNF%,Rate,Total,Alcohol');
+  records.forEach(function(r){
+    rows.push([r.lotId||'',r.date,r.supplier,r.qty,r.fat,r.snf,r.rate,r.total,r.alcohol||''].join(','));
+  });
+  rows.push('');
+  rows.push('=== DISTRIBUTION ===');
+  rows.push('Date,Distributor,200g,400g,Amount,Paid,Balance');
+  distRecords.forEach(function(r){
+    rows.push([r.date,r.dist,r.c200,r.c400,r.amount,r.paid,r.balance].join(','));
+  });
+  rows.push('');
+  rows.push('=== PAYMENTS ===');
+  rows.push('Date,Distributor,Amount,Mode,Collected By');
+  paymentsLog.forEach(function(p){
+    rows.push([p.date,p.dist,p.amount,p.mode,p.by||''].join(','));
+  });
+  var blob=new Blob([rows.join('\n')],{type:'text/csv'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download='BarkatDairy-Data-'+new Date().toISOString().split('T')[0]+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},10000);
+}
 </script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
