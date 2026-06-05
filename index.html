@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- bd-version: 20260605-12 -->
+<!-- bd-version: 20260605-13 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -400,7 +400,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
     <button class="tab" onclick="goTab('test',this)">🔬 Testing</button>
     <button class="tab" onclick="goTab('inv',this)">📦 Inventory</button>
     <button class="tab" onclick="goTab('batch',this);initBatchTab()">🧫 Batches</button>
-    <button class="tab" onclick="goTab('recall',this)">🔍 Recall</button>
+    <button class="tab" onclick="goTab('recall',this);initRecall()">🔍 Recall</button>
     <button class="tab" onclick="goTab('cip',this)">🧼 CIP</button>
     <button class="tab" onclick="goTab('returns',this);renderReturns()">↩️ Returns/Loss</button>
     <button class="tab" onclick="goTab('payments',this);renderPayments()">💰 Payments</button>
@@ -1193,24 +1193,47 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
 
 <!-- ══ RECALL TAB ══ -->
 <div class="page" id="tab-recall">
-  <div class="hero">
-    <div class="hero-label">🔍 Trace & Recall</div>
+
+  <!-- Hero -->
+  <div class="hero" style="background:linear-gradient(135deg,#1e3a5f 0%,#1a3a8f 60%,#2451b3 100%)">
+    <div class="hero-label">🔍 TRACE &amp; RECALL</div>
     <div class="gold-bar"></div>
-    <div class="hero-val" style="font-size:15px">Full Traceability</div>
-    <div class="hero-sub">Search by batch, lot, supplier, or distributor</div>
+    <div class="hero-val" id="recall-hero-val">—</div>
+    <div class="hero-sub" id="recall-hero-sub">traceable records · search below</div>
   </div>
+
   <div class="section">
+
+    <!-- Search bar -->
     <div style="display:flex;gap:8px;margin-bottom:10px">
-      <input type="text" id="recallInput" placeholder="e.g. B-20260520-001 or supplier name…" style="flex:1"/>
-      <button class="btn btn-primary" style="flex-shrink:0" onclick="runRecall()">🔍 Search</button>
+      <input type="text" id="recallInput"
+        placeholder="Batch ID, lot, supplier, distributor…"
+        style="flex:1"
+        onkeydown="if(event.key==='Enter')runRecall()"
+        oninput="if(!this.value)renderRecallDefault()"/>
+      <button class="btn btn-primary" style="flex-shrink:0;padding:10px 16px" onclick="runRecall()">🔍</button>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-      <button class="btn btn-sm" style="background:#e8eef8;color:var(--blue);border:none;font-size:10px" onclick="recallQuick('batch')">All Batches</button>
-      <button class="btn btn-sm" style="background:#e8eef8;color:var(--blue);border:none;font-size:10px" onclick="recallQuick('today')">Today</button>
-      <button class="btn btn-sm" style="background:#e8eef8;color:var(--blue);border:none;font-size:10px" onclick="recallQuick('lots')">All Milk Lots</button>
+
+    <!-- Quick filter buttons -->
+    <div class="grid2" style="gap:7px;margin-bottom:14px">
+      <button onclick="recallQuick('today')"  style="padding:10px 6px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-family:inherit;text-align:center;font-size:11px;font-weight:700;color:var(--blue)">
+        📅 Today's Records
+      </button>
+      <button onclick="recallQuick('lots')"   style="padding:10px 6px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-family:inherit;text-align:center;font-size:11px;font-weight:700;color:var(--blue)">
+        🐄 All Milk Lots
+      </button>
+      <button onclick="recallQuick('batch')"  style="padding:10px 6px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-family:inherit;text-align:center;font-size:11px;font-weight:700;color:var(--blue)">
+        🧫 All Batches
+      </button>
+      <button onclick="recallQuick('failed')" style="padding:10px 6px;border-radius:10px;border:1.5px solid #fee2e2;background:#fff1f2;cursor:pointer;font-family:inherit;text-align:center;font-size:11px;font-weight:700;color:var(--red)">
+        ❌ Failed Tests
+      </button>
     </div>
-    <div id="recallResults"><div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">Enter a search term above</div></div></div>
+
+    <!-- Results -->
+    <div id="recallResults"></div>
   </div>
+
 </div>
 
 <!-- ══ CIP LOG TAB ══ -->
@@ -4301,38 +4324,123 @@ function renderColdStore(){
 // ════════════════════════════════════════════════════════════
 // RECALL / TRACE
 // ════════════════════════════════════════════════════════════
+function initRecall(){
+  const total=records.length+productionBatches.length+distRecords.length;
+  const hv=document.getElementById('recall-hero-val');
+  const hs=document.getElementById('recall-hero-sub');
+  if(hv)hv.textContent=total||'—';
+  if(hs)hs.textContent=(records.length)+' lots · '+(productionBatches.length)+' batches · '+(distRecords.length)+' dispatches';
+  renderRecallDefault();
+}
+function _recallLotCard(r){
+  const alcBadge=r.alcohol==='pass'?'<span style="background:#dcfce7;color:var(--green);font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px">✅ Alc</span>':r.alcohol==='fail'?'<span style="background:#fee2e2;color:var(--red);font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px">❌ Alc</span>':'';
+  return'<div class="recall-card recall-upstream" style="margin-bottom:8px">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">'+
+      '<div><div class="batch-id" style="margin-bottom:2px">'+(r.lotId?_esc(r.lotId):'No Lot ID')+'</div>'+
+      '<div style="font-size:13px;font-weight:700;color:var(--dark)">'+_esc(r.supplier)+'</div></div>'+
+      '<div style="text-align:right"><div style="font-size:16px;font-weight:700;color:var(--blue)">'+r.qty+'L</div>'+
+      '<div style="font-size:10px;color:var(--gray)">'+r.date+'</div></div>'+
+    '</div>'+
+    '<div style="font-size:10px;color:var(--gray)">Fat '+r.fat+'% · SNF '+r.snf+'%'+alcBadge+
+    (r.temp?'  🌡️ '+r.temp+'°C':'')+'</div>'+
+  '</div>';
+}
+function _recallBatchCard(b){
+  const fill=b.stages&&b.stages.s5_fill;
+  const cups=fill?fill.cupsCount+' × '+(fill.cupSize||'?'):'—';
+  const linked=distRecords.filter(function(d){return(d.batchIds||'').includes(b.batchId);});
+  const res=b.batchResult||b.status||'—';
+  const resOk=res==='PASSED';
+  return'<div class="recall-card" style="border-left:4px solid var(--gold);margin-bottom:8px">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">'+
+      '<div><div class="batch-id" style="margin-bottom:2px">'+_esc(b.batchId)+'</div>'+
+      '<div style="font-size:10px;color:var(--gray)">'+b.date+(b.vat?' · '+_esc(b.vat):'')+(b.linkedLotId?' · Lot: '+_esc(b.linkedLotId):'')+'</div></div>'+
+      '<span style="background:'+(resOk?'#dcfce7':'#fee2e2')+';color:'+(resOk?'var(--green)':'var(--red)')+';font-size:10px;font-weight:700;padding:3px 8px;border-radius:8px">'+_esc(res)+'</span>'+
+    '</div>'+
+    '<div style="font-size:10px;color:var(--gray);margin-bottom:4px">🫙 '+cups+'</div>'+
+    (linked.length?
+      '<div style="font-size:10px;color:var(--teal);font-weight:600">🚚 Dispatched to: '+linked.map(function(d){return _esc(d.dist);}).join(', ')+'</div>':
+      '<div style="font-size:10px;color:#bbb">Not dispatched yet</div>')+
+  '</div>';
+}
+function _recallDistCard(r){
+  const bal=r.balance!=null?r.balance:null;
+  return'<div class="recall-card recall-downstream" style="margin-bottom:8px">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">'+
+      '<div><div style="font-size:13px;font-weight:700;color:var(--dark)">'+_esc(r.dist)+'</div>'+
+      '<div style="font-size:10px;color:var(--gray)">'+r.date+'</div></div>'+
+      '<div style="font-size:16px;font-weight:700;color:var(--teal)">₹'+r.amount.toFixed(0)+'</div>'+
+    '</div>'+
+    '<div style="font-size:10px;color:var(--gray)">'+r.c200+' × 200g · '+r.c400+' × 400g'+
+    (bal!=null?'  <span style="color:'+(bal>0?'var(--red)':'var(--green)')+'">Bal ₹'+bal.toFixed(0)+'</span>':'')+
+    '</div>'+
+  '</div>';
+}
+function _recallSection(title, cards){
+  if(!cards.length) return '';
+  return'<div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.6px;margin:12px 0 8px;display:flex;align-items:center;gap:6px">'+
+    '<div style="flex:1;height:1px;background:#e5e7eb"></div>'+title+' ('+cards.length+')'+
+    '<div style="flex:1;height:1px;background:#e5e7eb"></div>'+
+  '</div>'+cards.join('');
+}
 function runRecall(){
   const query=(document.getElementById('recallInput').value||'').trim().toLowerCase();
-  const el=document.getElementById('recallResults'); if(!el)return;
-  if(!query){el.innerHTML='<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">Enter a search term</div></div>';return;}
-  const matchLots=records.filter(r=>(r.lotId||'').toLowerCase().includes(query)||(r.supplier||'').toLowerCase().includes(query));
-  const matchBatches=productionBatches.filter(b=>b.batchId.toLowerCase().includes(query)||(b.linkedLotId||'').toLowerCase().includes(query)||(b.linkedSupplier||'').toLowerCase().includes(query));
-  const matchDist=distRecords.filter(r=>(r.dist||'').toLowerCase().includes(query)||(r.batchIds||'').toLowerCase().includes(query));
+  const el=document.getElementById('recallResults');if(!el)return;
+  if(!query){renderRecallDefault();return;}
+  const matchLots=records.filter(function(r){return(r.lotId||'').toLowerCase().includes(query)||(r.supplier||'').toLowerCase().includes(query)||(r.date||'').includes(query);});
+  const matchBatches=productionBatches.filter(function(b){return(b.batchId||'').toLowerCase().includes(query)||(b.linkedLotId||'').toLowerCase().includes(query)||(b.date||'').includes(query)||(b.vat||'').toLowerCase().includes(query);});
+  const matchDist=distRecords.filter(function(r){return(r.dist||'').toLowerCase().includes(query)||(r.batchIds||'').toLowerCase().includes(query)||(r.date||'').includes(query);});
+  const total=matchLots.length+matchBatches.length+matchDist.length;
   let html='';
-  if(matchLots.length){
-    html+='<div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:6px">🐄 Raw Milk Lots ('+matchLots.length+')</div>';
-    matchLots.forEach(r=>{html+=`<div class="recall-card recall-upstream"><div class="batch-id">${r.lotId||'No Lot'}</div><div style="font-size:13px;font-weight:700;color:var(--dark)">${_esc(r.supplier)}</div><div style="font-size:10px;color:var(--gray)">${r.date} · ${r.qty}L · Fat ${r.fat}% · SNF ${r.snf}% · Alcohol: ${r.alcohol||'?'}</div></div>`;});
+  if(total){
+    html='<div style="font-size:11px;color:var(--gray);margin-bottom:10px;text-align:center">'+total+' result'+(total===1?'':'s')+' for <b>"'+_esc(query)+'"</b></div>';
   }
-  if(matchBatches.length){
-    html+='<div style="font-size:12px;font-weight:700;color:var(--gold);margin:10px 0 6px">🧫 Batches ('+matchBatches.length+')</div>';
-    matchBatches.forEach(b=>{
-      const cups=b.stages.s5_fill?b.stages.s5_fill.cupsCount+' × '+b.stages.s5_fill.cupSize:'-';
-      const linked=distRecords.filter(d=>(d.batchIds||'').includes(b.batchId));
-      html+=`<div class="recall-card" style="border-left:4px solid var(--gold)"><div class="batch-id">${b.batchId} <span style="font-size:9px;background:${b.batchResult==='PASSED'?'#dcfce7':'#fee2e2'};color:${b.batchResult==='PASSED'?'var(--green)':'var(--red)'};padding:2px 6px;border-radius:6px;font-weight:700">${b.batchResult||b.status}</span></div><div style="font-size:10px;color:var(--gray)">${b.date} · Lot: ${b.linkedLotId||'-'} · Cups: ${cups}</div>${linked.length?'<div style="font-size:10px;color:var(--teal)">🚚 Dispatched to: '+linked.map(d=>d.dist).join(', ')+'</div>':'<div style="font-size:10px;color:var(--gray)">Not dispatched yet</div>'}</div>`;
-    });
+  html+=_recallSection('🐄 Raw Milk Lots',matchLots.map(_recallLotCard));
+  html+=_recallSection('🧫 Batches',matchBatches.map(_recallBatchCard));
+  html+=_recallSection('🚚 Distribution',matchDist.map(_recallDistCard));
+  if(!total)html='<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">No results for "'+_esc(query)+'"</div></div>';
+  el.innerHTML=html;
+}
+function renderRecallDefault(){
+  const el=document.getElementById('recallResults');if(!el)return;
+  // Show recent activity (last 5 records from each)
+  const recentLots=records.slice(0,3);
+  const recentBatches=productionBatches.slice(0,3);
+  if(!recentLots.length&&!recentBatches.length){
+    el.innerHTML='<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">Search by batch ID, lot, supplier or distributor name</div></div>';
+    return;
   }
-  if(matchDist.length){
-    html+='<div style="font-size:12px;font-weight:700;color:var(--teal);margin:10px 0 6px">🚚 Distribution ('+matchDist.length+')</div>';
-    matchDist.forEach(r=>{html+=`<div class="recall-card recall-downstream"><div style="font-size:13px;font-weight:700">${_esc(r.dist)}</div><div style="font-size:10px;color:var(--gray)">${r.date} · 200g:${r.c200} · 400g:${r.c400} · ₹${r.amount.toFixed(0)}</div></div>`;});
-  }
-  if(!html) html='<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">No results for "'+query+'"</div></div>';
+  let html='<div style="font-size:11px;color:var(--gray);margin-bottom:10px;text-align:center">Recent records — use search or quick filters above</div>';
+  html+=_recallSection('🐄 Recent Milk Lots',recentLots.map(_recallLotCard));
+  html+=_recallSection('🧫 Recent Batches',recentBatches.map(_recallBatchCard));
   el.innerHTML=html;
 }
 function recallQuick(type){
-  const inp=document.getElementById('recallInput'); if(!inp)return;
-  if(type==='batch') inp.value='b-';
-  else if(type==='lots') inp.value='rm-';
-  else if(type==='today') inp.value=todayStr();
+  const inp=document.getElementById('recallInput');if(!inp)return;
+  const today=new Date().toISOString().split('T')[0]; // YYYY-MM-DD — matches record date format
+  if(type==='batch')      inp.value='b-';
+  else if(type==='lots')  inp.value='rm-';
+  else if(type==='today') inp.value=today;
+  else if(type==='failed'){
+    // Show failed adulteration tests directly
+    const el=document.getElementById('recallResults');if(!el)return;
+    const failed=testRecords.filter(function(r){return r.overall==='fail';});
+    if(!failed.length){el.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">No failed adulteration tests on record</div></div>';inp.value='';return;}
+    inp.value='';
+    let html='<div style="font-size:11px;color:var(--gray);margin-bottom:10px;text-align:center">'+failed.length+' failed test'+(failed.length===1?'':'s')+' on record</div>';
+    html+='<div style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.6px;margin:8px 0;display:flex;align-items:center;gap:6px"><div style="flex:1;height:1px;background:#fecdd3"></div>❌ Failed Tests ('+failed.length+')<div style="flex:1;height:1px;background:#fecdd3"></div></div>';
+    html+=failed.map(function(r){
+      return'<div class="recall-card recall-alert" style="margin-bottom:8px">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">'+
+          '<div><div style="font-size:13px;font-weight:700;color:var(--dark)">'+_esc(r.supplier)+'</div>'+
+          '<div style="font-size:10px;color:var(--gray)">'+r.date+(r.qty?' · '+r.qty+'L':'')+'</div></div>'+
+          '<span style="background:#fee2e2;color:var(--red);font-size:10px;font-weight:700;padding:3px 8px;border-radius:8px">❌ FAILED</span>'+
+        '</div>'+
+        '<div style="font-size:11px;color:var(--red);font-weight:600">⚠️ '+r.failedTests.join(' · ')+'</div>'+
+      '</div>';
+    }).join('');
+    el.innerHTML=html;return;
+  }
   runRecall();
 }
 function _oldTodayStr(){ return new Date().toISOString().split('T')[0].replace(/-/g,''); }
