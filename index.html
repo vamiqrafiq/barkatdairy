@@ -1529,6 +1529,9 @@ function calcProc(){
   document.getElementById('p-decision').innerHTML=`<div class="alert alert-${dec.c==='green'?'green':dec.c==='gold'?'gold':'red'}">${dec.l} — Fat: ${fat}% | SNF: ${snf}% | Rate: ₹${rate}/L</div>`;
 }
 function saveProc(){
+  if(!camVerified){
+    showAlert('procAlert','alert-red','📷 Please verify the analyser reading with camera first');return;
+  }
   const supplier=document.getElementById('p-supplier').value.trim();
   const qty=parseFloat(document.getElementById('p-qty').value)||0;
   const fat=parseFloat(document.getElementById('p-fat').value)||0;
@@ -1539,11 +1542,29 @@ function saveProc(){
   }
   const rate=getRateFromTable(fat,snf);
   const total=qty*rate;
-  const rec={id:Date.now(),supplier,qty,fat,snf,rate,total,date,savedBy:currentUser?currentUser.name:'Staff'};
+  const lotId=genLotId(date);
+  const temp=parseFloat(document.getElementById('p-temp').value)||null;
+  const rec={id:Date.now(),lotId,supplier,qty,fat,snf,rate,total,date,temp,
+    alcohol:window._alcoholResult||'not-tested',
+    status:'in-storage',
+    savedBy:currentUser?currentUser.name:'Staff'};
   records.unshift(rec);
   store('records',records);
   saveSupplierName(supplier);
-  showAlert('procAlert','alert-green','✅ Entry saved successfully');
+  window._alcoholResult=null;
+  showAlert('procAlert','alert-green','✅ Saved · Lot ID: '+lotId);
+  // Reset form
+  ['p-supplier','p-qty','p-fat','p-snf','p-temp'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('p-date').value=new Date().toISOString().split('T')[0];
+  // Reset camera state
+  camVerified=false;
+  const vs=document.getElementById('camVerifyStatus');
+  if(vs){vs.textContent='📷 Camera verification required before saving';vs.style.cssText='background:#f8faff;color:var(--gray);border:1.5px dashed #e2e8f0';}
+  document.getElementById('saveProcBtn').disabled=true;
+  document.getElementById('saveProcBtn').style.opacity='0.4';
+  document.getElementById('p-rate').textContent='—';
+  document.getElementById('p-total').textContent='—';
+  document.getElementById('p-decision').innerHTML='';
   renderAllRecords();
 }
 function renderAllRecords(){
@@ -2084,7 +2105,7 @@ function removeUser(i){if(users[i].role==='admin')return;users.splice(i,1);store
 // ══════════════════════════════════════════
 function setToday(){
   const d=new Date().toISOString().split('T')[0];
-  ['p-date','d-date','t-date'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=d;});
+  ['p-date','d-date','t-date','inv-date','ret-date','cip-date'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=d;});
 }
 function showAlert(containerId,cls,msg){
   const el=document.getElementById(containerId);
@@ -2476,46 +2497,6 @@ function stopCamStream(){
 }
 
 // Override saveProc to embed photo
-const _origSaveProc=saveProc;
-function _oldSaveProc(){
-  if(!camVerified){
-    showAlert('procAlert','alert-red','📷 Please verify the analyser reading with camera first');
-    return;
-  }
-  // Temporarily store the photo data to embed after save
-  const supplier=document.getElementById('p-supplier').value.trim();
-  const qty=parseFloat(document.getElementById('p-qty').value)||0;
-  const fat=parseFloat(document.getElementById('p-fat').value)||0;
-  const snf=parseFloat(document.getElementById('p-snf').value)||0;
-  const date=document.getElementById('p-date').value;
-  if(!supplier||!qty||!fat||!snf||!date){
-    showAlert('procAlert','alert-red','⚠️ Please fill all fields');return;
-  }
-  const rate=getRateFromTable(fat,snf);
-  const total=qty*rate;
-  const lotId=genLotId(date);
-  const temp=parseFloat(document.getElementById('p-temp').value)||null;
-  const rec={id:Date.now(),lotId,supplier,qty,fat,snf,rate,total,date,temp,
-    alcohol:window._alcoholResult||'not-tested',
-    status:'in-storage',
-    savedBy:currentUser?currentUser.name:'Staff'};
-  records.unshift(rec);
-  store('records',records);
-  saveSupplierName(supplier);
-  window._alcoholResult=null;
-  showAlert('procAlert','alert-green','✅ Saved · Lot ID: '+lotId);
-  // Reset camera state
-  camVerified=false;
-  
-  // photo stripped
-  document.getElementById('camVerifyStatus').innerHTML='📷 Camera verification required before saving';
-  document.getElementById('camVerifyStatus').style.background='#f8faff';
-  document.getElementById('camVerifyStatus').style.color='var(--gray)';
-  document.getElementById('camVerifyStatus').style.border='1.5px dashed #e2e8f0';
-  document.getElementById('saveProcBtn').disabled=true;
-  document.getElementById('saveProcBtn').style.opacity='0.4';
-  renderAllRecords();
-}
 
 // ══════════════════════════════════════════
 // INVENTORY
@@ -2554,6 +2535,7 @@ function saveInvEntry(){
   document.getElementById('inv-recv').value='';
   document.getElementById('inv-used').value='';
   document.getElementById('inv-note').value='';
+  const invItemEl=document.getElementById('inv-item');if(invItemEl)invItemEl.selectedIndex=0;
   showAlert('invAlert','alert-green','✅ Stock updated');
   renderStockDashboard();
   renderInvLog();
@@ -3116,9 +3098,6 @@ function setAlcohol(result){
   if(fail) fail.style.cssText=result==='fail'?'flex:1;background:var(--red);color:#fff;border:2px solid var(--red)':'flex:1;background:#f3f4f6;color:var(--gray);border:2px solid #e5e7eb';
 }
 
-// ── Override saveProc to add lot ID + alcohol + temp ──
-const _baseSaveProc = saveProc;
-// saveProc already references genLotId in its body (patched earlier)
 
 // ════════════════════════════════════════════════════════════
 // BATCH TAB INIT
@@ -3631,7 +3610,20 @@ function startIncubTimer(batchId, startStr, endStr){
   update();
   window._incubTimer=setInterval(update,1000);
 }
-function updateIncubCountdown(b){}
+function updateIncubCountdown(b){
+  const inc=b&&b.stages&&b.stages.s6_incubate;
+  if(!inc||!inc.startTime)return;
+  const el=document.getElementById('s6-timer');
+  if(!el)return;
+  const [sh,sm]=inc.startTime.split(':').map(Number);
+  const startMs=new Date();startMs.setHours(sh,sm,0,0);
+  const remaining=Math.max(0,5-(Date.now()-startMs.getTime())/3600000);
+  const rh=Math.floor(remaining);
+  const rm=Math.floor((remaining-rh)*60);
+  const rs=Math.floor(((remaining-rh)*60-rm)*60);
+  el.textContent=String(rh).padStart(2,'0')+':'+String(rm).padStart(2,'0')+':'+String(rs).padStart(2,'0');
+  el.style.color=remaining<0.25?'#ff4444':remaining<0.5?'#f97316':'var(--gold)';
+}
 
 function calcBatchCost(b){
   try{
@@ -4007,6 +3999,7 @@ function saveReturn(){
   var reason=document.getElementById('ret-reason').value;
   var restock=document.getElementById('ret-restock').value;
   var notes=document.getElementById('ret-notes').value.trim();
+  if(!type){showAlert('retAlert','alert-red','⚠️ Select a return type');return;}
   if(!qty||!date){showAlert('retAlert','alert-red','⚠️ Enter quantity and date');return;}
 
   var rec={id:Date.now(),type:type,dist:dist,batch:batch,sku:sku,qty:qty,date:date,
@@ -4018,22 +4011,24 @@ function saveReturn(){
   // Restock if it's a good return
   if(type==='return' && restock==='yes' && (sku==='200g'||sku==='400g')){
     var invItem=sku==='200g'?'cups200':'cups400';
-    invEntries.unshift({id:Date.now()+1,item:invItem,date:date,recv:qty,used:0,
+    invEntries.unshift({id:Date.now()+Math.floor(Math.random()*1000),item:invItem,date:date,recv:qty,used:0,
       note:'Return restock from '+(dist||'distributor'),savedBy:currentUser?currentUser.name:'Staff'});
     store('invEntries',invEntries);
   }
   // Damaged cups reduce inventory
   if(type==='damage' && (sku==='200g'||sku==='400g')){
     var invItem2=sku==='200g'?'cups200':'cups400';
-    invEntries.unshift({id:Date.now()+2,item:invItem2,date:date,recv:0,used:qty,
+    invEntries.unshift({id:Date.now()+Math.floor(Math.random()*1000)+500,item:invItem2,date:date,recv:0,used:qty,
       note:'Damaged: '+reason,savedBy:currentUser?currentUser.name:'Staff'});
     store('invEntries',invEntries);
   }
   _audit('returns','add',rec.id,'','+'+qty+' '+sku+' '+type,reason);
   showAlert('retAlert','alert-green','✅ '+type+' recorded');
+  // Reset form fields and set date to today
+  ['ret-qty','ret-batch','ret-notes','ret-dist'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  var rd=document.getElementById('ret-date');if(rd)rd.value=new Date().toISOString().split('T')[0];
   renderReturns();
   if(typeof renderStockDashboard==='function')renderStockDashboard();
-  ['ret-qty','ret-batch','ret-notes','ret-dist'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
 }
 
 function renderReturns(){
