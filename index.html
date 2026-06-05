@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- bd-version: 20260605-11 -->
+<!-- bd-version: 20260605-12 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -1215,29 +1215,51 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
 
 <!-- ══ CIP LOG TAB ══ -->
 <div class="page" id="tab-cip">
-  <div class="hero">
-    <div class="hero-label">🧼 Cleaning Log (CIP)</div>
+
+  <!-- Hero — compliance status -->
+  <div class="hero" style="background:linear-gradient(135deg,#0f766e 0%,#0d9488 60%,#14b8a6 100%)">
+    <div class="hero-label">CIP — DAILY CLEANING LOG</div>
     <div class="gold-bar"></div>
-    <div class="hero-val" id="cipHeroVal">Log Cleaning</div>
-    <div class="hero-sub">Required daily for FSSAI compliance</div>
+    <div class="hero-val" id="cipHeroVal" style="font-size:20px">⏳ Checking…</div>
+    <div class="hero-sub" id="cipHeroSub">Required daily for FSSAI compliance</div>
   </div>
+
+  <!-- Compliance calendar — first, as the key overview -->
+  <div class="section">
+    <div class="sec-title">📅 Monthly Compliance</div>
+    <div id="cipCalendar"></div>
+  </div>
+
+  <!-- Log form -->
   <div class="section">
     <div class="sec-title">➕ Log Cleaning Cycle</div>
-    <div style="margin-bottom:9px"><label class="inp-label">Date</label><input type="date" id="cip-date"/></div>
-    <div style="margin-bottom:9px">
-      <label class="inp-label">Equipment Cleaned (tap all that apply)</label>
-      <div id="cip-equip-checks" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
-        <button class="btn btn-sm cip-eq-btn" data-eq="Pasteurizer" onclick="toggleCipEq(this)">Pasteurizer</button>
-        <button class="btn btn-sm cip-eq-btn" data-eq="Inoculation Vat" onclick="toggleCipEq(this)">Inoculation Vat</button>
-        <button class="btn btn-sm cip-eq-btn" data-eq="Cup Filler" onclick="toggleCipEq(this)">Cup Filler</button>
-        <button class="btn btn-sm cip-eq-btn" data-eq="Milk Silo/Tank" onclick="toggleCipEq(this)">Milk Silo/Tank</button>
-        <button class="btn btn-sm cip-eq-btn" data-eq="Pipes" onclick="toggleCipEq(this)">Pipes</button>
-        <button class="btn btn-sm cip-eq-btn" data-eq="Chiller/Cold Room" onclick="toggleCipEq(this)">Chiller/Cold Room</button>
-        <button class="btn btn-sm cip-eq-btn" data-eq="Packaging Area" onclick="toggleCipEq(this)">Packaging Area</button>
+
+    <!-- Today's status indicator -->
+    <div id="cip-today-status" style="margin-bottom:12px;padding:10px 12px;border-radius:10px;font-size:12px;font-weight:600;text-align:center"></div>
+
+    <!-- Step 1: Date & Equipment -->
+    <div style="font-size:9px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">① Date &amp; Equipment</div>
+    <div style="margin-bottom:10px">
+      <label class="inp-label">Date</label>
+      <input type="date" id="cip-date" oninput="updateCipStatus()"/>
+    </div>
+    <div style="margin-bottom:12px">
+      <label class="inp-label" style="margin-bottom:6px;display:block">Equipment Cleaned <span style="color:var(--gray);font-weight:400">(tap to select)</span></label>
+      <div id="cip-equip-checks" style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+        <button class="cip-eq-btn" data-eq="Pasteurizer"    onclick="toggleCipEq(this)" style="padding:10px 8px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s"><span style="font-size:16px">🔥</span><div style="font-size:11px;font-weight:700;color:var(--dark);margin-top:3px">Pasteurizer</div></button>
+        <button class="cip-eq-btn" data-eq="Inoculation Vat" onclick="toggleCipEq(this)" style="padding:10px 8px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s"><span style="font-size:16px">🧫</span><div style="font-size:11px;font-weight:700;color:var(--dark);margin-top:3px">Inoculation Vat</div></button>
+        <button class="cip-eq-btn" data-eq="Cup Filler"     onclick="toggleCipEq(this)" style="padding:10px 8px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s"><span style="font-size:16px">🥛</span><div style="font-size:11px;font-weight:700;color:var(--dark);margin-top:3px">Cup Filler</div></button>
+        <button class="cip-eq-btn" data-eq="Milk Silo/Tank" onclick="toggleCipEq(this)" style="padding:10px 8px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s"><span style="font-size:16px">🛢️</span><div style="font-size:11px;font-weight:700;color:var(--dark);margin-top:3px">Milk Silo/Tank</div></button>
+        <button class="cip-eq-btn" data-eq="Pipes"          onclick="toggleCipEq(this)" style="padding:10px 8px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s"><span style="font-size:16px">🔧</span><div style="font-size:11px;font-weight:700;color:var(--dark);margin-top:3px">Pipes</div></button>
+        <button class="cip-eq-btn" data-eq="Chiller/Cold Room" onclick="toggleCipEq(this)" style="padding:10px 8px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s"><span style="font-size:16px">❄️</span><div style="font-size:11px;font-weight:700;color:var(--dark);margin-top:3px">Chiller/Cold Room</div></button>
+        <button class="cip-eq-btn" data-eq="Packaging Area" onclick="toggleCipEq(this)" style="padding:10px 8px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s;grid-column:1/-1"><span style="font-size:16px">📦</span><div style="font-size:11px;font-weight:700;color:var(--dark);margin-top:3px">Packaging Area</div></button>
       </div>
     </div>
+
+    <!-- Step 2: Cleaning details -->
+    <div style="font-size:9px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">② Cleaning Details</div>
     <div class="grid2" style="margin-bottom:9px">
-      <div><label class="inp-label">Cleaning Agent</label><input type="text" id="cip-chem" placeholder="e.g. NaOH 2%"/></div>
+      <div><label class="inp-label">Cleaning Agent</label><input type="text" id="cip-chem" placeholder="e.g. NaOH"/></div>
       <div><label class="inp-label">Concentration</label><input type="text" id="cip-conc" placeholder="e.g. 2%"/></div>
     </div>
     <div class="grid2" style="margin-bottom:9px">
@@ -1248,21 +1270,20 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
       <div><label class="inp-label">Operator</label><input type="text" id="cip-op" placeholder="Name"/></div>
       <div><label class="inp-label">Supervisor</label><input type="text" id="cip-sup" placeholder="Name"/></div>
     </div>
-    <button class="btn btn-teal btn-full" onclick="saveCIP()">💾 Save CIP Log</button>
+
+    <button class="btn btn-full" onclick="saveCIP()" style="background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;font-size:14px;padding:14px;border-radius:12px;font-weight:700;box-shadow:0 3px 10px rgba(15,118,110,.35);margin-bottom:4px">💾 Save CIP Log</button>
     <div id="cipAlert" style="margin-top:8px"></div>
   </div>
-  <!-- Calendar -->
-  <div class="section">
-    <div class="sec-title">📅 Monthly Compliance Calendar</div>
-    <div id="cipCalendar"></div>
-  </div>
+
+  <!-- Recent records -->
   <div class="section">
     <div class="sec-title-row">
-      <div class="sec-title">📋 Recent CIP Records</div>
+      <div class="sec-title">📋 CIP Records</div>
       <span id="cipCount" style="font-size:11px;color:var(--gray)"></span>
     </div>
     <div id="cipList"></div>
   </div>
+
 </div>
 
 <!-- ══ DAILY SUMMARY TAB ══ -->
@@ -4322,8 +4343,27 @@ function _oldTodayStr(){ return new Date().toISOString().split('T')[0].replace(/
 const _selCipEq=new Set();
 function toggleCipEq(btn){
   const eq=btn.dataset.eq;
-  if(_selCipEq.has(eq)){_selCipEq.delete(eq);btn.style.background='';btn.style.color='';}
-  else{_selCipEq.add(eq);btn.style.background='var(--teal)';btn.style.color='#fff';}
+  if(_selCipEq.has(eq)){
+    _selCipEq.delete(eq);
+    btn.style.background='#fff';btn.style.borderColor='#e2e8f0';btn.style.color='';
+  } else {
+    _selCipEq.add(eq);
+    btn.style.background='#f0fdfa';btn.style.borderColor='var(--teal)';btn.style.color='var(--teal)';
+  }
+}
+function updateCipStatus(){
+  const date=document.getElementById('cip-date').value;
+  const statusEl=document.getElementById('cip-today-status');
+  if(!statusEl||!date)return;
+  const already=cipLogs.some(function(r){return r.date===date;});
+  const isToday=date===new Date().toISOString().split('T')[0];
+  if(already){
+    statusEl.textContent=(isToday?'✅ CIP already logged for today':'✅ CIP logged for '+date);
+    statusEl.style.cssText='margin-bottom:12px;padding:10px 12px;border-radius:10px;font-size:12px;font-weight:600;text-align:center;background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0';
+  } else {
+    statusEl.textContent=(isToday?'⚠️ CIP not yet logged for today — please log below':'📋 No CIP logged for '+date);
+    statusEl.style.cssText='margin-bottom:12px;padding:10px 12px;border-radius:10px;font-size:12px;font-weight:600;text-align:center;background:#fff8e7;color:#7a5a00;border:1px solid #fde68a';
+  }
 }
 function saveCIP(){
   const date=document.getElementById('cip-date').value;
@@ -4331,45 +4371,112 @@ function saveCIP(){
   const end=document.getElementById('cip-end').value;
   if(!date||!start||!end){showAlert('cipAlert','alert-red','⚠️ Fill date, start and end time');return;}
   const cipId='CIP-'+date.replace(/-/g,'')+'-'+String(cipLogs.filter(x=>x.cipId.includes(date.replace(/-/g,''))).length+1).padStart(3,'0');
-  cipLogs.unshift({id:Date.now(),cipId,date,equipment:[..._selCipEq],chem:document.getElementById('cip-chem').value,conc:document.getElementById('cip-conc').value,start,end,operator:document.getElementById('cip-op').value,supervisor:document.getElementById('cip-sup').value,savedBy:currentUser?currentUser.name:'Staff'});
+  cipLogs.unshift({id:Date.now(),cipId,date,equipment:[..._selCipEq],
+    chem:document.getElementById('cip-chem').value,
+    conc:document.getElementById('cip-conc').value,
+    start,end,
+    operator:document.getElementById('cip-op').value,
+    supervisor:document.getElementById('cip-sup').value,
+    savedBy:currentUser?currentUser.name:'Staff'});
   store('cipLogs',cipLogs);
   _selCipEq.clear();
-  document.querySelectorAll('.cip-eq-btn').forEach(b=>{b.style.background='';b.style.color='';});
-  ['cip-chem','cip-conc','cip-start','cip-end','cip-op','cip-sup'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.querySelectorAll('.cip-eq-btn').forEach(b=>{
+    b.style.background='#fff';b.style.borderColor='#e2e8f0';b.style.color='';
+  });
+  ['cip-chem','cip-conc','cip-start','cip-end','cip-op','cip-sup'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  // Reset date to today
+  const dateEl=document.getElementById('cip-date');
+  if(dateEl)dateEl.value=new Date().toISOString().split('T')[0];
   showAlert('cipAlert','alert-green','✅ CIP logged: '+cipId);
+  updateCipStatus();
   renderCIPList();
   renderCIPCalendar();
 }
 function renderCIPList(){
   const el=document.getElementById('cipList');
   const count=document.getElementById('cipCount');
-  if(count) count.textContent=cipLogs.length+' records';
-  if(!el) return;
+  if(count)count.textContent=cipLogs.length+' records';
+  if(!el)return;
   if(!cipLogs.length){el.innerHTML='<div class="empty"><div class="empty-icon">🧼</div><div class="empty-text">No CIP records yet</div></div>';return;}
-  el.innerHTML=cipLogs.slice(0,15).map(r=>`<div class="cip-card"><div style="display:flex;justify-content:space-between"><div style="font-size:11px;font-weight:700;color:#0f766e">${_esc(r.cipId)}</div><div style="font-size:10px;color:var(--gray)">${_esc(r.date)} · ${_esc(r.start)}–${_esc(r.end)}</div></div><div style="font-size:12px;font-weight:700;color:var(--dark);margin-top:2px">${_esc((r.equipment||[]).join(' · '))||'No equipment noted'}</div><div style="font-size:10px;color:var(--gray)">${_esc(r.chem||'-')} ${_esc(r.conc||'')} · Operator: ${_esc(r.operator||'-')} · Supervisor: ${_esc(r.supervisor||'-')}</div></div>`).join('');
+  const eqIcons={'Pasteurizer':'🔥','Inoculation Vat':'🧫','Cup Filler':'🥛','Milk Silo/Tank':'🛢️','Pipes':'🔧','Chiller/Cold Room':'❄️','Packaging Area':'📦'};
+  el.innerHTML=cipLogs.slice(0,15).map(r=>{
+    // Calculate duration
+    let dur='';
+    if(r.start&&r.end){
+      const [sh,sm]=r.start.split(':').map(Number);
+      const [eh,em]=r.end.split(':').map(Number);
+      const mins=(eh*60+em)-(sh*60+sm);
+      if(mins>0)dur=Math.floor(mins/60)+'h '+(mins%60)+'m';
+    }
+    const eqBadges=(r.equipment||[]).map(function(e){
+      return'<span style="display:inline-flex;align-items:center;gap:3px;background:#f0fdfa;color:var(--teal);font-size:10px;font-weight:600;padding:2px 7px;border-radius:8px;margin:2px 2px 0 0">'+(eqIcons[e]||'🔧')+' '+_esc(e)+'</span>';
+    }).join('');
+    return'<div class="cip-card" style="margin-bottom:10px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'+
+        '<div><div style="font-size:11px;font-weight:700;color:#0f766e;letter-spacing:.5px">'+_esc(r.cipId)+'</div>'+
+        '<div style="font-size:10px;color:var(--gray);margin-top:1px">'+_esc(r.date)+'</div></div>'+
+        '<div style="text-align:right">'+
+          '<div style="font-size:11px;font-weight:700;color:var(--dark)">'+_esc(r.start||'')+'–'+_esc(r.end||'')+'</div>'+
+          (dur?'<div style="font-size:10px;color:var(--teal)">⏱ '+dur+'</div>':'')+
+        '</div>'+
+      '</div>'+
+      '<div style="margin-bottom:6px">'+(eqBadges||'<span style="font-size:10px;color:var(--gray)">No equipment recorded</span>')+'</div>'+
+      '<div style="font-size:10px;color:var(--gray)">'+
+        (r.chem?'🧪 '+_esc(r.chem)+(r.conc?' '+_esc(r.conc):'')+'  ':'')+''+
+        (r.operator?'👤 '+_esc(r.operator)+'  ':'')+
+        (r.supervisor?'👁 '+_esc(r.supervisor):'')+'</div>'+
+    '</div>';
+  }).join('');
 }
 function renderCIPCalendar(){
-  const el=document.getElementById('cipCalendar'); if(!el) return;
+  const el=document.getElementById('cipCalendar');if(!el)return;
   const now=new Date();
-  const year=now.getFullYear(); const month=now.getMonth();
+  const year=now.getFullYear();const month=now.getMonth();
   const daysInMonth=new Date(year,month+1,0).getDate();
   const today=now.getDate();
-  const loggedDates=new Set(cipLogs.filter(r=>r.date&&r.date.startsWith(year+'-'+String(month+1).padStart(2,'0'))).map(r=>parseInt(r.date.split('-')[2])));
-  let h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:12px;font-weight:700;color:var(--dark)">'+now.toLocaleString('default',{month:'long'})+' '+year+'</div><div style="font-size:10px;color:var(--gray)"><span style="color:var(--green)">✅</span> Logged &nbsp;<span style="color:var(--red)">❌</span> Missing</div></div>';
-  h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">';
+  const prefix=year+'-'+String(month+1).padStart(2,'0');
+  const loggedDates=new Set(cipLogs.filter(r=>r.date&&r.date.startsWith(prefix)).map(r=>parseInt(r.date.split('-')[2])));
+  const pastDays=[...Array(today-1)].map((_,i)=>i+1);
+  const logged=pastDays.filter(d=>loggedDates.has(d)).length;
+  const pct=pastDays.length?Math.round(logged/pastDays.length*100):100;
+  const todayLogged=loggedDates.has(today);
+
+  // Update hero
+  const hv=document.getElementById('cipHeroVal');
+  const hs=document.getElementById('cipHeroSub');
+  if(hv)hv.textContent=todayLogged?'✅ Today Done':'⚠️ Not Done';
+  if(hs)hs.textContent=pct+'% compliant this month ('+logged+'/'+pastDays.length+' days)';
+
+  let h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'+
+    '<div style="font-size:12px;font-weight:700;color:var(--dark)">'+now.toLocaleString('default',{month:'long'})+' '+year+'</div>'+
+    '<div style="font-size:11px;font-weight:700;color:'+(pct===100?'var(--green)':pct>=80?'var(--gold)':'var(--red)')+'">'+pct+'% ✓</div>'+
+  '</div>';
+  h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px">';
   ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d=>{h+='<div style="text-align:center;font-size:9px;color:var(--gray);font-weight:700">'+d+'</div>';});
   const firstDay=new Date(year,month,1).getDay();
-  for(let i=0;i<firstDay;i++) h+='<div></div>';
+  for(let i=0;i<firstDay;i++)h+='<div></div>';
   for(let d=1;d<=daysInMonth;d++){
     const logged=loggedDates.has(d);
-    const isPast=d<today; const isToday=d===today;
-    const bg=logged?'#dcfce7':isPast?'#fee2e2':'#f3f4f6';
+    const isPast=d<today;const isToday=d===today;
+    const bg=logged?'#dcfce7':isPast?'#fee2e2':'#f8faff';
     const border=isToday?'2px solid var(--blue)':'1px solid transparent';
     const icon=logged?'✅':isPast?'❌':'';
-    h+='<div style="text-align:center;background:'+bg+';border-radius:6px;padding:4px 2px;border:'+border+'"><div style="font-size:9px;font-weight:700;color:var(--dark)">'+d+'</div><div style="font-size:8px">'+icon+'</div></div>';
+    h+='<div style="text-align:center;background:'+bg+';border-radius:6px;padding:5px 2px;border:'+border+'">'+
+      '<div style="font-size:9px;font-weight:700;color:var(--dark)">'+d+'</div>'+
+      '<div style="font-size:8px;line-height:1">'+icon+'</div></div>';
   }
   h+='</div>';
+  h+='<div style="display:flex;gap:12px;margin-top:8px;font-size:10px;color:var(--gray)">'+
+    '<span><span style="color:var(--green)">✅</span> Logged</span>'+
+    '<span><span style="color:var(--red)">❌</span> Missing</span>'+
+    '<span style="color:#bbb">□ Future</span>'+
+  '</div>';
   el.innerHTML=h;
+
+  // Update today's status
+  updateCipStatus();
 }
 
 // ════════════════════════════════════════════════════════════
