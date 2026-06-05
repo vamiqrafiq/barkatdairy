@@ -1408,7 +1408,7 @@ function acFilter(inputId, listId, storeKey){
   const data=storeKey==='savedSuppliers'?savedSuppliers:storeKey==='savedDistributors'?savedDistributors:[];
   let matches=val?data.filter(s=>s.toLowerCase().includes(val)):data;
   if(matches.length===0){list.classList.remove('show');return;}
-  list.innerHTML=matches.map(s=>`<div class="ac-item" onmousedown="acSelect('${inputId}','${listId}','${s.replace(/'/g,"\\'")}')">${s}</div>`).join('');
+  list.innerHTML=matches.map(s=>`<div class="ac-item" data-v="${_esc(s)}" onmousedown="acSelect('${inputId}','${listId}',this.dataset.v)">${_esc(s)}</div>`).join('');
   list.classList.add('show');
 }
 function acSelect(inputId,listId,val){
@@ -1608,7 +1608,7 @@ function showSlip(){
     <div class="slip-row"><span class="slip-row-label">Date</span><span class="slip-row-val">${date}</span></div>
     <div class="slip-row"><span class="slip-row-label">Slip No.</span><span class="slip-row-val">${slipNo}</span></div>
     <hr class="slip-divider"/>
-    <div class="slip-row"><span class="slip-row-label">Supplier</span><span class="slip-row-val">${supplier}</span></div>
+    <div class="slip-row"><span class="slip-row-label">Supplier</span><span class="slip-row-val">${_esc(supplier)}</span></div>
     <div class="slip-row"><span class="slip-row-label">Milk Qty</span><span class="slip-row-val">${qty} L</span></div>
     <div class="slip-row"><span class="slip-row-label">Fat %</span><span class="slip-row-val">${fat}%</span></div>
     <div class="slip-row"><span class="slip-row-label">SNF %</span><span class="slip-row-val">${snf}%</span></div>
@@ -2089,7 +2089,11 @@ function setToday(){
 function showAlert(containerId,cls,msg){
   const el=document.getElementById(containerId);
   if(!el)return;
-  el.innerHTML=`<div class="alert ${cls}">${msg}</div>`;
+  const div=document.createElement('div');
+  div.className='alert '+cls;
+  div.textContent=msg;
+  el.innerHTML='';
+  el.appendChild(div);
   setTimeout(()=>el.innerHTML='',3000);
 }
 function exportRecords(){
@@ -3740,7 +3744,7 @@ function renderCIPList(){
   if(count) count.textContent=cipLogs.length+' records';
   if(!el) return;
   if(!cipLogs.length){el.innerHTML='<div class="empty"><div class="empty-icon">🧼</div><div class="empty-text">No CIP records yet</div></div>';return;}
-  el.innerHTML=cipLogs.slice(0,15).map(r=>`<div class="cip-card"><div style="display:flex;justify-content:space-between"><div style="font-size:11px;font-weight:700;color:#0f766e">${r.cipId}</div><div style="font-size:10px;color:var(--gray)">${r.date} · ${r.start}–${r.end}</div></div><div style="font-size:12px;font-weight:700;color:var(--dark);margin-top:2px">${(r.equipment||[]).join(' · ')||'No equipment noted'}</div><div style="font-size:10px;color:var(--gray)">${r.chem||'-'} ${r.conc||''} · Operator: ${r.operator||'-'} · Supervisor: ${r.supervisor||'-'}</div></div>`).join('');
+  el.innerHTML=cipLogs.slice(0,15).map(r=>`<div class="cip-card"><div style="display:flex;justify-content:space-between"><div style="font-size:11px;font-weight:700;color:#0f766e">${_esc(r.cipId)}</div><div style="font-size:10px;color:var(--gray)">${_esc(r.date)} · ${_esc(r.start)}–${_esc(r.end)}</div></div><div style="font-size:12px;font-weight:700;color:var(--dark);margin-top:2px">${_esc((r.equipment||[]).join(' · '))||'No equipment noted'}</div><div style="font-size:10px;color:var(--gray)">${_esc(r.chem||'-')} ${_esc(r.conc||'')} · Operator: ${_esc(r.operator||'-')} · Supervisor: ${_esc(r.supervisor||'-')}</div></div>`).join('');
 }
 function renderCIPCalendar(){
   const el=document.getElementById('cipCalendar'); if(!el) return;
@@ -4031,11 +4035,11 @@ function renderReturns(){
       var icons={'return':'↩️','spillage':'💧','damage':'📦','sample':'🎁'};
       el.innerHTML=returnsLog.slice(0,20).map(function(r){
         return '<div class="cip-card" style="border-left-color:'+(r.type==='return'?'#c2410c':r.type==='sample'?'#7c3aed':'#dc2626')+'">'+
-          '<div style="display:flex;justify-content:space-between"><div style="font-size:12px;font-weight:700;color:var(--dark)">'+(icons[r.type]||'')+' '+r.type.toUpperCase()+'</div><div style="font-size:10px;color:var(--gray)">'+r.date+'</div></div>'+
-          '<div style="font-size:13px;font-weight:700;color:var(--dark);margin-top:2px">'+r.qty+' × '+r.sku+(r.dist?' · '+r.dist:'')+'</div>'+
-          '<div style="font-size:10px;color:var(--gray)">Reason: '+r.reason+(r.batch?' · Batch: '+r.batch:'')+'</div>'+
+          '<div style="display:flex;justify-content:space-between"><div style="font-size:12px;font-weight:700;color:var(--dark)">'+(icons[r.type]||'')+' '+_esc((r.type||'').toUpperCase())+'</div><div style="font-size:10px;color:var(--gray)">'+_esc(r.date)+'</div></div>'+
+          '<div style="font-size:13px;font-weight:700;color:var(--dark);margin-top:2px">'+_esc(String(r.qty||''))+' × '+_esc(r.sku||'')+(r.dist?' · '+_esc(r.dist):'')+'</div>'+
+          '<div style="font-size:10px;color:var(--gray)">Reason: '+_esc(r.reason||'')+(r.batch?' · Batch: '+_esc(r.batch):'')+'</div>'+
           (r.notes?'<div style="font-size:10px;color:var(--gray)">'+_esc(r.notes)+'</div>':'')+
-          '<div style="font-size:9px;color:#bbb;margin-top:2px">By: '+(r.savedBy||'-')+'</div>'+
+          '<div style="font-size:9px;color:#bbb;margin-top:2px">By: '+_esc(r.savedBy||'-')+'</div>'+
         '</div>';
       }).join('');
     }
@@ -4164,14 +4168,30 @@ function _audit(module, action, recordId, oldVal, newVal, reason){
 // ════════════════════════════════════════════════
 // DATA EXPORT / BACKUP
 // ════════════════════════════════════════════════
+// Safely format a value for CSV: quote strings containing commas/quotes/newlines,
+// and prefix formula-triggering characters to prevent formula injection.
+function csvField(v){
+  if(v==null)return'';
+  var s=String(v);
+  if(/^[=+\-@\t\r]/.test(s))s="'"+s;
+  if(s.includes(',')||s.includes('"')||s.includes('\n')||s.includes('\r'))
+    s='"'+s.replace(/"/g,'""')+'"';
+  return s;
+}
+
 function exportAllData(){
+  if(!currentUser||currentUser.role!=='admin'){
+    alert('Admin access required to export full backup.');return;
+  }
   var data={
     exported:new Date().toISOString(),
     business:'Barkat Dairy Plant',
     records:records,distRecords:distRecords,testRecords:testRecords,
     productionBatches:productionBatches,cipLogs:cipLogs,attRecords:attRecords,
     invEntries:invEntries,invOpening:invOpening,returnsLog:returnsLog,
-    paymentsLog:paymentsLog,auditLog:auditLog,settings:settings,users:users
+    paymentsLog:paymentsLog,auditLog:auditLog,settings:settings,
+    // Passwords are intentionally excluded from exports
+    users:users.map(function(u){return{username:u.username,role:u.role,name:u.name};})
   };
   var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   var url=URL.createObjectURL(blob);
@@ -4187,19 +4207,23 @@ function exportExcel(){
   rows.push('=== PROCUREMENT ===');
   rows.push('Lot ID,Date,Supplier,Qty(L),Fat%,SNF%,Rate,Total,Alcohol');
   records.forEach(function(r){
-    rows.push([r.lotId||'',r.date,r.supplier,r.qty,r.fat,r.snf,r.rate,r.total,r.alcohol||''].join(','));
+    rows.push([csvField(r.lotId),csvField(r.date),csvField(r.supplier),
+      csvField(r.qty),csvField(r.fat),csvField(r.snf),csvField(r.rate),
+      csvField(r.total),csvField(r.alcohol)].join(','));
   });
   rows.push('');
   rows.push('=== DISTRIBUTION ===');
   rows.push('Date,Distributor,200g,400g,Amount,Paid,Balance');
   distRecords.forEach(function(r){
-    rows.push([r.date,r.dist,r.c200,r.c400,r.amount,r.paid,r.balance].join(','));
+    rows.push([csvField(r.date),csvField(r.dist),csvField(r.c200),csvField(r.c400),
+      csvField(r.amount),csvField(r.paid),csvField(r.balance)].join(','));
   });
   rows.push('');
   rows.push('=== PAYMENTS ===');
   rows.push('Date,Distributor,Amount,Mode,Collected By');
   paymentsLog.forEach(function(p){
-    rows.push([p.date,p.dist,p.amount,p.mode,p.by||''].join(','));
+    rows.push([csvField(p.date),csvField(p.dist),csvField(p.amount),
+      csvField(p.mode),csvField(p.by)].join(','));
   });
   var blob=new Blob([rows.join('\n')],{type:'text/csv'});
   var url=URL.createObjectURL(blob);
