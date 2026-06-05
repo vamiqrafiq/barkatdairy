@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- bd-version: 20260605-5 -->
+<!-- bd-version: 20260605-6 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -724,31 +724,71 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
 
 <!-- ══ TESTING TAB ══ -->
 <div class="page" id="tab-test">
+
+  <!-- Hero -->
+  <div class="hero" style="background:linear-gradient(135deg,#0f766e 0%,#0369a1 70%,#1d4ed8 100%)">
+    <div class="hero-label">ADULTERATION TESTING</div>
+    <div class="gold-bar"></div>
+    <div style="display:flex;gap:16px;align-items:flex-end">
+      <div>
+        <div class="hero-val" id="test-hero-total">0</div>
+        <div class="hero-sub">tests done today</div>
+      </div>
+      <div style="padding-bottom:4px">
+        <span id="test-hero-pass" style="background:rgba(21,128,61,.35);color:#86efac;font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px;margin-right:5px">0 Clean</span>
+        <span id="test-hero-fail" style="background:rgba(185,28,28,.35);color:#fca5a5;font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px">0 Failed</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Test form -->
   <div class="section">
     <div class="sec-title">🔬 New Adulteration Test</div>
+
+    <!-- Supplier & Date -->
+    <div style="font-size:9px;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">① Sample Info</div>
     <div style="margin-bottom:10px">
       <label class="inp-label">Supplier / Sample Source</label>
       <div class="ac-wrap">
-        <input type="text" id="t-supplier" placeholder="Type name or initials…" autocomplete="off" oninput="acFilter('t-supplier','test-ac-list','savedSuppliers')" onfocus="acFilter('t-supplier','test-ac-list','savedSuppliers')"/>
+        <input type="text" id="t-supplier" placeholder="Type name or initials…" autocomplete="off"
+          oninput="acFilter('t-supplier','test-ac-list','savedSuppliers')"
+          onfocus="acFilter('t-supplier','test-ac-list','savedSuppliers')"/>
         <div class="ac-list" id="test-ac-list"></div>
       </div>
     </div>
-    <div class="grid2" style="margin-bottom:12px">
+    <div class="grid2" style="margin-bottom:14px">
       <div><label class="inp-label">Sample Qty (L)</label><input type="number" id="t-qty" placeholder="e.g. 5" min="0.1" step="0.1"/></div>
       <div><label class="inp-label">Date</label><input type="date" id="t-date"/></div>
     </div>
-    <div class="alert alert-gold" style="margin-bottom:12px">📋 Select PASS or FAIL for each test below. Red result = FAIL (adulteration detected)</div>
+
+    <!-- Tests -->
+    <div style="font-size:9px;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">② Run Tests</div>
+
+    <!-- Progress bar -->
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+        <span style="font-size:10px;font-weight:700;color:var(--gray)">Progress</span>
+        <span style="font-size:10px;font-weight:700;color:var(--blue)" id="testProgressLabel">0 / 9 recorded</span>
+      </div>
+      <div class="quality-bar" style="height:6px"><div class="quality-fill" id="testProgressBar" style="width:0%;background:var(--blue);transition:width .3s,background .3s"></div></div>
+    </div>
 
     <div id="testCards"></div>
 
+    <!-- Live overall result — shown when all tests done -->
+    <div id="testLiveResult" style="display:none;margin:10px 0;font-size:13px;font-weight:700;text-align:center;padding:12px;border-radius:12px"></div>
+
+    <!-- Notes & Save -->
+    <div style="font-size:9px;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light);margin-top:4px">③ Notes &amp; Save</div>
     <div style="margin-bottom:12px">
       <label class="inp-label">Additional Notes (optional)</label>
-      <textarea id="t-notes" rows="2" placeholder="Any observations…" style="resize:none"></textarea>
+      <textarea id="t-notes" rows="2" placeholder="Any observations, batch number, weather…" style="resize:none"></textarea>
     </div>
-    <button class="btn btn-primary btn-full" onclick="saveTest()">💾 Save Test Results</button>
+    <button class="btn btn-primary btn-full" onclick="saveTest()" style="padding:14px;font-size:14px">💾 Save Test Results</button>
     <div id="testAlert" style="margin-top:8px"></div>
   </div>
 
+  <!-- Test History -->
   <div class="section">
     <div class="sec-title-row">
       <div class="sec-title">📁 Test History</div>
@@ -756,6 +796,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
     </div>
     <div id="testHistory"><div class="empty"><div class="empty-icon">🔬</div><div class="empty-text">No tests recorded yet</div></div></div>
   </div>
+
 </div>
 
 <!-- ══ ADMIN TAB ══ -->
@@ -2229,21 +2270,69 @@ function printDistBill(){openBillPrintScreen();}  // old button fallback
 // ══════════════════════════════════════════
 function buildTestCards(){
   const container=document.getElementById('testCards');
-  container.innerHTML=TESTS.map(t=>`
-    <div class="test-card" id="card-${t.id}">
-      <div class="test-card-top"><div class="test-name">🧪 ${t.name}</div></div>
-      <div class="test-indicator">📋 ${t.steps.replace(/\n/g,'<br/>')}<br/><span style="color:var(--red)">⚠️ FAIL if: ${t.fail}</span></div>
-      <div class="test-toggle">
+  container.innerHTML=TESTS.map((t,i)=>`
+    <div class="test-card" id="card-${t.id}" style="border:1.5px solid #e2e8f0;transition:border-color .2s,background .2s">
+      <div class="test-card-top" style="margin-bottom:0">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--light);color:var(--blue);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div>
+          <div class="test-name" style="font-size:12px">${t.name}</div>
+        </div>
+        <button onclick="toggleTestSteps('${t.id}')" style="background:var(--light);border:none;color:var(--blue);font-size:10px;font-weight:700;cursor:pointer;padding:4px 8px;border-radius:7px;font-family:inherit;flex-shrink:0">Steps ▾</button>
+      </div>
+      <div id="steps-${t.id}" style="display:none;margin-top:8px">
+        <div class="test-indicator" style="font-size:11px">📋 ${t.steps.replace(/\n/g,'<br/>')}<br/><span style="color:var(--red);font-weight:600">⚠️ FAIL: ${t.fail}</span></div>
+      </div>
+      <div class="test-toggle" style="margin-top:10px">
         <button class="test-pass" id="pass-${t.id}" onclick="setTest('${t.id}','pass')">✅ PASS</button>
         <button class="test-fail" id="fail-${t.id}" onclick="setTest('${t.id}','fail')">❌ FAIL</button>
       </div>
     </div>`).join('');
+  updateTestProgress();
+}
+function toggleTestSteps(id){
+  const el=document.getElementById('steps-'+id);
+  if(!el)return;
+  const open=el.style.display!=='none';
+  el.style.display=open?'none':'block';
+  const btn=el.previousElementSibling&&el.previousElementSibling.querySelector('button');
+  // find the steps button via parent card
+  const card=document.getElementById('card-'+id);
+  if(card){const b=card.querySelector('[onclick^="toggleTestSteps"]');if(b)b.textContent=open?'Steps ▾':'Steps ▴';}
 }
 function setTest(id,result){
   const passBtn=document.getElementById('pass-'+id);
   const failBtn=document.getElementById('fail-'+id);
-  passBtn.className='test-pass'+(result==='pass'?' selected':'');
-  failBtn.className='test-fail'+(result==='fail'?' selected':'');
+  if(passBtn)passBtn.className='test-pass'+(result==='pass'?' selected':'');
+  if(failBtn)failBtn.className='test-fail'+(result==='fail'?' selected':'');
+  const card=document.getElementById('card-'+id);
+  if(card){
+    card.style.borderColor=result==='pass'?'var(--green)':'var(--red)';
+    card.style.background=result==='pass'?'#f0fdf4':'#fff1f2';
+  }
+  updateTestProgress();
+}
+function updateTestProgress(){
+  const results=getTestResults();
+  const done=Object.keys(results).length;
+  const failed=Object.values(results).filter(v=>v==='fail').length;
+  const total=TESTS.length;
+  const pct=(done/total)*100;
+  const bar=document.getElementById('testProgressBar');
+  const lbl=document.getElementById('testProgressLabel');
+  const live=document.getElementById('testLiveResult');
+  if(bar){bar.style.width=pct+'%';bar.style.background=failed>0?'var(--red)':done===total?'var(--green)':'var(--blue)';}
+  if(lbl)lbl.textContent=done+' / '+total+' recorded';
+  if(live){
+    if(done===total){
+      live.style.display='block';
+      live.style.background=failed?'#fff1f2':'#f0fdf4';
+      live.style.color=failed?'var(--red)':'var(--green)';
+      live.style.border='1.5px solid '+(failed?'#fecdd3':'#bbf7d0');
+      live.textContent=failed?'⚠️ '+failed+' test'+(failed===1?'':'s')+' FAILED — Adulteration likely detected':'✅ All '+total+' tests PASSED — Milk appears clean';
+    }else{
+      live.style.display='none';
+    }
+  }
 }
 function getTestResults(){
   const results={};
@@ -2258,7 +2347,10 @@ function resetTestCards(){
   TESTS.forEach(t=>{
     const p=document.getElementById('pass-'+t.id);const f=document.getElementById('fail-'+t.id);
     if(p)p.className='test-pass';if(f)f.className='test-fail';
+    const card=document.getElementById('card-'+t.id);
+    if(card){card.style.borderColor='#e2e8f0';card.style.background='#fff';}
   });
+  updateTestProgress();
 }
 function saveTest(){
   const supplier=document.getElementById('t-supplier').value.trim();
@@ -2279,27 +2371,47 @@ function saveTest(){
   document.getElementById('t-supplier').value='';
   document.getElementById('t-qty').value='';
   document.getElementById('t-notes').value='';
+  document.getElementById('t-date').value=new Date().toISOString().split('T')[0];
   resetTestCards();
   renderTestHistory();
 }
 function renderTestHistory(){
   const el=document.getElementById('testHistory');
   const badge=document.getElementById('testSummaryBadge');
+  // Update hero
+  const today=new Date().toISOString().split('T')[0];
+  const todayRecs=testRecords.filter(r=>r.date===today);
+  const todayFail=todayRecs.filter(r=>r.overall==='fail').length;
+  const heroTotal=document.getElementById('test-hero-total');
+  const heroPass=document.getElementById('test-hero-pass');
+  const heroFail=document.getElementById('test-hero-fail');
+  if(heroTotal)heroTotal.textContent=todayRecs.length;
+  if(heroPass)heroPass.textContent=(todayRecs.length-todayFail)+' Clean';
+  if(heroFail)heroFail.textContent=todayFail+' Failed';
+
   if(testRecords.length===0){el.innerHTML='<div class="empty"><div class="empty-icon">🔬</div><div class="empty-text">No tests recorded yet</div></div>';badge.textContent='';return;}
   const failCount=testRecords.filter(r=>r.overall==='fail').length;
-  badge.textContent=`${testRecords.length} total · ${failCount} failed`;
-  el.innerHTML=testRecords.map(r=>`
-    <div class="test-history-item">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <div style="font-size:13px;font-weight:700;color:var(--dark)">${_esc(r.supplier)}</div>
-        <span class="${r.overall==='pass'?'test-overall-pass':'test-overall-fail'}">${r.overall==='pass'?'✅ CLEAN':'❌ ADULTERATED'}</span>
+  badge.textContent=testRecords.length+' total · '+failCount+' failed';
+  el.innerHTML=testRecords.map(r=>{
+    const pass=r.overall==='pass';
+    const dots=TESTS.map(t=>{
+      const res=r.results&&r.results[t.id];
+      return`<span title="${t.name}" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${res==='pass'?'var(--green)':res==='fail'?'var(--red)':'#e5e7eb'};margin:1px"></span>`;
+    }).join('');
+    return`<div class="test-history-item" style="border-left-color:${pass?'var(--green)':'var(--red)'}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--dark)">${_esc(r.supplier)}</div>
+          <div style="font-size:10px;color:var(--gray);margin-top:1px">${r.date}${r.qty?' · '+r.qty+'L':''} · by ${_esc(r.savedBy||'Staff')}</div>
+        </div>
+        <span class="${pass?'test-overall-pass':'test-overall-fail'}">${pass?'✅ CLEAN':'❌ FAILED'}</span>
       </div>
-      <div style="font-size:10px;color:var(--gray);margin-bottom:6px">${r.date}${r.qty?' · '+r.qty+'L':''}</div>
-      ${r.overall==='fail'?`<div style="font-size:11px;color:var(--red);background:#fff1f2;padding:6px 8px;border-radius:8px;margin-bottom:4px">⚠️ Failed: ${r.failedTests.join(', ')}</div>`:''}
-      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px">${TESTS.map(t=>r.results[t.id]?`<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:${r.results[t.id]==='pass'?'#f0fdf4':'#fff1f2'};color:${r.results[t.id]==='pass'?'var(--green)':'var(--red)'}">${t.name.split(' ')[0]}: ${r.results[t.id].toUpperCase()}</span>`:'').join('')}</div>
-      ${r.notes?`<div style="font-size:10px;color:var(--gray);font-style:italic">${_esc(r.notes)}</div>`:''}
-      <div style="font-size:9px;color:#bbb;margin-top:4px">By: ${r.savedBy||'Staff'}</div>
-    </div>`).join('');
+      <!-- dot grid: one dot per test, green=pass red=fail grey=not recorded -->
+      <div style="margin-bottom:${r.overall==='fail'?'6':'4'}px;display:flex;gap:2px;flex-wrap:wrap">${dots}</div>
+      ${!pass?`<div style="font-size:11px;color:var(--red);background:#fff1f2;padding:6px 9px;border-radius:8px;margin-bottom:4px;font-weight:600">⚠️ ${r.failedTests.join(' · ')}</div>`:''}
+      ${r.notes?`<div style="font-size:10px;color:var(--gray);font-style:italic;margin-top:2px">"${_esc(r.notes)}"</div>`:''}
+    </div>`;
+  }).join('');
 }
 
 // ══════════════════════════════════════════
