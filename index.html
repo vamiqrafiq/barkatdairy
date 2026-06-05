@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- bd-version: 20260605-7 -->
+<!-- bd-version: 20260605-8 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -1250,28 +1250,84 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
 
 <!-- ══ DAILY SUMMARY TAB ══ -->
 <div class="page" id="tab-summary">
+
+  <!-- Hero -->
   <div class="hero">
-    <div class="hero-label">📊 Daily Summary</div>
+    <div class="hero-label">DAILY SUMMARY</div>
     <div class="gold-bar"></div>
-    <div class="hero-val" id="summaryDate">Today</div>
-    <div class="hero-sub">Auto-generated production report</div>
+    <div class="hero-val" id="sum-hero-milk">— L</div>
+    <div class="hero-sub" id="sum-hero-sub">milk processed · select a date below</div>
   </div>
-  <div style="display:flex;gap:8px;margin-bottom:10px">
+
+  <!-- Date picker + PDF -->
+  <div style="display:flex;gap:8px;margin-bottom:12px">
     <input type="date" id="summaryDatePicker" style="flex:1" onchange="renderSummary()"/>
-    <button class="btn btn-gold btn-sm" onclick="downloadSummaryPDF()">⬇️ PDF</button>
+    <button class="btn btn-gold btn-sm" onclick="downloadSummaryPDF()" style="white-space:nowrap">⬇️ PDF</button>
   </div>
-  <div class="grid2" style="margin-bottom:10px">
-    <div class="sum-metric"><div class="sum-metric-val" id="sum-batches">0</div><div class="sum-metric-label">Batches</div></div>
-    <div class="sum-metric"><div class="sum-metric-val" id="sum-yield">0%</div><div class="sum-metric-label">Yield %</div></div>
-    <div class="sum-metric"><div class="sum-metric-val" id="sum-cups200">0</div><div class="sum-metric-label">200g Passed</div></div>
-    <div class="sum-metric"><div class="sum-metric-val" id="sum-cups400">0</div><div class="sum-metric-label">400g Passed</div></div>
-    <div class="sum-metric"><div class="sum-metric-val" id="sum-rejected">0</div><div class="sum-metric-label">Rejected</div></div>
-    <div class="sum-metric"><div class="sum-metric-val" id="sum-milk">0L</div><div class="sum-metric-label">Milk In</div></div>
+
+  <!-- Alerts -->
+  <div id="sum-alerts" style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:6px"></div>
+
+  <!-- Key metrics — two rows of 3 -->
+  <div class="grid3" style="margin-bottom:8px">
+    <div class="sum-metric">
+      <div class="sum-metric-val" id="sum-milk" style="font-size:20px">—</div>
+      <div class="sum-metric-label">Milk In (L)</div>
+    </div>
+    <div class="sum-metric">
+      <div class="sum-metric-val" id="sum-cost" style="font-size:16px;color:var(--red)">—</div>
+      <div class="sum-metric-label">Milk Cost</div>
+    </div>
+    <div class="sum-metric">
+      <div class="sum-metric-val" id="sum-revenue" style="font-size:16px;color:var(--green)">—</div>
+      <div class="sum-metric-label">Revenue</div>
+    </div>
   </div>
-  <div class="section"><div class="sec-title">⚠️ Alerts</div><div id="sum-alerts"></div></div>
-  <div class="section"><div class="sec-title">🧫 Batches</div><div id="sum-batch-list"></div></div>
-  <div class="section"><div class="sec-title">🐄 Procurement</div><div id="sum-proc-list"></div></div>
-  <div class="section"><div class="sec-title">🚚 Distribution</div><div id="sum-dist-list"></div></div>
+  <div class="grid3" style="margin-bottom:10px">
+    <div class="sum-metric">
+      <div class="sum-metric-val" id="sum-cups200">—</div>
+      <div class="sum-metric-label">200g Cups</div>
+    </div>
+    <div class="sum-metric">
+      <div class="sum-metric-val" id="sum-cups400">—</div>
+      <div class="sum-metric-label">400g Cups</div>
+    </div>
+    <div class="sum-metric">
+      <div class="sum-metric-val" id="sum-batches">—</div>
+      <div class="sum-metric-label">Batches</div>
+    </div>
+  </div>
+
+  <!-- P&L bar -->
+  <div id="sum-pnl" style="display:none;border-radius:14px;padding:14px 16px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <span style="font-size:11px;font-weight:700;color:inherit;opacity:.75;text-transform:uppercase;letter-spacing:.5px">Net P&amp;L (Revenue − Milk Cost)</span>
+      <span id="sum-pnl-val" style="font-size:22px;font-weight:700"></span>
+    </div>
+    <div style="font-size:10px;opacity:.7" id="sum-pnl-note"></div>
+  </div>
+
+  <!-- Sections -->
+  <div class="section">
+    <div class="sec-title">🐄 Procurement</div>
+    <div id="sum-proc-list"></div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">🚚 Distribution</div>
+    <div id="sum-dist-list"></div>
+  </div>
+
+  <div class="section" id="sum-test-section" style="display:none">
+    <div class="sec-title">🔬 Adulteration Tests</div>
+    <div id="sum-test-list"></div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">🧫 Batches</div>
+    <div id="sum-batch-list"></div>
+  </div>
+
 </div>
 
 
@@ -4190,50 +4246,105 @@ function renderCIPCalendar(){
 // ════════════════════════════════════════════════════════════
 function renderSummary(){
   const picker=document.getElementById('summaryDatePicker');
-  const date=picker?picker.value:new Date().toISOString().split('T')[0];
-  const dateEl=document.getElementById('summaryDate');
-  if(dateEl) dateEl.textContent=date===new Date().toISOString().split('T')[0]?'Today':date;
+  const today=new Date().toISOString().split('T')[0];
+  const date=picker&&picker.value?picker.value:today;
+  const isToday=date===today;
+
   const dayB=productionBatches.filter(b=>b.date===date);
   const dayP=records.filter(r=>r.date===date);
   const dayD=distRecords.filter(r=>r.date===date);
-  let passed200=0,passed400=0,rejected=0,totalFilled=0,milkIn=0;
+  const dayT=testRecords.filter(r=>r.date===date);
+
+  // Totals
+  const milkIn=dayP.length?dayP.reduce((a,r)=>a+r.qty,0):
+    dayB.reduce((a,b)=>a+(parseFloat(b.stages.s1_standardize&&b.stages.s1_standardize.vol)||0),0);
+  const costIn=dayP.reduce((a,r)=>a+r.total,0);
+  const distRevenue=dayD.reduce((a,r)=>a+r.amount,0);
+  const net=distRevenue-costIn;
+  let passed200=0,passed400=0,rejected=0;
   dayB.forEach(b=>{
-    if(b.stages.s5_fill) totalFilled+=parseInt(b.stages.s5_fill.cupsCount||0);
     if(b.stages.s7_qc){
-      const fill=b.stages.s5_fill;
-      const sz=fill?fill.cupSize:'200g';
+      const fill=b.stages.s5_fill;const sz=fill?fill.cupSize:'200g';
       const p=parseInt(b.stages.s7_qc.cupsPassed||0);
-      if(sz==='200g') passed200+=p; else if(sz==='400g') passed400+=p; else{passed200+=Math.floor(p/2);passed400+=Math.ceil(p/2);}
+      if(sz==='200g')passed200+=p;else if(sz==='400g')passed400+=p;
+      else{passed200+=Math.floor(p/2);passed400+=Math.ceil(p/2);}
       rejected+=parseInt(b.stages.s7_qc.cupsRejected||0);
     }
-    if(b.stages.s1_standardize) milkIn+=parseFloat(b.stages.s1_standardize.vol||0);
   });
-  if(!milkIn) milkIn=dayP.reduce((a,r)=>a+r.qty,0);
-  const yield_pct=totalFilled>0?Math.round((passed200+passed400)/totalFilled*100):'—';
+
+  // Hero
+  const heroMilk=document.getElementById('sum-hero-milk');
+  const heroSub=document.getElementById('sum-hero-sub');
+  if(heroMilk)heroMilk.textContent=milkIn?milkIn+' L':'— L';
+  if(heroSub)heroSub.textContent=(isToday?"Today's":'')+(milkIn?' milk · ₹'+costIn.toFixed(0)+' cost':' no data yet');
+
+  // Metrics
   const setText=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
-  setText('sum-batches',dayB.length);
-  setText('sum-yield',yield_pct+(typeof yield_pct==='number'?'%':''));
+  setText('sum-milk',milkIn||'—');
+  setText('sum-cost',costIn?'₹'+costIn.toFixed(0):'—');
+  setText('sum-revenue',distRevenue?'₹'+distRevenue.toFixed(0):'—');
   setText('sum-cups200',passed200||'—');
   setText('sum-cups400',passed400||'—');
-  setText('sum-rejected',rejected||0);
-  setText('sum-milk',milkIn>0?milkIn+'L':'—');
+  setText('sum-batches',dayB.length||'—');
+
+  // P&L bar
+  const pnlEl=document.getElementById('sum-pnl');
+  const pnlVal=document.getElementById('sum-pnl-val');
+  const pnlNote=document.getElementById('sum-pnl-note');
+  if(pnlEl&&(costIn||distRevenue)){
+    pnlEl.style.display='block';
+    const pos=net>=0;
+    pnlEl.style.background=pos?'linear-gradient(135deg,#15803d,#16a34a)':'linear-gradient(135deg,#b91c1c,#dc2626)';
+    pnlEl.style.color='#fff';
+    if(pnlVal)pnlVal.textContent=(pos?'₹':'−₹')+Math.abs(net).toFixed(0);
+    if(pnlNote)pnlNote.textContent='Revenue ₹'+distRevenue.toFixed(0)+' − Milk Cost ₹'+costIn.toFixed(0)+(rejected?' · '+rejected+' cups rejected':'');
+  }else if(pnlEl)pnlEl.style.display='none';
+
+  // Alerts
   const alertsEl=document.getElementById('sum-alerts');
   if(alertsEl){
     const chips=[];
-    if(!dayB.length) chips.push('<span class="alert-chip warn">⚠️ No batches recorded</span>');
-    dayB.forEach(b=>{if(b.stages.s7_qc){const ph=parseFloat(b.stages.s7_qc.finalPH);if(ph&&(ph<4.4||ph>4.8))chips.push('<span class="alert-chip">❌ '+b.batchId+' pH out of range ('+ph+')</span>');}});
-    if(dayP.some(r=>r.alcohol==='fail')) chips.push('<span class="alert-chip">❌ Failed alcohol test today</span>');
-    const hasCip=cipLogs.some(r=>r.date===date);
-    if(!hasCip) chips.push('<span class="alert-chip warn">⚠️ No CIP log for today</span>');
-    if(!chips.length) chips.push('<span class="alert-chip ok">✅ All clear</span>');
+    if(!dayB.length)chips.push('<span class="alert-chip warn">⚠️ No batches today</span>');
+    dayB.forEach(b=>{if(b.stages.s7_qc){const ph=parseFloat(b.stages.s7_qc.finalPH);if(ph&&(ph<4.4||ph>4.8))chips.push('<span class="alert-chip">❌ '+b.batchId+' pH '+ph+'</span>');}});
+    if(dayP.some(r=>r.alcohol==='fail'))chips.push('<span class="alert-chip">❌ Alcohol test failed</span>');
+    if(!cipLogs.some(r=>r.date===date))chips.push('<span class="alert-chip warn">⚠️ No CIP logged</span>');
+    if(rejected>0)chips.push('<span class="alert-chip warn">⚠️ '+rejected+' cups rejected</span>');
+    if(dayT.some(r=>r.overall==='fail'))chips.push('<span class="alert-chip">❌ Adulteration detected</span>');
+    if(!chips.length)chips.push('<span class="alert-chip ok">✅ All clear</span>');
     alertsEl.innerHTML=chips.join('');
   }
-  const bEl=document.getElementById('sum-batch-list');
-  if(bEl) bEl.innerHTML=dayB.length?dayB.map(b=>`<div class="row"><span class="rl">${b.batchId} · ${b.vat||'Vat'}</span><span class="rv ${b.batchResult==='PASSED'?'green':b.status==='active'?'gold':'red'}">${b.batchResult||b.status}</span></div>`).join(''):'<div class="empty"><div class="empty-icon">🧫</div><div class="empty-text">No batches</div></div>';
+
+  // Procurement
   const pEl=document.getElementById('sum-proc-list');
-  if(pEl) pEl.innerHTML=dayP.length?dayP.map(r=>`<div class="row"><span class="rl">${r.lotId||'-'} · ${_esc(r.supplier)} · ${r.qty}L</span><span class="rv">₹${r.total.toFixed(0)}</span></div>`).join(''):' <div class="empty"><div class="empty-icon">🐄</div><div class="empty-text">No procurement</div></div>';
+  if(pEl)pEl.innerHTML=dayP.length?dayP.map(r=>{
+    const alcBadge=r.alcohol==='pass'?'<span style="background:#dcfce7;color:#15803d;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px">✅ Alc</span>':r.alcohol==='fail'?'<span style="background:#fee2e2;color:#b91c1c;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px">❌ Alc</span>':'';
+    return`<div class="row"><span class="rl"><span style="font-size:10px;color:var(--blue);font-weight:600">${r.lotId||'—'}</span> · ${_esc(r.supplier)} · ${r.qty}L${alcBadge}</span><span class="rv blue">₹${r.total.toFixed(0)}</span></div>`;
+  }).join(''):'<div class="empty"><div class="empty-icon">🐄</div><div class="empty-text">No procurement</div></div>';
+
+  // Distribution
   const dEl=document.getElementById('sum-dist-list');
-  if(dEl) dEl.innerHTML=dayD.length?dayD.map(r=>`<div class="row"><span class="rl">${_esc(r.dist)} · ${r.c200+r.c400} cups</span><span class="rv">₹${r.amount.toFixed(0)}</span></div>`).join(''):'<div class="empty"><div class="empty-icon">🚚</div><div class="empty-text">No distribution</div></div>';
+  if(dEl)dEl.innerHTML=dayD.length?dayD.map(r=>{
+    const balBadge=r.balance>0?`<span style="font-size:9px;color:var(--red);font-weight:700;margin-left:4px">Bal ₹${r.balance.toFixed(0)}</span>`:'<span style="font-size:9px;color:var(--green);font-weight:700;margin-left:4px">✅</span>';
+    return`<div class="row"><span class="rl">${_esc(r.dist)} · ${r.c200+r.c400} cups${balBadge}</span><span class="rv">₹${r.amount.toFixed(0)}</span></div>`;
+  }).join(''):'<div class="empty"><div class="empty-icon">🚚</div><div class="empty-text">No distribution</div></div>';
+
+  // Testing
+  const tSec=document.getElementById('sum-test-section');
+  const tEl=document.getElementById('sum-test-list');
+  if(tSec)tSec.style.display=dayT.length?'block':'none';
+  if(tEl&&dayT.length)tEl.innerHTML=dayT.map(r=>`<div class="row">
+    <span class="rl">${_esc(r.supplier)}${r.qty?' · '+r.qty+'L':''}</span>
+    <span class="rv ${r.overall==='pass'?'green':'red'}">${r.overall==='pass'?'✅ Clean':'❌ Failed'}</span>
+  </div>${r.overall==='fail'&&r.failedTests.length?`<div style="font-size:10px;color:var(--red);padding:3px 0 5px;border-bottom:1px solid #fee2e2">⚠️ ${r.failedTests.join(' · ')}</div>`:''}`).join('');
+
+  // Batches
+  const bEl=document.getElementById('sum-batch-list');
+  if(bEl)bEl.innerHTML=dayB.length?dayB.map(b=>{
+    const fill=b.stages.s5_fill;
+    const cups=fill?fill.cupsCount+' × '+(fill.cupSize||'?'):'no fill yet';
+    const resColor=b.batchResult==='PASSED'?'green':b.status==='active'?'gold':'red';
+    return`<div class="row"><span class="rl">${b.batchId} · ${b.vat||'Vat'}<br/><span style="font-size:9px;color:var(--gray)">${cups}</span></span><span class="rv ${resColor}">${b.batchResult||b.status||'—'}</span></div>`;
+  }).join(''):'<div class="empty"><div class="empty-icon">🧫</div><div class="empty-text">No batches</div></div>';
 }
 function downloadSummaryPDF(){
   const picker=document.getElementById('summaryDatePicker');
