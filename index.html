@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- bd-version: 20260605-2 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -4213,5 +4214,44 @@ function exportExcel(){
 <script>setTimeout(_initFB,500);</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script async src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── AUTO-UPDATE CHECKER ──────────────────────────────────────────────────────
+(function(){
+  var VERSION_RE=/<!--\s*bd-version:\s*([^\s-]+(?:-\d+)?)\s*-->/;
+  var currentVersion=(document.documentElement.outerHTML.match(VERSION_RE)||[])[1]||'';
+  var bannerShown=false;
+
+  function showUpdateBanner(){
+    if(bannerShown||document.getElementById('_bdUpdateBanner'))return;
+    bannerShown=true;
+    var b=document.createElement('div');
+    b.id='_bdUpdateBanner';
+    b.style.cssText='position:fixed;bottom:72px;left:50%;transform:translateX(-50%);'+
+      'background:#0d1b4b;color:#fff;padding:11px 16px;border-radius:14px;'+
+      'font-size:12px;font-weight:600;z-index:99999;display:flex;align-items:center;'+
+      'gap:12px;box-shadow:0 4px 20px rgba(0,0,0,0.35);max-width:340px;width:92%;'+
+      'border:1px solid rgba(196,154,42,0.4)';
+    b.innerHTML='🔄 New version available!'+
+      '<button onclick="location.reload(true)" style="background:#c49a2a;color:#1a0000;'+
+      'border:none;border-radius:9px;padding:6px 12px;font-size:11px;font-weight:700;'+
+      'cursor:pointer;font-family:inherit;flex-shrink:0">Update Now</button>';
+    document.body.appendChild(b);
+  }
+
+  function check(){
+    fetch(location.pathname+'?_ck='+Date.now(),{cache:'no-store'})
+      .then(function(r){return r.text();})
+      .then(function(html){
+        var m=html.match(VERSION_RE);
+        if(m&&m[1]&&currentVersion&&m[1]!==currentVersion) showUpdateBanner();
+      })
+      .catch(function(){});
+  }
+
+  // First check after 1 minute, then every 5 minutes
+  setTimeout(check, 60*1000);
+  setInterval(check, 5*60*1000);
+})();
+</script>
 </body>
 </html>
