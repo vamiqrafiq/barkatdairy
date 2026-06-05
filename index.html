@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- bd-version: 20260605-17 -->
+<!-- bd-version: 20260605-18 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -9,9 +9,19 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#0d1b4b;overflow:hidden}
-:root{--blue:#1a3a8f;--dark:#0d1b4b;--mid:#2451b3;--light:#e8eef8;--gold:#c49a2a;--gold-l:#fff8e7;--green:#15803d;--red:#b91c1c;--gray:#6b7280;--white:#fff;--teal:#0f766e}
+:root{--blue:#1a3a8f;--dark:#0d1b4b;--mid:#2451b3;--light:#e8eef8;--gold:#c49a2a;--gold-l:#fff8e7;--green:#15803d;--red:#b91c1c;--gray:#6b7280;--white:#fff;--teal:#0f766e;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+  --shadow-md:0 4px 12px rgba(0,0,0,.1),0 2px 4px rgba(0,0,0,.06);
+  --radius:14px;--radius-sm:10px;--radius-xs:8px}
 
-.app{display:flex;flex-direction:column;height:100vh;max-width:440px;margin:0 auto;background:#f2f5fb;position:relative;overflow:hidden}
+.app{display:flex;flex-direction:column;height:100vh;max-width:440px;margin:0 auto;background:#f0f4fb;position:relative;overflow:hidden}
+
+/* Global transitions */
+.btn{transition:all .15s ease;transform:translateZ(0)}
+.btn:active{transform:scale(0.97) translateZ(0)}
+.section{border-radius:var(--radius);box-shadow:var(--shadow-sm)}
+input:focus,select:focus,textarea:focus{box-shadow:0 0 0 3px rgba(26,58,143,.12)}
+.modal{border-radius:20px 20px 0 0;box-shadow:0 -4px 24px rgba(0,0,0,.15)}
 
 /* LOGIN */
 .login-screen{position:fixed;inset:0;background:linear-gradient(160deg,#0d1b4b 0%,#1a3a8f 60%,#2451b3 100%);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:1.5rem 1.5rem 2rem;z-index:100;overflow-y:auto;-webkit-overflow-scrolling:touch;transition:opacity 0.4s}
@@ -396,19 +406,19 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
   <div class="tabbar">
     <button class="tab active" onclick="goTab('ops',this)">⚙️ Operations</button>
     <button class="tab" onclick="goTab('proc',this)">🐄 Procurement</button>
-    <button class="tab" onclick="goTab('dist',this)">🚚 Distribution</button>
     <button class="tab" onclick="goTab('test',this)">🔬 Testing</button>
-    <button class="tab" onclick="goTab('inv',this)">📦 Inventory</button>
     <button class="tab" onclick="goTab('batch',this);initBatchTab()">🧫 Batches</button>
-    <button class="tab" onclick="goTab('recall',this);initRecall()">🔍 Recall</button>
+    <button class="tab" onclick="goTab('dist',this)">🚚 Distribution</button>
     <button class="tab" onclick="goTab('cip',this)">🧼 CIP</button>
-    <button class="tab" onclick="goTab('returns',this);renderReturns()">↩️ Returns/Loss</button>
-    <button class="tab" onclick="goTab('payments',this);renderPayments()">💰 Payments</button>
-    <button class="tab" onclick="goTab('summary',this);renderSummary()">📊 Summary</button>
+    <button class="tab" onclick="goTab('inv',this)">📦 Inventory</button>
+    <button class="tab" onclick="goTab('returns',this);renderReturns()">↩️ Returns</button>
+    <button class="tab" onclick="goTab('recall',this);initRecall()">🔍 Recall</button>
+    <button class="tab" id="paymentsTabBtn" onclick="goTab('payments',this);renderPayments()" style="display:none">💰 Payments</button>
+    <button class="tab" id="summaryTabBtn" onclick="goTab('summary',this);renderSummary()">📊 Summary</button>
     <button class="tab" onclick="goTab('attend',this);initAttendance()">🕐 Attendance</button>
+    <button class="tab" onclick="goTab('ai',this);initAIChat()">🤖 AI</button>
     <button class="tab" id="riderTabBtn" onclick="goTab('rider',this)" style="display:none">🛵 My Deliveries</button>
     <button class="tab" id="trackerTabBtn" onclick="goTab('tracker',this);initTracker()" style="display:none">🗺️ Tracker</button>
-    <button class="tab" onclick="goTab('ai',this);initAIChat()">🤖 AI</button>
     <button class="tab" id="adminTabBtn" onclick="goTab('admin',this)" style="display:none">🔑 Admin</button>
   </div>
 </div>
@@ -679,9 +689,21 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
 
     <!-- Payment -->
     <div style="font-size:9px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">③ Payment</div>
-    <div style="margin-bottom:10px">
-      <label class="inp-label">Payment Received Now (₹)</label>
-      <input type="number" id="d-paid" placeholder="0 — leave blank if on credit" min="0" oninput="calcDist()"/>
+    <div class="grid2" style="margin-bottom:10px">
+      <div>
+        <label class="inp-label">Payment Received Now (₹)</label>
+        <input type="number" id="d-paid" placeholder="0 — credit if blank" min="0" oninput="calcDist()"/>
+      </div>
+      <div>
+        <label class="inp-label">Payment Mode</label>
+        <select id="d-pay-mode">
+          <option value="Credit">📋 On Credit</option>
+          <option value="Cash">💵 Cash</option>
+          <option value="UPI">📱 UPI</option>
+          <option value="Bank Transfer">🏦 Bank Transfer</option>
+          <option value="Cheque">📝 Cheque</option>
+        </select>
+      </div>
     </div>
 
     <!-- Balance after — prominent -->
@@ -889,20 +911,24 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
         ➕ Add Staff Member ▾
       </button>
       <div style="display:none;margin-top:10px">
-        <div class="grid2" style="margin-bottom:8px">
-          <div><label class="inp-label">Username</label><input type="text" id="nu-name" placeholder="e.g. ali_ops"/></div>
-          <div><label class="inp-label">Password</label><input type="password" id="nu-pass" placeholder="password"/></div>
+        <div style="margin-bottom:8px">
+          <label class="inp-label">Display Name</label>
+          <input type="text" id="nu-display" placeholder="e.g. Ali Khan"/>
         </div>
-        <div style="margin-bottom:10px">
-          <label class="inp-label">Role</label>
-          <select id="nu-role">
-            <option value="staff">👤 Staff — All sections</option>
-            <option value="ops">⚙️ Operations only</option>
-            <option value="proc">🐄 Procurement only</option>
-            <option value="dist">🚚 Distribution only</option>
-            <option value="test">🔬 Testing only</option>
-            <option value="rider">🛵 Rider / Driver</option>
-          </select>
+        <div class="grid2" style="margin-bottom:8px">
+          <div><label class="inp-label">Username (for login)</label><input type="text" id="nu-name" placeholder="e.g. ali_ops"/></div>
+          <div><label class="inp-label">Password</label><input type="password" id="nu-pass" placeholder="min 6 chars"/></div>
+        </div>
+        <div style="margin-bottom:12px">
+          <label class="inp-label">Roles <span style="font-weight:400;color:var(--gray)">(select all that apply)</span></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px" id="nu-roles-grid">
+            <label style="display:flex;align-items:center;gap:7px;background:var(--light);border-radius:9px;padding:8px 10px;cursor:pointer"><input type="checkbox" value="staff" checked style="width:15px;height:15px;accent-color:var(--blue)"/> <span style="font-size:12px;font-weight:600">👤 Staff</span></label>
+            <label style="display:flex;align-items:center;gap:7px;background:var(--light);border-radius:9px;padding:8px 10px;cursor:pointer"><input type="checkbox" value="ops"   style="width:15px;height:15px;accent-color:var(--blue)"/> <span style="font-size:12px;font-weight:600">⚙️ Operations</span></label>
+            <label style="display:flex;align-items:center;gap:7px;background:var(--light);border-radius:9px;padding:8px 10px;cursor:pointer"><input type="checkbox" value="proc"  style="width:15px;height:15px;accent-color:var(--blue)"/> <span style="font-size:12px;font-weight:600">🐄 Procurement</span></label>
+            <label style="display:flex;align-items:center;gap:7px;background:var(--light);border-radius:9px;padding:8px 10px;cursor:pointer"><input type="checkbox" value="dist"  style="width:15px;height:15px;accent-color:var(--blue)"/> <span style="font-size:12px;font-weight:600">🚚 Distribution</span></label>
+            <label style="display:flex;align-items:center;gap:7px;background:var(--light);border-radius:9px;padding:8px 10px;cursor:pointer"><input type="checkbox" value="test"  style="width:15px;height:15px;accent-color:var(--blue)"/> <span style="font-size:12px;font-weight:600">🔬 Testing</span></label>
+            <label style="display:flex;align-items:center;gap:7px;background:var(--light);border-radius:9px;padding:8px 10px;cursor:pointer"><input type="checkbox" value="rider" style="width:15px;height:15px;accent-color:var(--blue)"/> <span style="font-size:12px;font-weight:600">🛵 Rider</span></label>
+          </div>
         </div>
         <button class="btn btn-primary btn-full" onclick="addUser()">✅ Add Staff Member</button>
         <div id="userAlert" style="margin-top:8px"></div>
@@ -1371,7 +1397,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
     <div class="modal-handle"></div>
     <div id="batchModalContent" style="overflow-y:auto;max-height:70vh"></div>
     <div style="display:flex;gap:8px;margin-top:10px;flex-shrink:0">
-      <button class="btn btn-outline btn-full" onclick="document.getElementById('batchModal').classList.remove('open');clearInterval(window._incubTimer)">✕ Close</button>
+      <button class="btn btn-outline" style="flex:2" onclick="document.getElementById('batchModal').classList.remove('open');clearInterval(window._incubTimer)">✕ Close</button>
+      <button class="btn btn-gold btn-sm" style="flex:1" onclick="pauseOrResumeBatch()" id="batchPauseBtn">⏸ Pause</button>
+      <button class="btn btn-red btn-sm" style="flex:1" onclick="deleteBatch()">🗑 Delete</button>
     </div>
   </div>
 </div>
@@ -1827,6 +1855,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
   };
 })();
 function _esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+// Supports both legacy role:string and new roles:array
+function _hasRole(user,role){if(!user)return false;if(Array.isArray(user.roles))return user.roles.includes(role);return user.role===role;}
 // ═════════════════════════
 
 // ══════════════════════════════════════════
@@ -1925,14 +1955,19 @@ function doLogin(){
   currentUser=user;
   document.getElementById('loginErr').textContent='';
   document.getElementById('loginScreen').classList.add('hidden');
-  document.getElementById('appbarUser').textContent=user.name+' · '+user.role.toUpperCase();
+  // Normalise roles: support both legacy `role:string` and new `roles:array`
+  if(!user.roles) user.roles=user.role?[user.role]:['staff'];
+  const isAdmin=_hasRole(user,'admin');
+  const isRider=_hasRole(user,'rider')&&!isAdmin;
+  const roleLabel=user.roles.join(', ').toUpperCase();
+  document.getElementById('appbarUser').textContent=user.name+' · '+roleLabel;
   // Tab visibility by role
-  const isAdmin=user.role==='admin';
-  const isRider=user.role==='rider';
   document.getElementById('adminTabBtn').style.display=isAdmin?'block':'none';
   const ttb=document.getElementById('trackerTabBtn');if(ttb)ttb.style.display=isAdmin?'block':'none';
   const rtb=document.getElementById('riderTabBtn');if(rtb)rtb.style.display=isRider?'block':'none';
-  // Hide all tabs for rider except rider tab
+  // Payments tab: admin only (finance restricted)
+  const ptb=document.getElementById('paymentsTabBtn');if(ptb)ptb.style.display=isAdmin?'block':'none';
+  // Hide all tabs for pure-rider accounts
   document.querySelectorAll('.tab').forEach(t=>{
     if(isRider){
       const onclick=t.getAttribute('onclick')||'';
@@ -2417,12 +2452,13 @@ function saveDist(){
   const c400=parseFloat(document.getElementById('d-c400').value)||0;
   const crates=parseFloat(document.getElementById('d-crates').value)||0;
   const paid=parseFloat(document.getElementById('d-paid').value)||0;
+  const payMode=(document.getElementById('d-pay-mode')||{}).value||'Credit';
   if(!dist||!date){showAlert('distAlert','alert-red','⚠️ Enter distributor name and date');return;}
   const p200=settings.p200||18;const p400=settings.p400||34;
   const amount=(c200*p200)+(c400*p400);
   // Carry-forward: sum all unpaid balances for this distributor before this moment
   const prevBal=distRecords.filter(r=>r.dist===dist).reduce((s,r)=>s+(r.amount-r.paid),0);
-  const rec={id:Date.now(),dist,date,c200,c400,crates,amount,paid,prevBalance:prevBal,balance:prevBal+amount-paid,savedBy:currentUser?currentUser.name:'Staff'};
+  const rec={id:Date.now(),dist,date,c200,c400,crates,amount,paid,payMode,prevBalance:prevBal,balance:prevBal+amount-paid,savedBy:currentUser?currentUser.name:'Staff'};
   distRecords.unshift(rec);
   store('distRecords',distRecords);
   saveDistributorName(dist);
@@ -2432,6 +2468,7 @@ function saveDist(){
   document.getElementById('d-c400').value='';
   document.getElementById('d-crates').value='';
   document.getElementById('d-paid').value='';
+  const dpm=document.getElementById('d-pay-mode');if(dpm)dpm.selectedIndex=0;
   calcDist();
   renderDistRecords();
 }
@@ -2507,7 +2544,7 @@ function distRecordHTML(r){
       </div>
       <div style="text-align:right">
         <div style="font-size:15px;font-weight:700;color:var(--teal)">₹${r.amount.toFixed(0)}</div>
-        ${paid>0?`<div style="font-size:9px;color:var(--green);font-weight:700">Paid ₹${paid.toFixed(0)}</div>`:''}
+        ${paid>0?`<div style="font-size:9px;color:var(--green);font-weight:700">Paid ₹${paid.toFixed(0)}${r.payMode&&r.payMode!=='Credit'?' · '+r.payMode:''}</div>`:''}
       </div>
     </div>
     <div class="proc-details" style="margin-bottom:8px">
@@ -2847,40 +2884,50 @@ var _roleDesc={admin:'Full access + admin panel',staff:'All sections',ops:'Opera
 var _roleColors={admin:'#c49a2a',staff:'var(--blue)',ops:'var(--teal)',proc:'var(--green)',dist:'#0369a1',test:'#7c3aed',rider:'#ea580c'};
 function renderUsers(){
   const el=document.getElementById('userList');if(!el)return;
-  // Update hero
   const heroStaff=document.getElementById('admin-hero-staff');
   if(heroStaff)heroStaff.textContent=users.length+' Staff';
   el.innerHTML=users.map((u,i)=>{
+    // Normalise roles
+    const roles=Array.isArray(u.roles)?u.roles:(u.role?[u.role]:['staff']);
     const initial=(u.name||u.username||'?')[0].toUpperCase();
-    const col=_roleColors[u.role]||'var(--blue)';
-    const desc=_roleDesc[u.role]||u.role;
+    const primaryRole=roles[0]||'staff';
+    const col=_roleColors[primaryRole]||'var(--blue)';
+    const roleBadges=roles.map(r=>`<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px;background:${(_roleColors[r]||'var(--blue)').replace('var(--blue)','#1a3a8f')}18;color:${_roleColors[r]||'var(--blue)'}">${r}</span>`).join(' ');
     return`<div class="user-item">
-      <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
         <div style="width:36px;height:36px;border-radius:50%;background:${col}18;color:${col};font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initial}</div>
-        <div>
+        <div style="min-width:0">
           <div style="font-size:13px;font-weight:700;color:var(--dark)">${_esc(u.name||u.username)}</div>
-          <div style="font-size:10px;color:var(--gray)">@${_esc(u.username)} · ${_esc(desc)}</div>
+          <div style="font-size:10px;color:var(--gray);margin-top:1px">@${_esc(u.username)}</div>
+          <div style="margin-top:3px;display:flex;gap:3px;flex-wrap:wrap">${roleBadges}</div>
         </div>
       </div>
-      <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
-        <span class="badge" style="background:${col}18;color:${col}">${u.role}</span>
-        ${u.role!=='admin'?`<button class="btn btn-red btn-sm" onclick="removeUser(${i})">✕</button>`:''}
+      <div style="flex-shrink:0;margin-left:8px">
+        ${!_hasRole(u,'admin')?`<button class="btn btn-red btn-sm" onclick="removeUser(${i})">✕</button>`:'<span style="font-size:10px;color:var(--gray)">Owner</span>'}
       </div>
     </div>`;
   }).join('');
 }
 function addUser(){
-  const name=document.getElementById('nu-name').value.trim();
+  const displayName=document.getElementById('nu-display').value.trim();
+  const username=document.getElementById('nu-name').value.trim();
   const pass=document.getElementById('nu-pass').value.trim();
-  const role=document.getElementById('nu-role').value;
-  if(!name||!pass){showAlert('userAlert','alert-red','Fill username and password');return;}
-  if(users.find(u=>u.username===name)){showAlert('userAlert','alert-red','Username already exists');return;}
-  users.push({username:name,password:pass,role,name});
+  const checkedBoxes=Array.from(document.querySelectorAll('#nu-roles-grid input[type=checkbox]:checked')).map(c=>c.value);
+  const roles=checkedBoxes.length?checkedBoxes:['staff'];
+  if(!displayName||!username||!pass){showAlert('userAlert','alert-red','Fill display name, username and password');return;}
+  if(pass.length<4){showAlert('userAlert','alert-red','Password must be at least 4 characters');return;}
+  if(users.find(u=>u.username===username)){showAlert('userAlert','alert-red','Username already exists');return;}
+  // Store both role (legacy compat) and roles (array)
+  users.push({username,password:pass,roles,role:roles[0],name:displayName});
   store('users',users);renderUsers();
-  document.getElementById('nu-name').value='';document.getElementById('nu-pass').value='';
-  showAlert('userAlert','alert-green','✅ Staff member added');
+  document.getElementById('nu-display').value='';
+  document.getElementById('nu-name').value='';
+  document.getElementById('nu-pass').value='';
+  // Reset checkboxes to default (staff only)
+  document.querySelectorAll('#nu-roles-grid input[type=checkbox]').forEach(c=>{c.checked=c.value==='staff';});
+  showAlert('userAlert','alert-green','✅ '+displayName+' added (login: '+username+')');
 }
-function removeUser(i){if(users[i].role==='admin')return;users.splice(i,1);store('users',users);renderUsers();}
+function removeUser(i){if(_hasRole(users[i],'admin'))return;users.splice(i,1);store('users',users);renderUsers();}
 
 // ══════════════════════════════════════════
 // MISC
@@ -3865,6 +3912,11 @@ function renderAttToday(){
 function renderAttHistory(){
   const listEl = document.getElementById('attHistoryList');
   if(!listEl) return;
+  // History is admin-only
+  if(!_hasRole(currentUser,'admin')){
+    listEl.innerHTML='<div style="text-align:center;padding:16px;color:var(--gray);font-size:12px">🔒 Attendance history is visible to admins only</div>';
+    return;
+  }
   const today = new Date().toISOString().split('T')[0];
   const pastRecs = attRecords.filter(r=>r.date!==today);
   if(pastRecs.length===0){
@@ -4231,8 +4283,8 @@ const STAGE_NAMES=['Standardize','Pasteurize','Cool','Inoculate','Fill Cups','In
 const STAGE_ICONS=['🧪','🔥','❄️','🦠','🫙','⏱️','✅'];
 
 function renderBatchList(){
-  const active=productionBatches.filter(b=>b.status==='active');
-  const done=productionBatches.filter(b=>b.status!=='active');
+  const active=productionBatches.filter(b=>b.status==='active'||b.status==='paused');
+  const done=productionBatches.filter(b=>b.status!=='active'&&b.status!=='paused');
 
   // Hero pills
   const heroVal=document.getElementById('batchHeroVal');
@@ -4289,7 +4341,10 @@ function batchCardHTML(b){
   let statusBadge='';
   let bottomInfo='';
   let urgency=false;
-  if(b.status==='active'){
+  if(b.status==='paused'){
+    statusBadge='<span class="badge badge-gold">⏸ Paused</span>';
+    bottomInfo='Batch paused — tap to resume';
+  } else if(b.status==='active'){
     if(stage===6&&b.stages.s6_incubate){
       const elapsed=incubElapsed(b.stages.s6_incubate.startTime);
       const remaining=Math.max(0,5-elapsed);
@@ -4348,6 +4403,8 @@ function openBatch(batchId){
   if(!b) return;
   document.getElementById('batchModalContent').innerHTML=buildBatchModal(b);
   document.getElementById('batchModal').classList.add('open');
+  const pb=document.getElementById('batchPauseBtn');
+  if(pb)pb.textContent=b.status==='paused'?'▶ Resume':'⏸ Pause';
   // Start incubation countdown if on stage 6
   if(b.currentStage===6&&b.stages.s6_incubate){
     window._incubTimer=setInterval(()=>{
@@ -4656,6 +4713,34 @@ function saveStage7(result){
   alert((result==='PASSED'?'✅ Batch PASSED':'❌ Batch FAILED')+' and recorded.');
 }
 function ts(){ return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+
+function pauseOrResumeBatch(){
+  const b=productionBatches.find(x=>x.batchId===currentBatchId);if(!b)return;
+  if(b.status==='paused'){
+    b.status='active';b.pausedAt=null;
+    store('productionBatches',productionBatches);
+    document.getElementById('batchPauseBtn').textContent='⏸ Pause';
+    showAlert&&alert('▶ Batch '+b.batchId+' resumed.');
+  } else if(b.status==='active'){
+    b.status='paused';b.pausedAt=new Date().toISOString();
+    store('productionBatches',productionBatches);
+    document.getElementById('batchPauseBtn').textContent='▶ Resume';
+    alert('⏸ Batch '+b.batchId+' paused. Resume when ready.');
+  }
+  renderBatchList();
+  // Refresh modal content
+  document.getElementById('batchModalContent').innerHTML=buildBatchModal(b);
+}
+
+function deleteBatch(){
+  const b=productionBatches.find(x=>x.batchId===currentBatchId);if(!b)return;
+  if(!confirm('Delete batch '+b.batchId+'? This cannot be undone.'))return;
+  productionBatches=productionBatches.filter(x=>x.batchId!==currentBatchId);
+  store('productionBatches',productionBatches);
+  document.getElementById('batchModal').classList.remove('open');
+  clearInterval(window._incubTimer);
+  renderBatchList();
+}
 
 function logPH(){
   const b=productionBatches.find(x=>x.batchId===currentBatchId); if(!b)return;
