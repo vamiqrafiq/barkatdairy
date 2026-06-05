@@ -1480,10 +1480,14 @@ function calcOps(){
     const smpC=smpKg*smpPrice;
     const packC=c200*pk200+c400*pk400;
     const cultC=(s.cult||133)*(fv/100);
-    const net=rev-milkC-smpC-packC-(s.fix||3800)-cultC;
-    const roi=smpC>0?net/smpC:0;
-    if(smpC>0&&roi<0)continue;
-    if(!best||net>best.net)best={w,fv,fFat,fSnf,smpKg,c200,c400,net,roi,snfRaw};
+    // Fixed overhead is constant across all water values so exclude it from
+    // the optimization loop — otherwise small batches (<100L) always show
+    // negative ROI and the loop never sets a best result.
+    const varNet=rev-milkC-smpC-packC-cultC;
+    const net=varNet-(s.fix||3800);
+    const roi=smpC>0?varNet/smpC:0;
+    if(smpC>0&&varNet<0)continue;
+    if(!best||varNet>best.varNet)best={w,fv,fFat,fSnf,smpKg,c200,c400,net,varNet,roi,snfRaw};
   }
   if(!best){document.getElementById('o-status').textContent='⚠️ Check values';return;}
   const q=best.fFat>=3.5&&best.fSnf>=8.5?'🟢 EXCELLENT':best.fFat>=3.2&&best.fSnf>=8.5?'🟢 THICK':best.fFat>=3.0?'🟡 STANDARD':'🔴 THIN';
@@ -2406,7 +2410,7 @@ function confirmCapture(){
   confirmBtn.disabled=true;
   // Call Claude Vision API to read Fat & SNF from analyser screen
   const base64=capturedPhotoData.split(',')[1];
-  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key='+getApiKey(),{
+  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+getApiKey(),{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
@@ -2419,9 +2423,19 @@ function confirmCapture(){
   })
   .then(r=>r.json())
   .then(data=>{
-    const txt=data?.candidates?.[0]?.content?.parts?.[0]?.text||'{}';
+    const txt=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
     let parsed={fat:null,snf:null};
-    try{parsed=JSON.parse(txt.replace(/```json|```/g,'').trim());}catch(e){}
+    try{
+      // Try to find a JSON object anywhere in the response
+      const m=txt.match(/\{[^{}]*\}/);
+      if(m) parsed=JSON.parse(m[0]);
+      else parsed=JSON.parse(txt.replace(/```json|```/g,'').trim());
+    }catch(e){
+      // Fallback: extract numbers after "fat" and "snf" keywords
+      const fm=txt.match(/fat["'\s:]+(\d+\.?\d*)/i);
+      const sm=txt.match(/snf["'\s:]+(\d+\.?\d*)/i);
+      if(fm&&sm){parsed={fat:parseFloat(fm[1]),snf:parseFloat(sm[1])};}
+    }
     camVerified=true;
     stopCamStream();
     closeCamModal();
