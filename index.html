@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- bd-version: 20260605-3 -->
+<!-- bd-version: 20260605-4 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -501,64 +501,118 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
 
 <!-- ══ PROCUREMENT TAB ══ -->
 <div class="page" id="tab-proc">
+
+  <!-- Today summary hero -->
+  <div class="hero">
+    <div class="hero-label">TODAY'S PROCUREMENT</div>
+    <div class="gold-bar"></div>
+    <div class="hero-val" id="proc-hero-total">0 L</div>
+    <div class="hero-sub" id="proc-hero-sub">No entries yet</div>
+  </div>
+
+  <!-- New Entry form -->
   <div class="section">
-    <div class="sec-title">🐄 New Procurement Entry</div>
+    <div class="sec-title">🐄 New Entry</div>
+
+    <!-- Step 1 — Identity -->
+    <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">① Supplier &amp; Date</div>
     <div style="margin-bottom:10px">
       <label class="inp-label">Supplier / Party Name</label>
       <div class="ac-wrap">
-        <input type="text" id="p-supplier" placeholder="Type name or initials…" autocomplete="off" oninput="acFilter('p-supplier','proc-ac-list','savedSuppliers')" onfocus="acFilter('p-supplier','proc-ac-list','savedSuppliers')"/>
+        <input type="text" id="p-supplier" placeholder="Type name or initials…" autocomplete="off"
+          oninput="acFilter('p-supplier','proc-ac-list','savedSuppliers')"
+          onfocus="acFilter('p-supplier','proc-ac-list','savedSuppliers')"/>
         <div class="ac-list" id="proc-ac-list"></div>
       </div>
     </div>
-    <div style="margin-bottom:8px">
-      <div style="background:var(--light);border-radius:10px;padding:9px 12px;display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:10px;color:var(--gray);font-weight:600;text-transform:uppercase">Auto Lot ID</span>
-        <span style="font-size:14px;font-weight:700;color:var(--blue)" id="p-lotid">RM-...</span>
+    <div class="grid2" style="margin-bottom:12px">
+      <div><label class="inp-label">Date</label><input type="date" id="p-date" oninput="refreshLotId();calcProc()"/></div>
+      <div style="background:var(--light);border-radius:10px;padding:9px 12px;display:flex;flex-direction:column;justify-content:center">
+        <div style="font-size:9px;color:var(--gray);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px">Lot ID</div>
+        <div style="font-size:13px;font-weight:700;color:var(--blue)" id="p-lotid">RM-…</div>
       </div>
     </div>
-    <div style="margin-bottom:10px"><label class="inp-label">Temperature at Receipt (°C)</label><input type="number" id="p-temp" placeholder="e.g. 4" step="0.1"/></div>
-    <div style="margin-bottom:10px">
-      <label class="inp-label">Alcohol Test</label>
-      <div style="display:flex;gap:8px">
-        <button class="btn" style="flex:1;background:#f0fdf4;color:var(--green);border:2px solid #bbf7d0" id="alc-pass" onclick="setAlcohol('pass')">✅ Pass</button>
-        <button class="btn" style="flex:1;background:#f3f4f6;color:var(--gray);border:2px solid #e5e7eb" id="alc-fail" onclick="setAlcohol('fail')">❌ Fail</button>
+
+    <!-- Step 2 — Quality checks -->
+    <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">② Quality Checks</div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><label class="inp-label">Temp at Receipt (°C)</label><input type="number" id="p-temp" placeholder="e.g. 4" step="0.1"/></div>
+      <div>
+        <label class="inp-label">Alcohol Test</label>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" style="flex:1;background:#f0fdf4;color:var(--green);border:2px solid #bbf7d0" id="alc-pass" onclick="setAlcohol('pass')">✅ Pass</button>
+          <button class="btn btn-sm" style="flex:1;background:#f3f4f6;color:var(--gray);border:2px solid #e5e7eb" id="alc-fail" onclick="setAlcohol('fail')">❌ Fail</button>
+        </div>
       </div>
     </div>
+    <!-- Analyser camera -->
+    <div style="margin-bottom:12px">
+      <div id="camVerifyStatus" style="background:#f8faff;border:1.5px dashed #e2e8f0;border-radius:10px;padding:10px 12px;font-size:12px;color:var(--gray);text-align:center;margin-bottom:8px">
+        📷 Camera verification required before saving
+      </div>
+      <button class="btn btn-outline btn-full" onclick="openCamModal()" style="border-color:var(--blue);color:var(--blue)">📷 Scan Milk Analyser Display</button>
+      <img id="camThumb" style="display:none;width:100%;border-radius:10px;margin-top:8px;max-height:120px;object-fit:cover"/>
+    </div>
+
+    <!-- Step 3 — Milk values -->
+    <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">③ Milk Analysis</div>
     <div class="grid2" style="margin-bottom:10px">
       <div><label class="inp-label">Milk Qty (L)</label><input type="number" id="p-qty" placeholder="e.g. 300" min="1" oninput="calcProc()"/></div>
       <div><label class="inp-label">Fat (%)</label><input type="number" id="p-fat" value="4" step="0.1" min="3" max="5" oninput="calcProc()"/></div>
     </div>
-    <div class="grid2" style="margin-bottom:12px">
-      <div><label class="inp-label">SNF (%)</label><input type="number" id="p-snf" value="8.1" step="0.1" min="7.5" max="9" oninput="calcProc()"/></div>
-      <div><label class="inp-label">Date</label><input type="date" id="p-date"/></div>
-    </div>
-    <div class="grid2" style="margin-bottom:14px">
-      <div class="auto-box"><div class="auto-box-label">Rate (₹/L)</div><div class="auto-box-val" id="p-rate">—</div></div>
-      <div class="auto-box"><div class="auto-box-label">Total Cost</div><div class="auto-box-val" id="p-total" style="font-size:15px">—</div></div>
-    </div>
-    <div id="p-decision" style="margin-bottom:12px"></div>
     <div style="margin-bottom:10px">
-      <div id="camVerifyStatus" style="background:#f8faff;border:1.5px dashed #e2e8f0;border-radius:10px;padding:10px 12px;font-size:12px;color:var(--gray);text-align:center">
-        📷 Camera verification required before saving
+      <label class="inp-label">SNF (%)</label>
+      <input type="number" id="p-snf" value="8.1" step="0.1" min="7.5" max="9" oninput="calcProc()"/>
+    </div>
+    <!-- Fat bar -->
+    <div style="margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+        <span style="font-size:9px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.3px">Fat %</span>
+        <span style="font-size:10px;font-weight:700;color:var(--blue)" id="p-fat-lbl">4.0%</span>
       </div>
-      <img id="camThumb" style="display:none;width:100%;border-radius:10px;margin-top:8px;max-height:140px;object-fit:cover"/>
+      <div class="quality-bar"><div class="quality-fill" id="p-fat-bar" style="width:50%;background:var(--blue)"></div></div>
     </div>
-    <div class="grid2">
-      <button class="btn btn-outline btn-full" onclick="openCamModal()">📷 Verify Analyser</button>
-      <button class="btn btn-primary btn-full" id="saveProcBtn" onclick="saveProc()" disabled style="opacity:0.4">💾 Save Entry</button>
+    <!-- SNF bar -->
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+        <span style="font-size:9px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.3px">SNF %</span>
+        <span style="font-size:10px;font-weight:700;color:var(--teal)" id="p-snf-lbl">8.1%</span>
+      </div>
+      <div class="quality-bar"><div class="quality-fill" id="p-snf-bar" style="width:40%;background:var(--teal)"></div></div>
     </div>
-    <div style="margin-top:8px">
-      <button class="btn btn-gold btn-full" onclick="showSlip()">🖨️ Print Slip</button>
+
+    <!-- Step 4 — Rate & decision -->
+    <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">④ Rate &amp; Decision</div>
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <div style="flex:1;background:linear-gradient(135deg,var(--dark),var(--blue));border-radius:12px;padding:12px 14px;text-align:center">
+        <div style="font-size:9px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Rate</div>
+        <div style="font-size:22px;font-weight:700;color:#fff" id="p-rate">—</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.5)">₹ per litre</div>
+      </div>
+      <div style="flex:1;background:var(--light);border-radius:12px;padding:12px 14px;text-align:center">
+        <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total Cost</div>
+        <div style="font-size:20px;font-weight:700;color:var(--dark)" id="p-total">—</div>
+        <div style="font-size:9px;color:#aab">for this batch</div>
+      </div>
     </div>
+    <div id="p-decision" style="margin-bottom:14px"></div>
+
+    <!-- Actions -->
+    <button class="btn btn-primary btn-full" id="saveProcBtn" onclick="saveProc()" disabled style="opacity:0.4;margin-bottom:8px;padding:14px;font-size:14px">💾 Save Entry</button>
+    <button class="btn btn-gold btn-full" onclick="showSlip()" style="margin-bottom:4px">🖨️ Print Slip</button>
     <div id="procAlert" style="margin-top:8px"></div>
   </div>
+
+  <!-- Today's Records -->
   <div class="section">
     <div class="sec-title-row">
-      <div class="sec-title">📋 Today's Records</div>
+      <div class="sec-title">📋 Today's Entries</div>
       <div id="todayTotal" style="font-size:11px;color:var(--blue);font-weight:700"></div>
     </div>
     <div id="procList"><div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No entries yet today</div></div></div>
   </div>
+
+  <!-- All Records -->
   <div class="section">
     <div class="sec-title-row">
       <div class="sec-title">📁 All Records</div>
@@ -566,6 +620,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
     </div>
     <div id="allRecords"></div>
   </div>
+
 </div>
 
 <!-- ══ DISTRIBUTION TAB ══ -->
@@ -1600,12 +1655,28 @@ function calcProc(){
   const fat=parseFloat(document.getElementById('p-fat').value)||0;
   const snf=parseFloat(document.getElementById('p-snf').value)||0;
   const qty=parseFloat(document.getElementById('p-qty').value)||0;
-  if(!fat||!snf){document.getElementById('p-rate').textContent='—';document.getElementById('p-total').textContent='—';return;}
+
+  // Live quality bars
+  const fatPct=Math.min(100,Math.max(0,(fat-3)/2*100));
+  const snfPct=Math.min(100,Math.max(0,(snf-7.5)/1.5*100));
+  const fb=document.getElementById('p-fat-bar'),sb=document.getElementById('p-snf-bar');
+  const fl=document.getElementById('p-fat-lbl'),sl=document.getElementById('p-snf-lbl');
+  if(fb){fb.style.width=fatPct+'%';fb.style.background=fat>=4?'var(--green)':fat>=3.5?'var(--blue)':'var(--red)';}
+  if(sb){sb.style.width=snfPct+'%';sb.style.background=snf>=8.5?'var(--green)':snf>=8?'var(--teal)':'var(--red)';}
+  if(fl)fl.textContent=fat?fat+'%':'—';
+  if(sl)sl.textContent=snf?snf+'%':'—';
+
+  if(!fat||!snf){
+    document.getElementById('p-rate').textContent='—';
+    document.getElementById('p-total').textContent='—';
+    document.getElementById('p-decision').innerHTML='';
+    return;
+  }
   const rate=getRateFromTable(fat,snf);
-  document.getElementById('p-rate').textContent='₹'+rate;
+  document.getElementById('p-rate').textContent=rate;
   document.getElementById('p-total').textContent=qty?'₹'+(qty*rate).toFixed(0):'—';
   const dec=fat>=4.5&&snf>=8.4?{l:'🟢 PREMIUM MILK',c:'green'}:fat>=4&&snf>=8.3?{l:'🟢 GOOD BUY',c:'green'}:fat>=3.8&&snf>=8.1?{l:'🟡 SAFE BUY',c:'gold'}:{l:'🔴 POOR QUALITY',c:'red'};
-  document.getElementById('p-decision').innerHTML=`<div class="alert alert-${dec.c==='green'?'green':dec.c==='gold'?'gold':'red'}">${dec.l} — Fat: ${fat}% | SNF: ${snf}% | Rate: ₹${rate}/L</div>`;
+  document.getElementById('p-decision').innerHTML=`<div class="alert alert-${dec.c==='green'?'green':dec.c==='gold'?'gold':'red'}" style="font-size:13px;font-weight:700;text-align:center;padding:11px">${dec.l}<div style="font-size:10px;font-weight:500;margin-top:3px;opacity:.8">Fat: ${fat}% · SNF: ${snf}% · ₹${rate}/L</div></div>`;
 }
 function saveProc(){
   if(!camVerified){
@@ -1641,9 +1712,7 @@ function saveProc(){
   if(vs){vs.textContent='📷 Camera verification required before saving';vs.style.cssText='background:#f8faff;color:var(--gray);border:1.5px dashed #e2e8f0';}
   document.getElementById('saveProcBtn').disabled=true;
   document.getElementById('saveProcBtn').style.opacity='0.4';
-  document.getElementById('p-rate').textContent='—';
-  document.getElementById('p-total').textContent='—';
-  document.getElementById('p-decision').innerHTML='';
+  calcProc();
   renderAllRecords();
 }
 function renderAllRecords(){
@@ -1651,21 +1720,34 @@ function renderAllRecords(){
   const todayRecs=records.filter(r=>r.date===today);
   const todayMilk=todayRecs.reduce((a,r)=>a+r.qty,0);
   const todayCost=todayRecs.reduce((a,r)=>a+r.total,0);
+
+  // Update hero card
+  const heroTotal=document.getElementById('proc-hero-total');
+  const heroSub=document.getElementById('proc-hero-sub');
+  if(heroTotal)heroTotal.textContent=todayMilk?todayMilk+' L':'0 L';
+  if(heroSub)heroSub.textContent=todayRecs.length?`${todayRecs.length} entr${todayRecs.length===1?'y':'ies'} · ₹${todayCost.toFixed(0)}`:'No entries yet';
+
+  // Also refresh lot-ID preview
+  refreshLotId();
+
   document.getElementById('todayTotal').textContent=todayRecs.length?`${todayMilk}L · ₹${todayCost.toFixed(0)}`:'';
   const listEl=document.getElementById('procList');
   if(todayRecs.length===0){listEl.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No entries yet today</div></div>';return;}
-  listEl.innerHTML=todayRecs.map(r=>`
-    <div class="proc-record">
-      <div class="proc-record-top"><div class="proc-supplier">${_esc(r.supplier)}</div><div class="proc-date">${r.date}</div></div>
+  listEl.innerHTML=todayRecs.map(r=>{
+    const alcBadge=r.alcohol==='pass'?'<span style="background:#dcfce7;color:#15803d;font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px;margin-left:4px">✅ Alc</span>':r.alcohol==='fail'?'<span style="background:#fee2e2;color:#b91c1c;font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px;margin-left:4px">❌ Alc</span>':'';
+    const tempBadge=r.temp!=null?`<span style="font-size:9px;color:var(--gray)">🌡️ ${r.temp}°C</span>`:'';
+    return`<div class="proc-record">
+      <div class="proc-record-top">
+        <div><div class="proc-supplier">${_esc(r.supplier)}</div><div style="display:flex;align-items:center;gap:4px;margin-top:2px">${r.lotId?`<span style="font-size:9px;color:var(--blue);font-weight:700">${_esc(r.lotId)}</span>`:''}${alcBadge}${tempBadge}</div></div>
+        <div style="text-align:right"><div class="proc-date">${r.date}</div><div style="font-size:11px;font-weight:700;color:var(--blue);margin-top:2px">₹${r.total.toFixed(0)}</div></div>
+      </div>
       <div class="proc-details">
         <div class="proc-detail"><div class="proc-detail-label">Qty</div><div class="proc-detail-val">${r.qty}L</div></div>
         <div class="proc-detail"><div class="proc-detail-label">Fat</div><div class="proc-detail-val">${r.fat}%</div></div>
         <div class="proc-detail"><div class="proc-detail-label">SNF</div><div class="proc-detail-val">${r.snf}%</div></div>
         <div class="proc-detail"><div class="proc-detail-label">Rate</div><div class="proc-detail-val">₹${r.rate}</div></div>
-        <div class="proc-detail" style="background:#fff8e7"><div class="proc-detail-label">Total</div><div class="proc-detail-val" style="color:#7a5a00">₹${r.total.toFixed(0)}</div></div>
-        ${r.lotId?`<div class="proc-detail" style="background:#e8eef8;grid-column:1/-1"><div class="proc-detail-label">Lot ID</div><div class="proc-detail-val" style="font-size:10px;color:var(--blue)">${r.lotId}</div></div>`:''}
       </div>
-    </div>`).join('');
+    </div>`;}).join('');
   const allEl=document.getElementById('allRecords');
   if(records.length===0){allEl.innerHTML='<div class="empty"><div class="empty-icon">📁</div><div class="empty-text">No records saved</div></div>';return;}
   const grouped={};
