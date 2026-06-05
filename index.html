@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- bd-version: 20260605-16 -->
+<!-- bd-version: 20260605-17 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -1117,43 +1117,94 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
 
 <!-- ══ RIDER TAB ══ -->
 <div class="page" id="tab-rider">
-  <div class="hero">
-    <div class="hero-label">🛵 Rider Dashboard</div>
+
+  <!-- Hero -->
+  <div class="hero" style="background:linear-gradient(135deg,#c2410c 0%,#ea580c 60%,#f97316 100%)">
+    <div class="hero-label">🛵 MY DELIVERIES</div>
     <div class="gold-bar"></div>
-    <div class="hero-val" id="riderGreeting">Good day!</div>
-    <div class="hero-sub" id="riderSubtitle">Today's deliveries and pickups</div>
+    <div class="hero-val" id="riderGreeting" style="font-size:18px">Good day!</div>
+    <div class="hero-sub" id="riderSubtitle">Today's pickups and deliveries</div>
   </div>
-  <div class="alert alert-gold" id="riderLocationStatus" style="margin-bottom:10px">
-    📍 Location sharing: tap button below to start sharing your location with the admin.
+
+  <!-- Location sharing card -->
+  <div class="section" style="margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div id="riderLocDot" style="width:12px;height:12px;border-radius:50%;background:#e5e7eb;flex-shrink:0"></div>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:700;color:var(--dark)" id="riderLocTitle">Location sharing off</div>
+        <div style="font-size:10px;color:var(--gray);margin-top:1px" id="riderLocationStatus">Tap to share your live location with admin</div>
+      </div>
+      <div id="riderLocBtn" onclick="startRiderLocation()"
+        style="background:var(--blue);color:#fff;border:none;padding:8px 14px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0">
+        📍 Start
+      </div>
+      <div id="riderLocStopBtn" onclick="stopRiderLocation()"
+        style="display:none;background:#fee2e2;color:var(--red);border:none;padding:8px 14px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0">
+        ⏹ Stop
+      </div>
+    </div>
   </div>
-  <div style="display:flex;gap:8px;margin-bottom:12px">
-    <button class="btn btn-primary" style="flex:1" id="riderLocBtn" onclick="startRiderLocation()">📍 Share Location</button>
-    <button class="btn btn-red btn-sm" id="riderLocStopBtn" onclick="stopRiderLocation()" style="display:none">⏹ Stop</button>
-  </div>
+
+  <!-- Procurement pickups -->
   <div class="section">
-    <div class="sec-title">🐄 Today's Procurement Pickups</div>
-    <div id="riderProcList"><div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No procurement entries today</div></div></div>
+    <div class="sec-title-row">
+      <div class="sec-title">🐄 Pickups Today</div>
+      <div id="riderProcCount" style="font-size:11px;color:#ea580c;font-weight:700"></div>
+    </div>
+    <div id="riderProcList">
+      <div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No pickups today</div></div>
+    </div>
   </div>
+
+  <!-- Distribution deliveries -->
   <div class="section">
-    <div class="sec-title">🚚 Today's Distribution Bills</div>
-    <div id="riderDistList"><div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No distribution bills today</div></div></div>
+    <div class="sec-title-row">
+      <div class="sec-title">🚚 Deliveries Today</div>
+      <div id="riderDistCount" style="font-size:11px;color:#ea580c;font-weight:700"></div>
+    </div>
+    <div id="riderDistList">
+      <div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No deliveries today</div></div>
+    </div>
   </div>
+
 </div>
 
 <!-- ══ TRACKER TAB (Admin only) ══ -->
 <div class="page" id="tab-tracker">
-  <div class="section" style="padding:10px">
-    <div class="sec-title-row">
-      <div class="sec-title">🗺️ Live Rider Tracker</div>
-      <span id="trackerStatus" style="font-size:10px;color:var(--gray)">Waiting…</span>
+
+  <!-- Hero -->
+  <div class="hero" style="background:linear-gradient(135deg,#1e3a5f 0%,#0f766e 70%,#0d9488 100%)">
+    <div class="hero-label">🗺️ LIVE TRACKER</div>
+    <div class="gold-bar"></div>
+    <div style="display:flex;gap:16px;align-items:flex-end">
+      <div>
+        <div class="hero-val" id="tracker-hero-count">0</div>
+        <div class="hero-sub">riders online</div>
+      </div>
+      <div style="padding-bottom:4px">
+        <span id="trackerStatus" style="background:rgba(255,255,255,.15);color:rgba(255,255,255,.85);font-size:11px;font-weight:700;padding:4px 10px;border-radius:10px">Waiting…</span>
+      </div>
     </div>
-    <div id="trackerMap" style="width:100%;height:340px;border-radius:14px;overflow:hidden;background:#e8eef8;margin-bottom:10px"></div>
-    <div id="trackerInfo" style="font-size:12px;color:var(--gray);text-align:center">No riders online</div>
   </div>
+
+  <!-- Map -->
+  <div class="section" style="padding:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:700;color:var(--dark)">Live Map</div>
+      <button onclick="updateTrackerMap()" style="background:var(--light);border:none;color:var(--blue);font-size:11px;font-weight:700;padding:5px 10px;border-radius:8px;cursor:pointer;font-family:inherit">🔄 Refresh</button>
+    </div>
+    <div id="trackerMap" style="width:100%;height:300px;border-radius:14px;overflow:hidden;background:#e8eef8"></div>
+    <div id="trackerInfo" style="font-size:11px;color:var(--gray);text-align:center;margin-top:8px">Auto-refreshing every 4 s</div>
+  </div>
+
+  <!-- Online riders list -->
   <div class="section">
     <div class="sec-title">📡 Online Riders</div>
-    <div id="ridersList"></div>
+    <div id="ridersList">
+      <div class="empty"><div class="empty-icon">🛵</div><div class="empty-text">No riders sharing location</div></div>
+    </div>
   </div>
+
 </div>
 
 
@@ -3397,50 +3448,88 @@ function clearInvRecords(){
 function renderRiderView(){
   const today=new Date().toISOString().split('T')[0];
   const hour=new Date().getHours();
-  const greeting=hour<12?'Good Morning':'hour'<17?'Good Afternoon':'Good Evening';
+  // Bug fix: was 'hour'<17 (string comparison, always true) — now hour<17
+  const greeting=hour<12?'Good Morning':hour<17?'Good Afternoon':'Good Evening';
   const name=currentUser?currentUser.name:'Rider';
   const greetEl=document.getElementById('riderGreeting');
   const subEl=document.getElementById('riderSubtitle');
   if(greetEl)greetEl.textContent=greeting+', '+name+'!';
 
-  // Today's procurement entries
+  // Procurement pickups
   const todayProc=records.filter(r=>r.date===today);
   const procEl=document.getElementById('riderProcList');
+  const procCount=document.getElementById('riderProcCount');
+  const totalMilk=todayProc.reduce((s,r)=>s+r.qty,0);
+  if(subEl)subEl.textContent=todayProc.length+' pickup'+(todayProc.length===1?'':'s')+' · '+totalMilk+'L today';
+  if(procCount)procCount.textContent=todayProc.length?todayProc.length+' entries':'';
   if(procEl){
-    if(todayProc.length===0){
-      procEl.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No procurement entries today</div></div>';
+    if(!todayProc.length){
+      procEl.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No pickups today</div></div>';
     } else {
-      let total=todayProc.reduce((s,r)=>s+r.qty,0);
-      if(subEl)subEl.textContent=todayProc.length+' pickups · '+total+'L collected today';
-      procEl.innerHTML=todayProc.map(r=>`
-        <div class="proc-record">
-          <div class="proc-record-top"><div class="proc-supplier">${_esc(r.supplier)}</div><div class="proc-date">${r.date}</div></div>
-          <div class="proc-details">
-            <div class="proc-detail"><div class="proc-detail-label">Qty</div><div class="proc-detail-val">${r.qty}L</div></div>
-            <div class="proc-detail"><div class="proc-detail-label">Fat</div><div class="proc-detail-val">${r.fat}%</div></div>
-            <div class="proc-detail"><div class="proc-detail-label">SNF</div><div class="proc-detail-val">${r.snf}%</div></div>
-            <div class="proc-detail" style="background:#fff8e7"><div class="proc-detail-label">Total</div><div class="proc-detail-val" style="color:#7a5a00">₹${r.total.toFixed(0)}</div></div>
+      procEl.innerHTML=todayProc.map(r=>{
+        const alcBadge=r.alcohol==='pass'?'<span style="background:#dcfce7;color:var(--green);font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px">✅ Alc</span>':r.alcohol==='fail'?'<span style="background:#fee2e2;color:var(--red);font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px">❌ Alc</span>':'';
+        return`<div style="background:#fff;border-radius:12px;padding:12px 13px;margin-bottom:8px;box-shadow:0 2px 6px rgba(0,0,0,.05);border-left:3px solid #ea580c">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--dark)">${_esc(r.supplier)}</div>
+              <div style="font-size:10px;color:var(--gray);margin-top:2px">${r.lotId?_esc(r.lotId)+' · ':''} ${r.date} ${alcBadge}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:18px;font-weight:700;color:#ea580c">${r.qty}L</div>
+              <div style="font-size:10px;color:var(--gray)">₹${r.total.toFixed(0)}</div>
+            </div>
           </div>
-        </div>`).join('');
+          <div style="display:flex;gap:8px">
+            <div style="background:var(--light);border-radius:8px;padding:5px 10px;text-align:center;flex:1">
+              <div style="font-size:8px;color:var(--gray);text-transform:uppercase">Fat</div>
+              <div style="font-size:13px;font-weight:700;color:var(--blue)">${r.fat}%</div>
+            </div>
+            <div style="background:var(--light);border-radius:8px;padding:5px 10px;text-align:center;flex:1">
+              <div style="font-size:8px;color:var(--gray);text-transform:uppercase">SNF</div>
+              <div style="font-size:13px;font-weight:700;color:var(--blue)">${r.snf}%</div>
+            </div>
+            <div style="background:var(--light);border-radius:8px;padding:5px 10px;text-align:center;flex:1">
+              <div style="font-size:8px;color:var(--gray);text-transform:uppercase">Rate</div>
+              <div style="font-size:13px;font-weight:700;color:var(--blue)">₹${r.rate}</div>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
     }
   }
 
-  // Today's distribution bills
+  // Distribution deliveries
   const todayDist=distRecords.filter(r=>r.date===today);
   const distEl=document.getElementById('riderDistList');
+  const distCount=document.getElementById('riderDistCount');
+  const totalCollect=todayDist.filter(r=>r.balance>0).reduce((s,r)=>s+r.balance,0);
+  if(distCount)distCount.textContent=todayDist.length?(totalCollect>0?'Collect ₹'+totalCollect.toFixed(0):'All settled'):'';
   if(distEl){
-    if(todayDist.length===0){
-      distEl.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No bills issued today</div></div>';
+    if(!todayDist.length){
+      distEl.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No deliveries today</div></div>';
     } else {
-      distEl.innerHTML=todayDist.map(r=>`
-        <div class="dist-record">
-          <div class="proc-record-top"><div class="dist-sup">${_esc(r.dist)}</div><span class="badge ${r.balance>0?'badge-red':'badge-green'}">${r.balance>0?'₹'+r.balance.toFixed(0)+' due':'Paid'}</span></div>
-          <div class="proc-details">
-            <div class="proc-detail"><div class="proc-detail-label">200g</div><div class="proc-detail-val">${r.c200}</div></div>
-            <div class="proc-detail"><div class="proc-detail-label">400g</div><div class="proc-detail-val">${r.c400}</div></div>
-            <div class="proc-detail" style="background:#fff8e7"><div class="proc-detail-label">Bill</div><div class="proc-detail-val" style="color:#7a5a00">₹${r.amount.toFixed(0)}</div></div>
+      distEl.innerHTML=todayDist.map(r=>{
+        const balDue=r.balance>0;
+        return`<div style="background:#fff;border-radius:12px;padding:12px 13px;margin-bottom:8px;box-shadow:0 2px 6px rgba(0,0,0,.05);border-left:3px solid var(--teal)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--dark)">${_esc(r.dist)}</div>
+              <div style="font-size:10px;color:var(--gray);margin-top:1px">${r.c200} × 200g · ${r.c400} × 400g</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:15px;font-weight:700;color:var(--teal)">₹${r.amount.toFixed(0)}</div>
+              <div style="font-size:10px;color:var(--gray)">billed</div>
+            </div>
           </div>
-        </div>`).join('');
+          ${balDue
+            ?`<div style="background:#fff1f2;border-radius:9px;padding:9px 11px;display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:12px;font-weight:700;color:var(--red)">💰 Collect from distributor</span>
+                <span style="font-size:16px;font-weight:700;color:var(--red)">₹${r.balance.toFixed(0)}</span>
+              </div>`
+            :`<div style="background:#f0fdf4;border-radius:9px;padding:9px 11px;text-align:center;font-size:12px;font-weight:700;color:var(--green)">✅ Fully paid</div>`
+          }
+        </div>`;
+      }).join('');
     }
   }
 }
@@ -3493,9 +3582,12 @@ function stopRiderLocation(){
 
 function showRiderLocStatus(msg,cls){
   const el=document.getElementById('riderLocationStatus');
-  if(!el)return;
-  el.className='alert '+cls;
-  el.textContent=msg;
+  const dot=document.getElementById('riderLocDot');
+  const title=document.getElementById('riderLocTitle');
+  if(el)el.textContent=msg;
+  const active=cls==='alert-green';
+  if(dot)dot.style.background=active?'var(--green)':cls==='alert-gold'?'#f59e0b':'#e5e7eb';
+  if(title)title.textContent=active?'Sharing live location':cls==='alert-gold'?'Acquiring GPS…':'Location sharing off';
 }
 
 // ══════════════════════════════════════════
@@ -3537,13 +3629,17 @@ function updateTrackerMap(){
   const infoEl=document.getElementById('trackerInfo');
   const listEl=document.getElementById('ridersList');
 
+  // Update hero
+  const heroCount=document.getElementById('tracker-hero-count');
+  if(heroCount)heroCount.textContent=riderLocations.length;
+
   if(riderLocations.length===0){
-    if(statusEl)statusEl.textContent='No riders online';
-    if(infoEl)infoEl.textContent='No riders are currently sharing location.';
-    if(listEl)listEl.innerHTML='<div class="empty"><div class="empty-icon">🛵</div><div class="empty-text">No riders online</div></div>';
+    if(statusEl){statusEl.textContent='No riders online';statusEl.style.background='rgba(255,255,255,.1)';}
+    if(infoEl)infoEl.textContent='Waiting for riders to share location…';
+    if(listEl)listEl.innerHTML='<div class="empty"><div class="empty-icon">🛵</div><div class="empty-text">No riders sharing location</div></div>';
     return;
   }
-  if(statusEl)statusEl.innerHTML='<span style="color:var(--green);font-weight:700">● LIVE</span> · '+riderLocations.length+' rider(s)';
+  if(statusEl){statusEl.innerHTML='<span style="color:#86efac">●</span> LIVE · '+riderLocations.length+' rider'+(riderLocations.length===1?'':'s');statusEl.style.background='rgba(21,128,61,.25)';}
 
   // Update markers
   const riderIcon=window.L?L.divIcon({
@@ -3572,12 +3668,25 @@ function updateTrackerMap(){
   const first=riderLocations[0];
   if(first&&window.L)trackerMap.setView([first.lat,first.lng],15);
 
-  if(infoEl)infoEl.textContent='Tap a marker for details. Auto-refreshing every 4s.';
+  if(infoEl)infoEl.textContent='Tap a marker for details · Auto-refreshing every 4 s';
   if(listEl)listEl.innerHTML=riderLocations.map(loc=>{
     const age=Math.round((Date.now()-loc.ts)/1000);
-    return`<div class="row">
-      <div><div class="rl" style="font-weight:600">${loc.name}</div><div style="font-size:10px;color:var(--gray)">±${loc.acc}m · ${age}s ago</div></div>
-      <div class="rv green">● Online</div>
+    const ageLabel=age<60?age+'s ago':Math.floor(age/60)+'m ago';
+    const fresh=age<30;
+    const initial=(loc.name||'?')[0].toUpperCase();
+    return`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f3f4f8">
+      <div style="width:38px;height:38px;border-radius:50%;background:var(--light);color:var(--blue);font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative">
+        ${initial}
+        <div style="position:absolute;bottom:0;right:0;width:11px;height:11px;border-radius:50%;background:${fresh?'var(--green)':'#f59e0b'};border:2px solid #fff"></div>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:var(--dark)">${_esc(loc.name)}</div>
+        <div style="font-size:10px;color:var(--gray)">±${loc.acc}m accuracy · ${ageLabel}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:11px;font-weight:700;color:${fresh?'var(--green)':'#f59e0b'}">${fresh?'● Fresh':'○ Stale'}</div>
+        <div style="font-size:9px;color:var(--gray)">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</div>
+      </div>
     </div>`;
   }).join('');
 }
