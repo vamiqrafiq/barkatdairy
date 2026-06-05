@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- bd-version: 20260605-9 -->
+<!-- bd-version: 20260605-10 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -1414,43 +1414,86 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
 
 <!-- ══ PAYMENTS / CREDIT TAB ══ -->
 <div class="page" id="tab-payments">
-  <div class="hero">
-    <div class="hero-label">💰 Payments & Credit</div>
+
+  <!-- Hero -->
+  <div class="hero" style="background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 60%,#4f46e5 100%)">
+    <div class="hero-label">PAYMENTS &amp; CREDIT</div>
     <div class="gold-bar"></div>
     <div class="hero-val" id="payHeroVal">₹0</div>
-    <div class="hero-sub">Total outstanding from all distributors</div>
+    <div class="hero-sub" id="payHeroSub">All distributors cleared</div>
   </div>
 
+  <!-- Outstanding balances (quick-pay cards) -->
   <div class="section">
-    <div class="sec-title">➕ Record Payment Received</div>
-    <div style="margin-bottom:9px"><label class="inp-label">Distributor</label>
-      <select id="pay-dist" onchange="payDistChange()"><option value="">— Select distributor —</option></select>
-    </div>
-    <div class="auto-box" style="margin-bottom:9px"><div class="auto-box-label">Current Outstanding Balance</div><div class="auto-box-val" id="pay-current-bal" style="color:var(--red)">₹0</div></div>
-    <div class="grid2" style="margin-bottom:9px">
-      <div><label class="inp-label">Amount Received (₹)</label><input type="number" id="pay-amount" placeholder="0" oninput="payPreview()"/></div>
-      <div><label class="inp-label">Date</label><input type="date" id="pay-date"/></div>
-    </div>
-    <div class="grid2" style="margin-bottom:9px">
-      <div><label class="inp-label">Payment Mode</label>
-        <select id="pay-mode"><option>Cash</option><option>UPI / Online</option><option>Bank Transfer</option><option>Cheque</option></select>
-      </div>
-      <div><label class="inp-label">Collected By</label><input type="text" id="pay-by" placeholder="Staff/Rider name"/></div>
-    </div>
-    <div class="auto-box" style="margin-bottom:12px"><div class="auto-box-label">Balance After Payment</div><div class="auto-box-val" id="pay-after-bal" style="font-size:16px">₹0</div></div>
-    <button class="btn btn-green btn-full" onclick="savePayment()">💾 Record Payment</button>
-    <div id="payAlert" style="margin-top:8px"></div>
-  </div>
-
-  <div class="section">
-    <div class="sec-title">📊 Distributor Balances & Credit</div>
+    <div class="sec-title">💼 Outstanding Balances</div>
     <div id="creditList"></div>
   </div>
 
+  <!-- Record payment form -->
   <div class="section">
-    <div class="sec-title-row"><div class="sec-title">📋 Payment History</div><span id="payCount" style="font-size:11px;color:var(--gray)"></span></div>
+    <div class="sec-title">➕ Record Payment</div>
+
+    <!-- Step 1: Distributor -->
+    <div style="font-size:9px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">① Distributor</div>
+    <div style="margin-bottom:10px">
+      <label class="inp-label">Select Distributor</label>
+      <select id="pay-dist" onchange="payDistChange()"><option value="">— Select distributor —</option></select>
+    </div>
+    <!-- Current balance — prominent inline card -->
+    <div id="pay-curr-wrap" style="display:none;border-radius:12px;padding:12px 14px;margin-bottom:12px;background:linear-gradient(135deg,#b91c1c,#dc2626);display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:9px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Current Balance Due</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.6)" id="pay-curr-note"></div>
+      </div>
+      <div id="pay-current-bal" style="font-size:24px;font-weight:700;color:#fff">₹0</div>
+    </div>
+
+    <!-- Step 2: Payment details -->
+    <div style="font-size:9px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">② Payment Details</div>
+    <div style="margin-bottom:9px">
+      <label class="inp-label">Amount Received (₹)</label>
+      <input type="number" id="pay-amount" placeholder="Enter amount" oninput="payPreview()" style="font-size:18px;font-weight:700;padding:12px"/>
+    </div>
+    <div class="grid2" style="margin-bottom:9px">
+      <div><label class="inp-label">Date</label><input type="date" id="pay-date"/></div>
+      <div><label class="inp-label">Payment Mode</label>
+        <select id="pay-mode" onchange="payPreview()">
+          <option value="Cash">💵 Cash</option>
+          <option value="UPI">📱 UPI / Online</option>
+          <option value="Bank Transfer">🏦 Bank Transfer</option>
+          <option value="Cheque">📝 Cheque</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label class="inp-label">Collected By</label>
+      <input type="text" id="pay-by" placeholder="Name of staff who collected"/>
+    </div>
+
+    <!-- Balance after — prominent card -->
+    <div id="pay-after-wrap" style="display:none;border-radius:14px;padding:14px 16px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:10px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Balance After Payment</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.6)" id="pay-after-note"></div>
+        </div>
+        <div id="pay-after-bal" style="font-size:26px;font-weight:700;color:#fff">₹0</div>
+      </div>
+    </div>
+
+    <button class="btn btn-full" onclick="savePayment()" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;font-size:14px;padding:14px;border-radius:12px;font-weight:700;box-shadow:0 3px 10px rgba(124,58,237,.35);margin-bottom:4px">💾 Record Payment</button>
+    <div id="payAlert" style="margin-top:8px"></div>
+  </div>
+
+  <!-- Payment history -->
+  <div class="section">
+    <div class="sec-title-row">
+      <div class="sec-title">📋 Payment History</div>
+      <span id="payCount" style="font-size:11px;color:var(--gray)"></span>
+    </div>
     <div id="paymentHistory"></div>
   </div>
+
 </div>
 
 </div><!-- end body -->
@@ -4665,42 +4708,86 @@ function getAllDistributors(){
   return Object.keys(set);
 }
 
+// Quick-select a distributor from the credit card "Pay" button
+function selectPayDist(name){
+  var sel=document.getElementById('pay-dist');
+  if(sel)sel.value=name;
+  payDistChange();
+  // Scroll to the form
+  var form=document.querySelector('#tab-payments .section:nth-child(3)');
+  if(form)form.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 function renderPayments(){
   var pd=document.getElementById('pay-date');if(pd&&!pd.value)pd.value=new Date().toISOString().split('T')[0];
-  // Populate distributor dropdown
+  // Auto-fill Collected By from logged-in user
+  var byEl=document.getElementById('pay-by');
+  if(byEl&&!byEl.value&&currentUser)byEl.value=currentUser.name;
+
+  var dists=getAllDistributors();
+  // Populate dropdown
   var sel=document.getElementById('pay-dist');
-  if(sel){
-    var dists=getAllDistributors();
-    sel.innerHTML='<option value="">— Select distributor —</option>'+dists.map(function(d){return '<option value="'+_esc(d)+'">'+_esc(d)+'</option>';}).join('');
-  }
+  if(sel) sel.innerHTML='<option value="">— Select distributor —</option>'+dists.map(function(d){return '<option value="'+_esc(d)+'">'+_esc(d)+'</option>';}).join('');
+
   // Total outstanding
-  var totalOut=getAllDistributors().reduce(function(s,d){return s+Math.max(0,getDistBalance(d));},0);
+  var totalOut=dists.reduce(function(s,d){return s+Math.max(0,getDistBalance(d));},0);
+  var owing=dists.filter(function(d){return getDistBalance(d)>0.5;}).length;
   var hv=document.getElementById('payHeroVal');if(hv)hv.textContent='₹'+totalOut.toFixed(0);
-  // Credit list
+  var hs=document.getElementById('payHeroSub');
+  if(hs)hs.textContent=owing?owing+' distributor'+(owing===1?'':' s')+' with balance':'All distributors cleared ✅';
+
+  // Credit cards with Pay button
   var cl=document.getElementById('creditList');
   if(cl){
-    var dists=getAllDistributors().map(function(d){return {name:d,bal:getDistBalance(d)};}).filter(function(x){return x.bal>0.5;}).sort(function(a,b){return b.bal-a.bal;});
-    if(!dists.length){cl.innerHTML='<div style="font-size:13px;color:var(--green);padding:10px 0">✅ No outstanding balances</div>';}
-    else{
+    var owingDists=dists.map(function(d){return {name:d,bal:getDistBalance(d)};}).filter(function(x){return x.bal>0.5;}).sort(function(a,b){return b.bal-a.bal;});
+    if(!owingDists.length){
+      cl.innerHTML='<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">✅</div><div style="font-size:13px;font-weight:700;color:var(--green)">All distributors cleared</div><div style="font-size:11px;color:var(--gray);margin-top:3px">No outstanding balances</div></div>';
+    } else {
       var limit=settings.creditLimit||20000;
-      cl.innerHTML=dists.map(function(d){
+      cl.innerHTML=owingDists.map(function(d){
         var over=d.bal>limit;
-        return '<div class="dist-balance-card" style="background:'+(over?'linear-gradient(135deg,#b91c1c,#dc2626)':'linear-gradient(135deg,#0f766e,#0d9488)')+'">'+
-          '<div><div class="dist-balance-name">'+_esc(d.name)+'</div><div class="dist-balance-sub">'+(over?'⚠️ Over credit limit (₹'+limit+')':'Outstanding')+'</div></div>'+
-          '<div class="dist-balance-amt">₹'+d.bal.toFixed(0)+'</div>'+
+        return '<div class="dist-balance-card" style="background:'+(over?'linear-gradient(135deg,#b91c1c,#dc2626)':'linear-gradient(135deg,#6d28d9,#7c3aed)')+'">'+
+          '<div><div class="dist-balance-name">'+_esc(d.name)+'</div>'+
+          '<div class="dist-balance-sub">'+(over?'⚠️ Over limit (₹'+limit+')':'Outstanding')+'</div></div>'+
+          '<div style="text-align:right">'+
+            '<div class="dist-balance-amt">₹'+d.bal.toFixed(0)+'</div>'+
+            '<button onclick="selectPayDist(\''+_esc(d.name)+'\')" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;padding:3px 10px;border-radius:8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:5px">Pay Now ↓</button>'+
+          '</div>'+
         '</div>';
       }).join('');
     }
   }
-  // Payment history
+
+  // Payment history — grouped by date
   var ph=document.getElementById('paymentHistory');
   var pc=document.getElementById('payCount');
   if(pc)pc.textContent=paymentsLog.length+' payments';
   if(ph){
-    if(!paymentsLog.length){ph.innerHTML='<div class="empty"><div class="empty-icon">💰</div><div class="empty-text">No payments recorded</div></div>';}
-    else{
-      ph.innerHTML=paymentsLog.slice(0,20).map(function(p){
-        return '<div class="row"><span class="rl">'+_esc(p.dist)+' · '+p.date+'<br/><span style="font-size:9px">'+p.mode+' · by '+(p.by||'-')+'</span></span><span class="rv green">₹'+p.amount.toFixed(0)+'</span></div>';
+    if(!paymentsLog.length){
+      ph.innerHTML='<div class="empty"><div class="empty-icon">💰</div><div class="empty-text">No payments recorded</div></div>';
+    } else {
+      var modeIcon={'Cash':'💵','UPI':'📱','UPI / Online':'📱','Bank Transfer':'🏦','Cheque':'📝'};
+      var grouped={};
+      paymentsLog.slice(0,40).forEach(function(p){if(!grouped[p.date])grouped[p.date]=[];grouped[p.date].push(p);});
+      ph.innerHTML=Object.keys(grouped).sort(function(a,b){return b.localeCompare(a);}).map(function(date){
+        var rows=grouped[date];
+        var dayTotal=rows.reduce(function(s,p){return s+p.amount;},0);
+        return '<div style="margin-bottom:12px">'+
+          '<div style="font-size:11px;font-weight:700;color:#6d28d9;margin-bottom:6px;display:flex;justify-content:space-between">'+
+            '<span>'+date+'</span><span style="color:var(--green);font-weight:700">+₹'+dayTotal.toFixed(0)+'</span>'+
+          '</div>'+
+          rows.map(function(p){
+            var icon=modeIcon[p.mode]||'💰';
+            return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f8">'+
+              '<div style="font-size:20px;flex-shrink:0">'+icon+'</div>'+
+              '<div style="flex:1">'+
+                '<div style="font-size:12px;font-weight:700;color:var(--dark)">'+_esc(p.dist)+'</div>'+
+                '<div style="font-size:10px;color:var(--gray)">'+p.mode+(p.by?' · by '+_esc(p.by):'')+'</div>'+
+              '</div>'+
+              '<div style="font-size:15px;font-weight:700;color:var(--green)">₹'+p.amount.toFixed(0)+'</div>'+
+            '</div>';
+          }).join('')+
+        '</div>';
       }).join('');
     }
   }
@@ -4709,7 +4796,16 @@ function renderPayments(){
 function payDistChange(){
   var dist=document.getElementById('pay-dist').value;
   var bal=dist?getDistBalance(dist):0;
-  var el=document.getElementById('pay-current-bal');if(el)el.textContent='₹'+bal.toFixed(0);
+  // Current balance card
+  var wrap=document.getElementById('pay-curr-wrap');
+  var balEl=document.getElementById('pay-current-bal');
+  var noteEl=document.getElementById('pay-curr-note');
+  if(wrap)wrap.style.display=dist?'flex':'none';
+  if(balEl)balEl.textContent='₹'+bal.toFixed(0);
+  if(noteEl){
+    var entries=dist?distRecords.filter(function(r){return r.dist===dist;}).length:0;
+    noteEl.textContent=entries+' bill'+(entries===1?'':'s')+' on account';
+  }
   payPreview();
 }
 function payPreview(){
@@ -4717,8 +4813,17 @@ function payPreview(){
   var bal=dist?getDistBalance(dist):0;
   var amt=parseFloat(document.getElementById('pay-amount').value)||0;
   var after=bal-amt;
-  var el=document.getElementById('pay-after-bal');
-  if(el){el.textContent='₹'+after.toFixed(0);el.style.color=after>0?'var(--red)':'var(--green)';}
+  var wrap=document.getElementById('pay-after-wrap');
+  var afterEl=document.getElementById('pay-after-bal');
+  var noteEl=document.getElementById('pay-after-note');
+  if(!dist||!amt){if(wrap)wrap.style.display='none';return;}
+  if(wrap){
+    wrap.style.display='block';
+    var cleared=after<=0;
+    wrap.style.background=cleared?'linear-gradient(135deg,#15803d,#16a34a)':'linear-gradient(135deg,#b91c1c,#dc2626)';
+  }
+  if(afterEl)afterEl.textContent=after<=0?'✅ Cleared':'₹'+after.toFixed(0);
+  if(noteEl)noteEl.textContent=after>0?'₹'+after.toFixed(0)+' still outstanding after this payment':after===0?'Fully settled':'₹'+Math.abs(after).toFixed(0)+' credit (overpaid)';
 }
 function savePayment(){
   var dist=document.getElementById('pay-dist').value;
