@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- bd-version: 20260605-10 -->
+<!-- bd-version: 20260605-11 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -1350,37 +1350,71 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
 
 <!-- ══ RETURNS / WASTAGE TAB ══ -->
 <div class="page" id="tab-returns">
-  <div class="hero">
-    <div class="hero-label">↩️ Returns & Wastage</div>
+
+  <!-- Hero -->
+  <div class="hero" style="background:linear-gradient(135deg,#c2410c 0%,#ea580c 60%,#f97316 100%)">
+    <div class="hero-label">RETURNS &amp; LOSSES</div>
     <div class="gold-bar"></div>
-    <div class="hero-val" id="returnsHeroVal">Track Losses</div>
-    <div class="hero-sub">Returns, spillage, damage, free samples</div>
+    <div class="hero-val" id="ret-hero-val">0</div>
+    <div class="hero-sub" id="ret-hero-sub">entries this month</div>
   </div>
 
+  <!-- Month snapshot — context before the form -->
+  <div class="section">
+    <div class="sec-title">📊 This Month's Summary</div>
+    <div id="lossSnapshot"></div>
+  </div>
+
+  <!-- Record Entry form -->
   <div class="section">
     <div class="sec-title">➕ Record Entry</div>
-    <div style="margin-bottom:9px">
-      <label class="inp-label">Type</label>
-      <select id="ret-type" onchange="retTypeChange()">
-        <option value="return">Product Return (from distributor)</option>
-        <option value="spillage">Milk Spillage</option>
-        <option value="damage">Damaged Cups/Packaging</option>
-        <option value="sample">Free Sample Given</option>
-      </select>
+
+    <!-- Type — icon buttons -->
+    <div style="font-size:9px;font-weight:700;color:#c2410c;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">① Entry Type</div>
+    <!-- Hidden select keeps the existing JS working -->
+    <select id="ret-type" onchange="retTypeChange()" style="display:none">
+      <option value="return">return</option>
+      <option value="spillage">spillage</option>
+      <option value="damage">damage</option>
+      <option value="sample">sample</option>
+    </select>
+    <div class="grid2" style="margin-bottom:12px;gap:8px" id="ret-type-btns">
+      <button onclick="setRetType('return')"  id="rtb-return"   class="ret-type-btn" style="padding:12px 6px;border-radius:12px;border:2px solid #e2e8f0;background:#fff;cursor:pointer;font-family:inherit;transition:all .15s;text-align:center">
+        <div style="font-size:22px;margin-bottom:3px">↩️</div><div style="font-size:11px;font-weight:700;color:var(--dark)">Return</div><div style="font-size:9px;color:var(--gray)">From distributor</div>
+      </button>
+      <button onclick="setRetType('spillage')" id="rtb-spillage" class="ret-type-btn" style="padding:12px 6px;border-radius:12px;border:2px solid #e2e8f0;background:#fff;cursor:pointer;font-family:inherit;transition:all .15s;text-align:center">
+        <div style="font-size:22px;margin-bottom:3px">💧</div><div style="font-size:11px;font-weight:700;color:var(--dark)">Spillage</div><div style="font-size:9px;color:var(--gray)">Milk spilled</div>
+      </button>
+      <button onclick="setRetType('damage')"  id="rtb-damage"   class="ret-type-btn" style="padding:12px 6px;border-radius:12px;border:2px solid #e2e8f0;background:#fff;cursor:pointer;font-family:inherit;transition:all .15s;text-align:center">
+        <div style="font-size:22px;margin-bottom:3px">📦</div><div style="font-size:11px;font-weight:700;color:var(--dark)">Damage</div><div style="font-size:9px;color:var(--gray)">Broken cups</div>
+      </button>
+      <button onclick="setRetType('sample')"  id="rtb-sample"   class="ret-type-btn" style="padding:12px 6px;border-radius:12px;border:2px solid #e2e8f0;background:#fff;cursor:pointer;font-family:inherit;transition:all .15s;text-align:center">
+        <div style="font-size:22px;margin-bottom:3px">🎁</div><div style="font-size:11px;font-weight:700;color:var(--dark)">Sample</div><div style="font-size:9px;color:var(--gray)">Free given</div>
+      </button>
     </div>
-    <div id="ret-dist-wrap" style="margin-bottom:9px">
-      <label class="inp-label">Distributor / Given To</label>
+
+    <!-- Contextual fields -->
+    <div id="ret-dist-wrap" style="margin-bottom:9px;display:none">
+      <label class="inp-label" id="ret-dist-label">Distributor</label>
       <input type="text" id="ret-dist" placeholder="Name"/>
     </div>
-    <div id="ret-batch-wrap" style="margin-bottom:9px">
+    <div id="ret-batch-wrap" style="margin-bottom:9px;display:none">
       <label class="inp-label">Batch Code (if known)</label>
       <input type="text" id="ret-batch" placeholder="e.g. B-20260601-001"/>
     </div>
+
+    <!-- Product & Quantity -->
+    <div style="font-size:9px;font-weight:700;color:#c2410c;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">② What &amp; How Much</div>
     <div class="grid2" style="margin-bottom:9px">
-      <div id="ret-sku-wrap"><label class="inp-label">Product</label>
-        <select id="ret-sku"><option value="200g">200g Cups</option><option value="400g">400g Cups</option><option value="milk">Milk (L)</option></select>
+      <div id="ret-sku-wrap">
+        <label class="inp-label">Product</label>
+        <select id="ret-sku">
+          <option value="200g">🥛 200g Cups</option>
+          <option value="400g">🫙 400g Cups</option>
+          <option value="milk">🐄 Milk (L)</option>
+        </select>
       </div>
-      <div><label class="inp-label">Quantity</label><input type="number" id="ret-qty" placeholder="0"/></div>
+      <div><label class="inp-label">Quantity</label><input type="number" id="ret-qty" placeholder="0" style="font-size:18px;font-weight:700;padding:10px 12px"/></div>
     </div>
     <div class="grid2" style="margin-bottom:9px">
       <div><label class="inp-label">Date</label><input type="date" id="ret-date"/></div>
@@ -1392,24 +1426,30 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
         </select>
       </div>
     </div>
-    <div id="ret-restock-wrap" style="margin-bottom:9px">
+    <div id="ret-restock-wrap" style="margin-bottom:9px;display:none">
       <label class="inp-label">Add returned stock back to inventory?</label>
-      <select id="ret-restock"><option value="no">No — discard (damaged/expired)</option><option value="yes">Yes — good condition, restock</option></select>
+      <select id="ret-restock">
+        <option value="no">❌ No — discard (damaged/expired)</option>
+        <option value="yes">✅ Yes — good condition, restock</option>
+      </select>
     </div>
-    <div style="margin-bottom:12px"><label class="inp-label">Notes</label><input type="text" id="ret-notes" placeholder="Optional"/></div>
-    <button class="btn btn-primary btn-full" onclick="saveReturn()">💾 Save Entry</button>
+    <div style="margin-bottom:12px">
+      <label class="inp-label">Notes (optional)</label>
+      <input type="text" id="ret-notes" placeholder="Any additional details…"/>
+    </div>
+    <button class="btn btn-full" onclick="saveReturn()" style="background:linear-gradient(135deg,#c2410c,#ea580c);color:#fff;font-size:14px;padding:14px;border-radius:12px;font-weight:700;box-shadow:0 3px 10px rgba(194,65,12,.35);margin-bottom:4px">💾 Save Entry</button>
     <div id="retAlert" style="margin-top:8px"></div>
   </div>
 
+  <!-- Recent entries -->
   <div class="section">
-    <div class="sec-title-row"><div class="sec-title">📋 Recent Entries</div><span id="retCount" style="font-size:11px;color:var(--gray)"></span></div>
+    <div class="sec-title-row">
+      <div class="sec-title">📋 Recent Entries</div>
+      <span id="retCount" style="font-size:11px;color:var(--gray)"></span>
+    </div>
     <div id="returnsList"></div>
   </div>
 
-  <div class="section">
-    <div class="sec-title">📊 This Month's Losses</div>
-    <div id="lossSnapshot"></div>
-  </div>
 </div>
 
 <!-- ══ PAYMENTS / CREDIT TAB ══ -->
@@ -4596,18 +4636,33 @@ var returnsLog = load('returnsLog', []);
 var paymentsLog = load('paymentsLog', []);
 var auditLog = load('auditLog', []);
 
+var _retTypeColors={return:'#c2410c',spillage:'#0369a1',damage:'#7c3aed',sample:'#15803d'};
+function setRetType(type){
+  var sel=document.getElementById('ret-type');
+  if(sel)sel.value=type;
+  // Update button highlight
+  ['return','spillage','damage','sample'].forEach(function(t){
+    var btn=document.getElementById('rtb-'+t);
+    if(!btn)return;
+    var active=t===type;
+    var col=_retTypeColors[t]||'var(--blue)';
+    btn.style.borderColor=active?col:'#e2e8f0';
+    btn.style.background=active?col+'18':'#fff';
+  });
+  retTypeChange();
+}
 function retTypeChange(){
   var type=document.getElementById('ret-type').value;
   var distWrap=document.getElementById('ret-dist-wrap');
   var restockWrap=document.getElementById('ret-restock-wrap');
   var batchWrap=document.getElementById('ret-batch-wrap');
-  var distLabel=distWrap.querySelector('.inp-label');
+  var distLabel=document.getElementById('ret-dist-label');
   if(type==='return'){
     distWrap.style.display='block';restockWrap.style.display='block';batchWrap.style.display='block';
-    distLabel.textContent='Distributor';
+    if(distLabel)distLabel.textContent='Distributor';
   } else if(type==='sample'){
     distWrap.style.display='block';restockWrap.style.display='none';batchWrap.style.display='block';
-    distLabel.textContent='Given To';
+    if(distLabel)distLabel.textContent='Given To';
   } else {
     distWrap.style.display='none';restockWrap.style.display='none';
     batchWrap.style.display=type==='damage'?'block':'none';
@@ -4659,36 +4714,75 @@ function saveReturn(){
 function renderReturns(){
   var d=document.getElementById('ret-date');if(d&&!d.value)d.value=new Date().toISOString().split('T')[0];
   retTypeChange();
-  var el=document.getElementById('returnsList');
-  var cnt=document.getElementById('retCount');
-  if(cnt)cnt.textContent=returnsLog.length+' entries';
-  if(el){
-    if(!returnsLog.length){el.innerHTML='<div class="empty"><div class="empty-icon">↩️</div><div class="empty-text">No entries yet</div></div>';}
-    else{
-      var icons={'return':'↩️','spillage':'💧','damage':'📦','sample':'🎁'};
-      el.innerHTML=returnsLog.slice(0,20).map(function(r){
-        return '<div class="cip-card" style="border-left-color:'+(r.type==='return'?'#c2410c':r.type==='sample'?'#7c3aed':'#dc2626')+'">'+
-          '<div style="display:flex;justify-content:space-between"><div style="font-size:12px;font-weight:700;color:var(--dark)">'+(icons[r.type]||'')+' '+_esc((r.type||'').toUpperCase())+'</div><div style="font-size:10px;color:var(--gray)">'+_esc(r.date)+'</div></div>'+
-          '<div style="font-size:13px;font-weight:700;color:var(--dark);margin-top:2px">'+_esc(String(r.qty||''))+' × '+_esc(r.sku||'')+(r.dist?' · '+_esc(r.dist):'')+'</div>'+
-          '<div style="font-size:10px;color:var(--gray)">Reason: '+_esc(r.reason||'')+(r.batch?' · Batch: '+_esc(r.batch):'')+'</div>'+
-          (r.notes?'<div style="font-size:10px;color:var(--gray)">'+_esc(r.notes)+'</div>':'')+
-          '<div style="font-size:9px;color:#bbb;margin-top:2px">By: '+_esc(r.savedBy||'-')+'</div>'+
+
+  var icons={'return':'↩️','spillage':'💧','damage':'📦','sample':'🎁'};
+  var typeLabels={'return':'Return','spillage':'Spillage','damage':'Damage','sample':'Sample'};
+  var typeColors={'return':'#c2410c','spillage':'#0369a1','damage':'#7c3aed','sample':'#15803d'};
+
+  // Month snapshot — update hero and snapshot section
+  var month=new Date().toISOString().slice(0,7);
+  var monthLog=returnsLog.filter(function(r){return r.date&&r.date.slice(0,7)===month;});
+  var heroVal=document.getElementById('ret-hero-val');
+  var heroSub=document.getElementById('ret-hero-sub');
+  if(heroVal)heroVal.textContent=monthLog.length;
+  if(heroSub)heroSub.textContent=monthLog.length===1?'entry this month':'entries this month';
+
+  var snap=document.getElementById('lossSnapshot');
+  if(snap){
+    if(!monthLog.length){
+      snap.innerHTML='<div style="text-align:center;padding:12px 0"><div style="font-size:24px;margin-bottom:4px">✅</div><div style="font-size:12px;color:var(--green);font-weight:700">No losses recorded this month</div></div>';
+    } else {
+      var byType={};
+      monthLog.forEach(function(r){
+        if(!byType[r.type])byType[r.type]={qty:0,count:0};
+        byType[r.type].qty+=r.qty||0;byType[r.type].count++;
+      });
+      snap.innerHTML=Object.keys(byType).map(function(t){
+        var col=typeColors[t]||'var(--gray)';
+        var lbl=typeLabels[t]||t;
+        var icon=icons[t]||'📋';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f8">'+
+          '<div style="width:32px;height:32px;border-radius:50%;background:'+col+'18;color:'+col+';font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+icon+'</div>'+
+          '<div style="flex:1"><div style="font-size:12px;font-weight:700;color:var(--dark)">'+lbl+'</div>'+
+          '<div style="font-size:10px;color:var(--gray)">'+byType[t].count+' entr'+(byType[t].count===1?'y':'ies')+'</div></div>'+
+          '<div style="font-size:16px;font-weight:700;color:'+col+'">'+byType[t].qty+'</div>'+
         '</div>';
       }).join('');
     }
   }
-  // Month snapshot
-  var snap=document.getElementById('lossSnapshot');
-  if(snap){
-    var month=new Date().toISOString().slice(0,7);
-    var monthLog=returnsLog.filter(function(r){return r.date&&r.date.slice(0,7)===month;});
-    var byType={};
-    monthLog.forEach(function(r){byType[r.type]=(byType[r.type]||0)+r.qty;});
-    var rows=Object.keys(byType).map(function(t){
-      return '<div class="row"><span class="rl">'+t+'</span><span class="rv">'+byType[t]+' units</span></div>';
-    }).join('');
-    snap.innerHTML=rows||'<div style="font-size:12px;color:var(--gray);padding:8px 0">No losses this month ✅</div>';
+
+  // Recent entries list
+  var el=document.getElementById('returnsList');
+  var cnt=document.getElementById('retCount');
+  if(cnt)cnt.textContent=returnsLog.length+' total';
+  if(!el)return;
+  if(!returnsLog.length){
+    el.innerHTML='<div class="empty"><div class="empty-icon">↩️</div><div class="empty-text">No entries yet</div></div>';
+    return;
   }
+  el.innerHTML=returnsLog.slice(0,25).map(function(r){
+    var col=typeColors[r.type]||'#6b7280';
+    var icon=icons[r.type]||'📋';
+    var lbl=typeLabels[r.type]||r.type;
+    var restockBadge=(r.type==='return'&&r.restock==='yes')?'<span style="font-size:9px;background:#dcfce7;color:var(--green);font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px">↩️ Restocked</span>':'';
+    return '<div style="background:#fff;border-radius:12px;padding:11px 13px;margin-bottom:8px;'+
+      'box-shadow:0 2px 6px rgba(0,0,0,.05);border-left:3px solid '+col+'">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'+
+        '<div style="display:flex;align-items:center;gap:7px">'+
+          '<span style="font-size:18px">'+icon+'</span>'+
+          '<div><div style="font-size:12px;font-weight:700;color:var(--dark)">'+lbl+restockBadge+'</div>'+
+          '<div style="font-size:10px;color:var(--gray)">'+_esc(r.date)+(r.dist?' · '+_esc(r.dist):'')+'</div></div>'+
+        '</div>'+
+        '<div style="text-align:right">'+
+          '<div style="font-size:18px;font-weight:700;color:'+col+'">'+_esc(String(r.qty||'0'))+'</div>'+
+          '<div style="font-size:10px;color:var(--gray)">'+_esc(r.sku||'')+'</div>'+
+        '</div>'+
+      '</div>'+
+      '<div style="font-size:10px;color:var(--gray)">'+_esc(r.reason||'')+(r.batch?' · '+_esc(r.batch):'')+'</div>'+
+      (r.notes?'<div style="font-size:10px;color:var(--gray);font-style:italic;margin-top:2px">'+_esc(r.notes)+'</div>':'')+
+      '<div style="font-size:9px;color:#bbb;margin-top:3px">By '+_esc(r.savedBy||'Staff')+'</div>'+
+    '</div>';
+  }).join('');
 }
 
 // ════════════════════════════════════════════════
