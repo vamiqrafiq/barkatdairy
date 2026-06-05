@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- bd-version: 20260605-6 -->
+<!-- bd-version: 20260605-7 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -896,39 +896,80 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
 
 <!-- ══ INVENTORY TAB ══ -->
 <div class="page" id="tab-inv">
-  <div class="section">
-    <div class="sec-title">📊 Current Stock Levels</div>
-    <div id="stockDashboard"></div>
-  </div>
-  <div class="section">
-    <div class="sec-title">➕ Update Stock</div>
-    <div style="margin-bottom:10px">
-      <label class="inp-label">Select Item</label>
-      <select id="inv-item">
-        <option value="cups200">200g Cups</option>
-        <option value="cups400">400g Cups</option>
-        <option value="foil">Foil Lids</option>
-        <option value="smp">SMP (kg)</option>
-        <option value="culture">Culture (packets)</option>
-        <option value="crates">Crates</option>
-      </select>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-label">STOCK HEALTH</div>
+    <div class="gold-bar"></div>
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div>
+        <div class="hero-val" id="inv-hero-ok" style="font-size:22px">—</div>
+        <div class="hero-sub">items OK</div>
+      </div>
+      <div style="padding-bottom:4px;display:flex;gap:6px">
+        <span id="inv-hero-low"  style="background:rgba(249,115,22,.25);color:#fed7aa;font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px">0 Low</span>
+        <span id="inv-hero-crit" style="background:rgba(185,28,28,.35);color:#fca5a5;font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px">0 Critical</span>
+      </div>
     </div>
-    <div style="margin-bottom:10px"><label class="inp-label">Date</label><input type="date" id="inv-date"/></div>
-    <div class="grid2" style="margin-bottom:12px">
-      <div><label class="inp-label">Qty Received / Bought</label><input type="number" id="inv-recv" placeholder="0" min="0" step="any"/></div>
-      <div><label class="inp-label">Qty Used / Consumed</label><input type="number" id="inv-used" placeholder="0" min="0" step="any"/></div>
-    </div>
-    <div style="margin-bottom:10px"><label class="inp-label">Note (optional)</label><input type="text" id="inv-note" placeholder="e.g. Bought from supplier"/></div>
-    <button class="btn btn-primary btn-full" onclick="saveInvEntry()">💾 Save Stock Update</button>
-    <div id="invAlert" style="margin-top:8px"></div>
   </div>
+
+  <!-- Stock Dashboard -->
   <div class="section">
     <div class="sec-title-row">
-      <div class="sec-title">📋 Recent Stock Log</div>
-      <button class="btn btn-sm btn-outline" onclick="renderInvLog()">Refresh</button>
+      <div class="sec-title">📦 Current Stock</div>
+      <div id="inv-today-badge" style="font-size:10px;color:var(--teal);font-weight:700"></div>
     </div>
+    <div id="stockDashboard"></div>
+  </div>
+
+  <!-- Update Stock form -->
+  <div class="section">
+    <div class="sec-title">➕ Update Stock</div>
+
+    <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">① Select Item &amp; Date</div>
+    <div class="grid2" style="margin-bottom:12px">
+      <div>
+        <label class="inp-label">Item</label>
+        <select id="inv-item">
+          <option value="cups200">🥛 200g Cups</option>
+          <option value="cups400">🫙 400g Cups</option>
+          <option value="foil">🔘 Foil Lids</option>
+          <option value="smp">🥣 SMP (kg)</option>
+          <option value="culture">🧫 Culture (pkt)</option>
+          <option value="crates">📦 Crates</option>
+        </select>
+      </div>
+      <div><label class="inp-label">Date</label><input type="date" id="inv-date"/></div>
+    </div>
+
+    <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">② Movement</div>
+    <div class="grid2" style="margin-bottom:12px">
+      <div>
+        <label class="inp-label" style="color:var(--green)">📥 Received / Bought</label>
+        <input type="number" id="inv-recv" placeholder="0" min="0" step="any"
+          style="border-color:#86efac;background:#f0fdf4"/>
+      </div>
+      <div>
+        <label class="inp-label" style="color:var(--red)">📤 Used / Consumed</label>
+        <input type="number" id="inv-used" placeholder="0" min="0" step="any"
+          style="border-color:#fca5a5;background:#fff1f2"/>
+      </div>
+    </div>
+
+    <div style="margin-bottom:12px">
+      <label class="inp-label">Note (optional)</label>
+      <input type="text" id="inv-note" placeholder="e.g. Bought from Dawar, batch production…"/>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveInvEntry()" style="padding:13px;font-size:13px">💾 Save Stock Entry</button>
+    <div id="invAlert" style="margin-top:8px"></div>
+  </div>
+
+  <!-- Recent Log -->
+  <div class="section">
+    <div class="sec-title">📋 Recent Activity</div>
     <div id="invLog"></div>
   </div>
+
 </div>
 
 <!-- ══ CAMERA VERIFICATION MODAL ══ -->
@@ -2876,6 +2917,7 @@ function saveInvEntry(){
   document.getElementById('inv-recv').value='';
   document.getElementById('inv-used').value='';
   document.getElementById('inv-note').value='';
+  document.getElementById('inv-date').value=new Date().toISOString().split('T')[0];
   const invItemEl=document.getElementById('inv-item');if(invItemEl)invItemEl.selectedIndex=0;
   showAlert('invAlert','alert-green','✅ Stock updated');
   renderStockDashboard();
@@ -2886,54 +2928,94 @@ function saveInvEntry(){
 function renderStockDashboard(){
   const el=document.getElementById('stockDashboard');
   if(!el)return;
+  let okCount=0,lowCount=0,critCount=0;
+  // Today's activity summary
+  const today=new Date().toISOString().split('T')[0];
+  const todayEntries=invEntries.filter(e=>e.date===today);
+  const todayRecv=todayEntries.reduce((s,e)=>s+(e.recv||0),0);
+  const todayUsed=todayEntries.reduce((s,e)=>s+(e.used||0),0);
+  const badge=document.getElementById('inv-today-badge');
+  if(badge)badge.textContent=todayEntries.length?(todayRecv>0?'+'+todayRecv+' received ':'')+(todayUsed>0?'−'+todayUsed+' used':''):'No activity today';
+
   el.innerHTML=Object.entries(INV_ITEMS).map(([key,info])=>{
     const qty=getStockLevel(key);
-    const pct=Math.min(100,Math.round(qty/Math.max(invOpening[key]||1,1)*100));
+    const opening=Math.max(invOpening[key]||1,1);
+    const pct=Math.min(100,Math.round(qty/opening*100));
     const status=qty<=info.critical?'critical':qty<=info.low?'low':'ok';
+    if(status==='ok')okCount++;else if(status==='low')lowCount++;else critCount++;
     const barColor=status==='critical'?'#b91c1c':status==='low'?'#f97316':'#15803d';
-    const qtyColor=status==='critical'?'#b91c1c':status==='low'?'#f97316':'#1a3a8f';
+    const qtyColor=status==='critical'?'#b91c1c':status==='low'?'#ea580c':'var(--blue)';
+    const borderColor=status==='critical'?'#fecdd3':status==='low'?'#fed7aa':'#f3f4f8';
     const label=status==='critical'?'⚠️ Critical':status==='low'?'🟡 Low':'✅ OK';
-    return`<div class="stock-item">
-      <div class="stock-icon">${info.icon}</div>
+    return`<div class="stock-item" style="border-bottom:1px solid ${borderColor};padding:10px 0">
+      <div class="stock-icon" style="font-size:26px;width:40px">${info.icon}</div>
       <div class="stock-info">
         <div class="stock-name">${info.name}</div>
-        <div class="stock-qty" style="color:${qtyColor}">${qty} <span style="font-size:11px;font-weight:400;color:#888">${info.unit}</span></div>
+        <div style="display:flex;align-items:baseline;gap:5px;margin:2px 0">
+          <span class="stock-qty" style="color:${qtyColor};font-size:20px">${qty}</span>
+          <span style="font-size:11px;color:#888">${info.unit}</span>
+          <span style="font-size:10px;color:#bbb">/ ${opening} opening</span>
+        </div>
         <div class="stock-bar-wrap"><div class="stock-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
       </div>
-      <span class="stock-badge ${status}">${label}</span>
+      <span class="stock-badge ${status}" style="align-self:center">${label}</span>
     </div>`;
   }).join('');
+
+  // Update hero
+  const heroOk=document.getElementById('inv-hero-ok');
+  const heroLow=document.getElementById('inv-hero-low');
+  const heroCrit=document.getElementById('inv-hero-crit');
+  if(heroOk)heroOk.textContent=okCount+'/'+Object.keys(INV_ITEMS).length;
+  if(heroLow)heroLow.textContent=lowCount+' Low';
+  if(heroCrit)heroCrit.textContent=critCount+' Critical';
 }
 
 function renderInvLog(){
   const el=document.getElementById('invLog');
   if(!el)return;
   if(invEntries.length===0){el.innerHTML='<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">No stock entries yet</div></div>';return;}
-  const recent=invEntries.slice(0,30);
-  el.innerHTML=recent.map(e=>{
-    const info=INV_ITEMS[e.item]||{name:e.item,unit:''};
-    const parts=[];
-    if(e.recv>0)parts.push('<span style="color:var(--green)">+'+e.recv+' received</span>');
-    if(e.used>0)parts.push('<span style="color:var(--red)">−'+e.used+' used</span>');
-    return`<div class="inv-log-item">
-      <div class="inv-log-left"><b>${info.name}</b> — ${parts.join(', ')}${e.note?' ('+e.note+')':''}</div>
-      <div class="inv-log-right">${e.date}<br/>${e.savedBy||'Staff'}</div>
+  // Group by date
+  const grouped={};
+  invEntries.slice(0,40).forEach(e=>{if(!grouped[e.date])grouped[e.date]=[];grouped[e.date].push(e);});
+  el.innerHTML=Object.keys(grouped).sort((a,b)=>b.localeCompare(a)).map(date=>{
+    const rows=grouped[date].map(e=>{
+      const info=INV_ITEMS[e.item]||{name:e.item,icon:'📦',unit:''};
+      return`<div class="inv-log-item" style="padding:8px 0;align-items:center">
+        <div class="inv-log-left" style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:18px;flex-shrink:0">${info.icon||'📦'}</span>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--dark)">${info.name}</div>
+            ${e.recv>0?`<span style="font-size:11px;color:var(--green);font-weight:600">+${e.recv} ${info.unit} received</span>`:''}
+            ${e.used>0?`<span style="font-size:11px;color:var(--red);font-weight:600">${e.recv>0?' · ':''}&minus;${e.used} ${info.unit} used</span>`:''}
+            ${e.note?`<div style="font-size:10px;color:var(--gray);margin-top:1px">${_esc(e.note)}</div>`:''}
+          </div>
+        </div>
+        <div class="inv-log-right" style="font-size:10px;color:var(--gray)">${e.savedBy||'Staff'}</div>
+      </div>`;
+    }).join('');
+    return`<div style="margin-bottom:8px">
+      <div style="font-size:10px;font-weight:700;color:var(--blue);padding:4px 0;margin-bottom:2px;border-bottom:1px solid var(--light)">${date}</div>
+      ${rows}
     </div>`;
   }).join('');
 }
 
 function checkLowStockAlerts(){
+  // Remove any existing banner first to prevent stacking
+  const old=document.getElementById('invCritBanner');
+  if(old)old.remove();
   const alerts=Object.entries(INV_ITEMS)
     .filter(([k])=>getStockLevel(k)<=INV_ITEMS[k].critical)
-    .map(([k,v])=>v.name);
+    .map(([k,v])=>v.icon+' '+v.name);
   if(alerts.length>0){
-    // Show a banner alert at top of inventory
     const el=document.getElementById('stockDashboard');
     const banner=document.createElement('div');
+    banner.id='invCritBanner';
     banner.className='alert alert-red';
-    banner.style.marginBottom='10px';
-    banner.innerHTML='🚨 CRITICAL STOCK: '+alerts.join(', ')+' — Restock immediately!';
-    if(el&&el.firstChild)el.insertBefore(banner,el.firstChild);
+    banner.style.cssText='margin-bottom:10px;font-weight:600';
+    banner.textContent='🚨 CRITICAL: '+alerts.join(', ')+' — Restock immediately!';
+    if(el)el.insertBefore(banner,el.firstChild);
   }
 }
 
