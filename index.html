@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- bd-version: 20260605-8 -->
+<!-- bd-version: 20260605-9 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -1048,66 +1048,83 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
 
 <!-- ══ ATTENDANCE TAB ══ -->
 <div class="page" id="tab-attend">
-  <!-- Status hero -->
+
+  <!-- Live hero -->
   <div class="hero" id="attendHero">
-    <div class="hero-label">🕐 Attendance</div>
+    <div class="hero-label">🕐 TODAY'S ATTENDANCE</div>
     <div class="gold-bar"></div>
-    <div class="hero-val" id="attendStatusText">Tap below to mark attendance</div>
-    <div class="hero-sub" id="attendStatusSub">Selfie + GPS + Time required</div>
+    <div style="display:flex;gap:16px;align-items:flex-end">
+      <div>
+        <div class="hero-val" id="att-hero-in">0</div>
+        <div class="hero-sub">arrived</div>
+      </div>
+      <div style="padding-bottom:4px">
+        <span id="att-hero-out" style="background:rgba(255,255,255,.15);color:rgba(255,255,255,.85);font-size:13px;font-weight:700;padding:4px 12px;border-radius:10px">0 left</span>
+      </div>
+    </div>
   </div>
 
-  <!-- Mark attendance card -->
+  <!-- Mark attendance -->
   <div class="section">
     <div class="sec-title">👤 Mark Attendance</div>
-    <!-- Name field (auto-saved after first use) -->
+
+    <!-- Name + selfie row -->
     <div style="margin-bottom:10px">
       <label class="inp-label">Your Name</label>
       <input type="text" id="att-name" placeholder="Enter your full name"/>
     </div>
-    <!-- Selfie preview -->
-    <div id="att-selfie-wrap" style="margin-bottom:10px;display:none">
-      <label class="inp-label">Selfie</label>
-      <img id="att-selfie-img" style="width:100%;max-height:180px;object-fit:cover;border-radius:12px;border:2px solid var(--green)"/>
+
+    <!-- Compact camera row -->
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <button class="btn btn-outline" style="flex:1" id="att-cam-btn" onclick="attOpenCamera()">📸 Take Selfie (optional)</button>
+      <button class="btn btn-teal" style="flex:1;display:none" id="att-capture-btn" onclick="attCapture()">✅ Capture</button>
     </div>
-    <!-- Camera for selfie -->
-    <div id="att-cam-wrap" style="background:#000;border-radius:12px;overflow:hidden;margin-bottom:10px;aspect-ratio:4/3;display:none;position:relative">
+    <!-- Selfie preview — compact -->
+    <div id="att-selfie-wrap" style="display:none;margin-bottom:8px">
+      <img id="att-selfie-img" style="width:100%;max-height:130px;object-fit:cover;border-radius:10px;border:2px solid var(--green)"/>
+    </div>
+    <!-- Camera viewfinder — compact -->
+    <div id="att-cam-wrap" style="background:#000;border-radius:10px;overflow:hidden;margin-bottom:8px;height:180px;display:none;position:relative">
       <video id="att-video" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;display:block"></video>
       <canvas id="att-canvas" style="display:none"></canvas>
     </div>
-    <!-- Buttons row -->
-    <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button class="btn btn-outline" style="flex:1" id="att-cam-btn" onclick="attOpenCamera()">📸 Take Selfie</button>
-      <button class="btn btn-primary" style="flex:1;display:none" id="att-capture-btn" onclick="attCapture()">✅ Capture</button>
+
+    <!-- GPS status — compact info line -->
+    <div id="att-gps-status" style="font-size:11px;color:var(--gray);text-align:center;margin-bottom:12px;padding:6px;background:var(--light);border-radius:8px">
+      📍 GPS location will be recorded automatically
     </div>
-    <!-- GPS status -->
-    <div id="att-gps-status" style="background:#f8faff;border:1.5px dashed #e2e8f0;border-radius:10px;padding:10px 12px;font-size:12px;color:var(--gray);margin-bottom:10px;text-align:center">
-      📍 GPS will be recorded when you mark attendance
-    </div>
-    <!-- Arrival / Leaving buttons -->
-    <div class="grid2">
-      <button class="btn btn-green btn-full" onclick="markAttendance('arrival')">✅ Mark Arrival</button>
-      <button class="btn btn-red btn-full" onclick="markAttendance('leaving')">🚪 Mark Leaving</button>
+
+    <!-- Action buttons — large and distinct -->
+    <div class="grid2" style="gap:10px;margin-bottom:4px">
+      <button onclick="markAttendance('arrival')" style="padding:16px 8px;background:linear-gradient(135deg,#15803d,#16a34a);color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 3px 10px rgba(21,128,61,.35);letter-spacing:.3px">
+        ✅ Mark Arrival
+      </button>
+      <button onclick="markAttendance('leaving')" style="padding:16px 8px;background:linear-gradient(135deg,#b91c1c,#dc2626);color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 3px 10px rgba(185,28,28,.35);letter-spacing:.3px">
+        🚪 Mark Leaving
+      </button>
     </div>
     <div id="attAlert" style="margin-top:8px"></div>
   </div>
 
-  <!-- Today's attendance -->
+  <!-- Today's records -->
   <div class="section">
     <div class="sec-title-row">
-      <div class="sec-title">📋 Today's Attendance</div>
+      <div class="sec-title">📋 Today's Log</div>
       <div id="attTodayCount" style="font-size:11px;color:var(--blue);font-weight:700"></div>
     </div>
-    <div id="attTodayList"><div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No attendance marked today</div></div></div>
+    <div id="attTodayList">
+      <div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No attendance marked today</div></div>
+    </div>
   </div>
 
-  <!-- Full history (admin) -->
+  <!-- History (grouped by date) -->
   <div class="section" id="attHistorySection">
-    <div class="sec-title-row">
-      <div class="sec-title">📁 Attendance History</div>
-      <button class="btn btn-sm btn-outline" onclick="renderAttHistory()">Refresh</button>
+    <div class="sec-title">📁 History</div>
+    <div id="attHistoryList">
+      <div class="empty"><div class="empty-icon">📁</div><div class="empty-text">No history yet</div></div>
     </div>
-    <div id="attHistoryList"></div>
   </div>
+
 </div>
 
 <div class="page" id="tab-batch">
@@ -3424,46 +3441,77 @@ function markAttendance(type){
 function renderAttToday(){
   const today = new Date().toISOString().split('T')[0];
   const todayRecs = attRecords.filter(r=>r.date===today);
-  const countEl   = document.getElementById('attTodayCount');
-  const listEl    = document.getElementById('attTodayList');
-  if(countEl) countEl.textContent = todayRecs.length ? todayRecs.length+' entries' : '';
+  const arrivals  = todayRecs.filter(r=>r.type==='arrival').length;
+  const leavings  = todayRecs.filter(r=>r.type==='leaving').length;
+
+  // Update hero
+  const heroIn  = document.getElementById('att-hero-in');
+  const heroOut = document.getElementById('att-hero-out');
+  if(heroIn)  heroIn.textContent  = arrivals;
+  if(heroOut) heroOut.textContent = leavings+' left';
+
+  const countEl = document.getElementById('attTodayCount');
+  const listEl  = document.getElementById('attTodayList');
+  if(countEl) countEl.textContent = todayRecs.length ? arrivals+' in · '+leavings+' left' : '';
   if(!listEl) return;
   if(todayRecs.length===0){
     listEl.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No attendance marked today</div></div>';
     return;
   }
-  listEl.innerHTML = todayRecs.map(r=>`
-    <div class="att-card">
-      ${r.type==="arrival"?"🟢":"🔴"}
+  listEl.innerHTML = todayRecs.map(r=>{
+    const isArr = r.type==='arrival';
+    const initial = r.name?r.name.trim()[0].toUpperCase():'?';
+    const avatarBg = isArr?'var(--green)':'var(--red)';
+    const gpsLine = r.lat
+      ? (r.placeName?`📍 ${_esc(r.placeName)} · ±${Math.round(r.acc)}m`:`📍 ${r.lat.toFixed(4)}, ${r.lng.toFixed(4)} ±${Math.round(r.acc)}m`)
+      : '📍 GPS not recorded';
+    return`<div class="att-card">
+      <div style="width:42px;height:42px;border-radius:50%;background:${avatarBg};color:#fff;font-size:17px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initial}</div>
       <div class="att-info">
         <div class="att-name">${_esc(r.name)}</div>
-        <div class="att-time">🕐 ${r.time} · ${r.date}</div>
-        ${r.lat?(r.placeName?`<div class="att-gps">📍 ${r.placeName} (${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}) ±${Math.round(r.acc)}m</div>`:`<div class="att-gps">📍 ${r.lat.toFixed(4)}, ${r.lng.toFixed(4)} ±${Math.round(r.acc)}m</div>`):'<div class="att-gps">📍 GPS not recorded</div>'}
-        <span class="${r.type==='arrival'?'att-badge-arr':'att-badge-lev'}">${r.type==='arrival'?'✅ ARRIVAL':'🚪 LEAVING'}</span>
+        <div class="att-time">🕐 ${r.time}</div>
+        <div class="att-gps" style="font-size:10px">${gpsLine}</div>
+        <span class="${isArr?'att-badge-arr':'att-badge-lev'}">${isArr?'✅ ARRIVED':'🚪 LEFT'}</span>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderAttHistory(){
   const listEl = document.getElementById('attHistoryList');
   if(!listEl) return;
-  if(attRecords.length===0){
-    listEl.innerHTML='<div class="empty"><div class="empty-icon">📁</div><div class="empty-text">No history yet</div></div>';
+  const today = new Date().toISOString().split('T')[0];
+  const pastRecs = attRecords.filter(r=>r.date!==today);
+  if(pastRecs.length===0){
+    listEl.innerHTML='<div class="empty"><div class="empty-icon">📁</div><div class="empty-text">No past history</div></div>';
     return;
   }
-  // Group by date
   const grouped={};
-  attRecords.forEach(r=>{ if(!grouped[r.date]) grouped[r.date]=[]; grouped[r.date].push(r); });
+  pastRecs.forEach(r=>{ if(!grouped[r.date]) grouped[r.date]=[]; grouped[r.date].push(r); });
   listEl.innerHTML = Object.keys(grouped).sort((a,b)=>b.localeCompare(a)).slice(0,14).map(date=>{
     const recs=grouped[date];
-    return `<div style="margin-bottom:10px">
-      <div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:4px;display:flex;justify-content:space-between">
-        <span>${date}</span><span>${recs.length} entries</span>
+    const arr=recs.filter(r=>r.type==='arrival').length;
+    const lev=recs.filter(r=>r.type==='leaving').length;
+    return`<div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+        <span>${date}</span>
+        <span style="font-weight:400;color:var(--gray)">${arr} arrived · ${lev} left</span>
       </div>
-      ${recs.map(r=>`<div class="row">
-        <span class="rl">${_esc(r.name)} · ${r.time}</span>
-        <span class="${r.type==='arrival'?'rv green':'rv red'}">${r.type==='arrival'?'✅ In':'🚪 Out'}</span>
-      </div>`).join('')}
+      ${recs.map(r=>{
+        const isArr=r.type==='arrival';
+        const initial=r.name?r.name.trim()[0].toUpperCase():'?';
+        return`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f3f4f8">
+          <div style="width:28px;height:28px;border-radius:50%;background:${isArr?'#dcfce7':'#fee2e2'};color:${isArr?'var(--green)':'var(--red)'};font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initial}</div>
+          <div style="flex:1">
+            <span style="font-size:12px;font-weight:600;color:var(--dark)">${_esc(r.name)}</span>
+            ${r.placeName?`<span style="font-size:10px;color:var(--gray)"> · ${_esc(r.placeName)}</span>`:''}
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11px;font-weight:700;color:${isArr?'var(--green)':'var(--red)'}">${isArr?'✅ In':'🚪 Out'}</div>
+            <div style="font-size:10px;color:var(--gray)">${r.time}</div>
+          </div>
+        </div>`;
+      }).join('')}
     </div>`;
   }).join('');
 }
