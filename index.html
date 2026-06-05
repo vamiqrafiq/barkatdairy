@@ -3889,7 +3889,20 @@ function _initFB(){
     _fb=firebase.database();
     _fbReady=true;
     console.log('Firebase connected');
-    _syncDown();
+    // Sign in anonymously so database rules can enforce auth != null,
+    // blocking unauthenticated REST API access to the database.
+    if(typeof firebase.auth==='function'){
+      firebase.auth().signInAnonymously()
+        .then(function(){_syncDown();})
+        .catch(function(e){
+          console.warn('Firebase anon auth failed:',e.code);
+          // Fall back to direct sync if Anonymous Auth is not yet enabled
+          // in the Firebase console (remove this fallback once it is enabled).
+          _syncDown();
+        });
+    }else{
+      _syncDown();
+    }
   }catch(e){console.warn('FB error:',e);}
 }
 function _syncDown(){
@@ -4235,6 +4248,7 @@ function exportExcel(){
 </script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script>setTimeout(_initFB,500);</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script async src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
