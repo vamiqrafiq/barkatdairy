@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- bd-version: 20260605-4 -->
+<!-- bd-version: 20260605-5 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -625,61 +625,101 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
 
 <!-- ══ DISTRIBUTION TAB ══ -->
 <div class="page" id="tab-dist">
+
+  <!-- Hero: outstanding balance -->
+  <div class="hero" style="background:linear-gradient(135deg,#0f766e 0%,#0d9488 60%,#14b8a6 100%)">
+    <div class="hero-label">TOTAL OUTSTANDING</div>
+    <div class="gold-bar"></div>
+    <div class="hero-val" id="dist-hero-bal">₹0</div>
+    <div class="hero-sub" id="dist-hero-sub">All distributors cleared</div>
+  </div>
+
+  <!-- New Entry form -->
   <div class="section">
     <div class="sec-title">🚚 New Distribution Entry</div>
+
+    <!-- Distributor & Date -->
+    <div style="font-size:9px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">① Distributor &amp; Date</div>
     <div style="margin-bottom:10px">
       <label class="inp-label">Distributor Name</label>
       <div class="ac-wrap">
-        <input type="text" id="d-dist" placeholder="Type name or initials…" autocomplete="off" oninput="acFilter('d-dist','dist-ac-list','savedDistributors')" onfocus="acFilter('d-dist','dist-ac-list','savedDistributors')"/>
+        <input type="text" id="d-dist" placeholder="Type name or initials…" autocomplete="off"
+          oninput="acFilter('d-dist','dist-ac-list','savedDistributors');calcDist()"
+          onfocus="acFilter('d-dist','dist-ac-list','savedDistributors')"/>
         <div class="ac-list" id="dist-ac-list"></div>
       </div>
     </div>
-    <div style="margin-bottom:10px"><label class="inp-label">Date</label><input type="date" id="d-date"/></div>
-    <div class="grid2" style="margin-bottom:10px">
-      <div><label class="inp-label">200g Cups Taken</label><input type="number" id="d-c200" placeholder="0" min="0" oninput="calcDist()"/></div>
-      <div><label class="inp-label">400g Cups Taken</label><input type="number" id="d-c400" placeholder="0" min="0" oninput="calcDist()"/></div>
+    <div style="margin-bottom:12px"><label class="inp-label">Date</label><input type="date" id="d-date"/></div>
+
+    <!-- Cup quantities -->
+    <div style="font-size:9px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">② Cups &amp; Crates</div>
+    <div class="grid3" style="margin-bottom:12px">
+      <div><label class="inp-label">200g Cups</label><input type="number" id="d-c200" placeholder="0" min="0" oninput="calcDist()"/></div>
+      <div><label class="inp-label">400g Cups</label><input type="number" id="d-c400" placeholder="0" min="0" oninput="calcDist()"/></div>
+      <div><label class="inp-label">Crates</label><input type="number" id="d-crates" placeholder="0" min="0"/></div>
     </div>
-    <div style="margin-bottom:12px"><label class="inp-label">Crates Given</label><input type="number" id="d-crates" placeholder="0" min="0"/></div>
-    <div class="calc-result" style="margin-bottom:12px">
-      <div class="calc-result-title">💰 Bill Preview</div>
-      <div class="calc-grid">
-        <div class="calc-item"><div class="calc-item-label">200g Amount</div><div class="calc-item-val" id="d-amt200">₹0</div></div>
-        <div class="calc-item"><div class="calc-item-label">400g Amount</div><div class="calc-item-val" id="d-amt400">₹0</div></div>
-        <div class="calc-item highlight" style="grid-column:1/-1"><div class="calc-item-label">Total Bill</div><div class="calc-item-val" id="d-total">₹0</div><div class="calc-item-sub">for this entry</div></div>
+
+    <!-- Inline bill breakdown -->
+    <div style="background:var(--light);border-radius:12px;padding:12px 14px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.3px">Bill Breakdown</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray);margin-bottom:4px">
+        <span>200g cups</span><span id="d-amt200" style="font-weight:600;color:var(--dark)">₹0</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray);margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #e2e8f0">
+        <span>400g cups</span><span id="d-amt400" style="font-weight:600;color:var(--dark)">₹0</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;font-weight:700;color:var(--dark)">Total Bill</span>
+        <span id="d-total" style="font-size:20px;font-weight:700;color:var(--teal)">₹0</span>
       </div>
     </div>
+
+    <!-- Payment -->
+    <div style="font-size:9px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">③ Payment</div>
     <div style="margin-bottom:10px">
-      <label class="inp-label">Payment Received (₹)</label>
-      <input type="number" id="d-paid" placeholder="0" min="0" oninput="calcDist()"/>
+      <label class="inp-label">Payment Received Now (₹)</label>
+      <input type="number" id="d-paid" placeholder="0 — leave blank if on credit" min="0" oninput="calcDist()"/>
     </div>
-    <div class="auto-box" style="margin-bottom:12px">
-      <div class="auto-box-label">Balance After This Entry</div>
-      <div class="auto-box-val" id="d-balance-preview" style="font-size:16px;color:var(--red)">₹0</div>
+
+    <!-- Balance after — prominent -->
+    <div id="d-balance-wrap" style="border-radius:14px;padding:14px 16px;margin-bottom:14px;background:linear-gradient(135deg,#b91c1c,#dc2626);display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:10px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Balance After Entry</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.6)" id="d-prev-bal-note"></div>
+      </div>
+      <div id="d-balance-preview" style="font-size:24px;font-weight:700;color:#fff">₹0</div>
     </div>
-    <button class="btn btn-primary btn-full" onclick="saveDist()">💾 Save Distribution Entry</button>
+
+    <button class="btn btn-full" onclick="saveDist()" style="background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;font-size:14px;padding:14px;border-radius:12px;font-weight:700;letter-spacing:.3px;box-shadow:0 3px 10px rgba(15,118,110,.35);margin-bottom:4px">💾 Save Distribution Entry</button>
     <div id="distAlert" style="margin-top:8px"></div>
   </div>
 
-  <div class="section">
-    <div class="sec-title">📊 Distributor Balances</div>
-    <div id="distBalances"><div class="empty"><div class="empty-icon">💼</div><div class="empty-text">No distribution records yet</div></div></div>
-  </div>
-
+  <!-- Today's Distribution -->
   <div class="section">
     <div class="sec-title-row">
-      <div class="sec-title">📋 Today's Distribution</div>
+      <div class="sec-title">📋 Today's Deliveries</div>
       <div id="distTodayTotal" style="font-size:11px;color:var(--teal);font-weight:700"></div>
     </div>
     <div id="distTodayList"><div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No entries today</div></div></div>
   </div>
 
+  <!-- Distributor Balances -->
+  <div class="section">
+    <div class="sec-title">💼 Distributor Balances</div>
+    <div id="distBalances"><div class="empty"><div class="empty-icon">💼</div><div class="empty-text">No distribution records yet</div></div></div>
+  </div>
+
+  <!-- All Records -->
   <div class="section">
     <div class="sec-title-row">
-      <div class="sec-title">📁 All Distribution Records</div>
-      <button class="btn btn-sm" style="background:#e0f2fe;color:#0369a1;border:none" onclick="clearDistFilter()">All</button>
+      <div class="sec-title">📁 All Records</div>
+      <button class="btn btn-sm btn-outline" onclick="clearDistFilter()">All</button>
     </div>
     <div id="allDistRecords"></div>
   </div>
+
 </div>
 
 <!-- ══ TESTING TAB ══ -->
@@ -1886,14 +1926,22 @@ function calcDist(){
   const amt400=c400*p400;
   const total=amt200+amt400;
   const distName=document.getElementById('d-dist').value.trim();
-  const prevBal=distRecords.filter(r=>r.dist===distName).reduce((s,r)=>s+(r.amount-r.paid),0);
+  // Use getDistBalance for accuracy (includes Payments tab entries)
+  const prevBal=distName?(typeof getDistBalance==='function'?getDistBalance(distName):0):0;
   const grandTotal=prevBal+total-paid;
   document.getElementById('d-amt200').textContent='₹'+amt200.toFixed(0);
   document.getElementById('d-amt400').textContent='₹'+amt400.toFixed(0);
   document.getElementById('d-total').textContent='₹'+total.toFixed(0);
   const bp=document.getElementById('d-balance-preview');
-  bp.textContent='₹'+Math.max(0,grandTotal).toFixed(0)+(prevBal>0?' (incl. ₹'+prevBal.toFixed(0)+' prev)':'');
-  bp.style.color=grandTotal>0?'var(--red)':'var(--green)';
+  if(bp)bp.textContent='₹'+Math.max(0,grandTotal).toFixed(0);
+  const note=document.getElementById('d-prev-bal-note');
+  if(note)note.textContent=prevBal>0?'Incl. ₹'+prevBal.toFixed(0)+' carried forward':prevBal<0?'₹'+Math.abs(prevBal).toFixed(0)+' credit on account':'No previous balance';
+  const wrap=document.getElementById('d-balance-wrap');
+  if(wrap){
+    const cleared=grandTotal<=0;
+    wrap.style.background=cleared?'linear-gradient(135deg,#15803d,#16a34a)':'linear-gradient(135deg,#b91c1c,#dc2626)';
+    if(bp)bp.textContent=cleared?'✅ Cleared':'₹'+grandTotal.toFixed(0);
+  }
 }
 function saveDist(){
   const dist=document.getElementById('d-dist').value.trim();
@@ -1922,33 +1970,49 @@ function saveDist(){
 }
 function renderDistRecords(){
   const today=new Date().toISOString().split('T')[0];
+
+  // Hero — total outstanding using accurate getDistBalance
+  const allDists=[...new Set(distRecords.map(r=>r.dist).filter(Boolean))];
+  const totalOut=allDists.reduce((s,d)=>s+Math.max(0,getDistBalance(d)),0);
+  const herobal=document.getElementById('dist-hero-bal');
+  const herosub=document.getElementById('dist-hero-sub');
+  if(herobal)herobal.textContent='₹'+totalOut.toFixed(0);
+  if(herosub){
+    const owing=allDists.filter(d=>getDistBalance(d)>0.5).length;
+    herosub.textContent=owing?owing+' distributor'+(owing===1?'':' s')+' with balance':'All distributors cleared';
+  }
+
   // Today's entries
   const todayRecs=distRecords.filter(r=>r.date===today);
-  const todayTotal=todayRecs.reduce((a,r)=>a+r.amount,0);
-  document.getElementById('distTodayTotal').textContent=todayRecs.length?`₹${todayTotal.toFixed(0)} billed today`:'';
+  const todayCups=todayRecs.reduce((a,r)=>a+r.c200+r.c400,0);
+  const todayBill=todayRecs.reduce((a,r)=>a+r.amount,0);
+  document.getElementById('distTodayTotal').textContent=todayRecs.length?`${todayCups} cups · ₹${todayBill.toFixed(0)}`:'';
   const todayEl=document.getElementById('distTodayList');
   if(todayRecs.length===0){todayEl.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No entries today</div></div>';}
   else todayEl.innerHTML=todayRecs.map(r=>distRecordHTML(r)).join('');
 
-  // Balance summary per distributor
-  const balances={};
-  distRecords.forEach(r=>{
-    if(!balances[r.dist])balances[r.dist]={name:r.dist,totalBilled:0,totalPaid:0};
-    balances[r.dist].totalBilled+=r.amount;
-    balances[r.dist].totalPaid+=r.paid;
-  });
+  // Distributor Balances — use getDistBalance for accuracy (includes Payments tab)
   const balEl=document.getElementById('distBalances');
-  const dists=Object.values(balances);
-  if(dists.length===0){balEl.innerHTML='<div class="empty"><div class="empty-icon">💼</div><div class="empty-text">No distribution records yet</div></div>';}
-  else balEl.innerHTML=dists.map(d=>{
-    const bal=d.totalBilled-d.totalPaid;
-    return`<div class="dist-balance-card" style="${bal>0?'':'background:linear-gradient(135deg,#15803d,#16a34a)'}">
-      <div><div class="dist-balance-name">${d.name}</div><div class="dist-balance-sub">${bal>0?'Balance Due':'Cleared'} · Billed ₹${d.totalBilled.toFixed(0)}</div></div>
-      <div class="dist-balance-amt">${bal>0?'₹'+bal.toFixed(0):'✅ Paid'}</div>
-    </div>`;
-  }).join('');
+  if(allDists.length===0){balEl.innerHTML='<div class="empty"><div class="empty-icon">💼</div><div class="empty-text">No distribution records yet</div></div>';}
+  else{
+    const sorted=allDists.map(d=>({name:d,bal:getDistBalance(d)})).sort((a,b)=>b.bal-a.bal);
+    balEl.innerHTML=sorted.map(d=>{
+      const cleared=d.bal<=0.5;
+      const entries=distRecords.filter(r=>r.dist===d.name).length;
+      return`<div class="dist-balance-card" style="${cleared?'background:linear-gradient(135deg,#15803d,#16a34a)':''}">
+        <div>
+          <div class="dist-balance-name">${_esc(d.name)}</div>
+          <div class="dist-balance-sub">${entries} entr${entries===1?'y':'ies'}${cleared?' · Cleared':''}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="dist-balance-amt">${cleared?'✅':'₹'+d.bal.toFixed(0)}</div>
+          ${!cleared?`<button onclick="showDistBill(${distRecords.find(r=>r.dist===d.name)?.id})" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;padding:3px 8px;border-radius:7px;font-size:9px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px">Bill</button>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  }
 
-  // All records
+  // All records grouped by date
   const allEl=document.getElementById('allDistRecords');
   if(distRecords.length===0){allEl.innerHTML='<div class="empty"><div class="empty-icon">📁</div><div class="empty-text">No records saved</div></div>';return;}
   const grouped={};
@@ -1956,34 +2020,38 @@ function renderDistRecords(){
   allEl.innerHTML=Object.keys(grouped).sort((a,b)=>b.localeCompare(a)).map(date=>{
     const recs=grouped[date];
     const dayTotal=recs.reduce((a,r)=>a+r.amount,0);
+    const dayCups=recs.reduce((a,r)=>a+r.c200+r.c400,0);
     return`<div style="margin-bottom:12px">
-      <div style="font-size:11px;font-weight:700;color:#0f766e;margin-bottom:6px;display:flex;justify-content:space-between"><span>${date}</span><span>₹${dayTotal.toFixed(0)}</span></div>
-      ${recs.map(r=>`<div class="dist-record">
-        <div class="proc-record-top"><div class="dist-sup">${_esc(r.dist)}</div><div style="display:flex;gap:6px">
-          <button class="btn btn-sm btn-teal" onclick="showDistBill(${r.id})">📄 Bill</button>
-        </div></div>
-        <div class="proc-details">
-          <div class="proc-detail"><div class="proc-detail-label">200g</div><div class="proc-detail-val">${r.c200}</div></div>
-          <div class="proc-detail"><div class="proc-detail-label">400g</div><div class="proc-detail-val">${r.c400}</div></div>
-          <div class="proc-detail"><div class="proc-detail-label">Crates</div><div class="proc-detail-val">${r.crates}</div></div>
-          <div class="proc-detail" style="background:#fff8e7"><div class="proc-detail-label">Bill</div><div class="proc-detail-val" style="color:#7a5a00">₹${r.amount.toFixed(0)}</div></div>
-          <div class="proc-detail" style="${r.balance>0?'background:#fff1f2':'background:#f0fdf4'}"><div class="proc-detail-label">Bal</div><div class="proc-detail-val" style="${r.balance>0?'color:var(--red)':'color:var(--green)'}">₹${r.balance.toFixed(0)}</div></div>
-        </div>
-      </div>`).join('')}
+      <div style="font-size:11px;font-weight:700;color:#0f766e;margin-bottom:6px;display:flex;justify-content:space-between">
+        <span>${date}</span><span>${dayCups} cups · ₹${dayTotal.toFixed(0)}</span>
+      </div>
+      ${recs.map(r=>distRecordHTML(r)).join('')}
     </div>`;
   }).join('');
 }
 function distRecordHTML(r){
+  const paid=r.paid||0;
+  const balColor=r.balance>0?'var(--red)':'var(--green)';
   return`<div class="dist-record">
-    <div class="proc-record-top"><div class="dist-sup">${_esc(r.dist)}</div>
-      <button class="btn btn-sm btn-teal" onclick="showDistBill(${r.id})">🖨️ Bill</button>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+      <div>
+        <div class="dist-sup">${_esc(r.dist)}</div>
+        <div style="font-size:10px;color:var(--gray);margin-top:2px">${r.date}${r.crates?' · '+r.crates+' crates':''}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:15px;font-weight:700;color:var(--teal)">₹${r.amount.toFixed(0)}</div>
+        ${paid>0?`<div style="font-size:9px;color:var(--green);font-weight:700">Paid ₹${paid.toFixed(0)}</div>`:''}
+      </div>
     </div>
-    <div class="proc-details">
+    <div class="proc-details" style="margin-bottom:8px">
       <div class="proc-detail"><div class="proc-detail-label">200g</div><div class="proc-detail-val">${r.c200}</div></div>
       <div class="proc-detail"><div class="proc-detail-label">400g</div><div class="proc-detail-val">${r.c400}</div></div>
-      <div class="proc-detail"><div class="proc-detail-label">Crates</div><div class="proc-detail-val">${r.crates}</div></div>
-      <div class="proc-detail" style="background:#fff8e7"><div class="proc-detail-label">Amount</div><div class="proc-detail-val" style="color:#7a5a00">₹${r.amount.toFixed(0)}</div></div>
+      <div class="proc-detail" style="${r.balance>0?'background:#fff1f2':'background:#f0fdf4'}">
+        <div class="proc-detail-label">Balance</div>
+        <div class="proc-detail-val" style="color:${balColor}">${r.balance>0?'₹'+r.balance.toFixed(0):'✅'}</div>
+      </div>
     </div>
+    <button class="btn btn-sm btn-teal btn-full" onclick="showDistBill(${r.id})">📄 View / Print Bill</button>
   </div>`;
 }
 function clearDistFilter(){renderDistRecords();}
