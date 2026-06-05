@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- bd-version: 20260605-18 -->
+<!-- bd-version: 20260605-19 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -1533,31 +1533,21 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
     <div class="hero-sub" id="sum-hero-sub">milk processed · select a date below</div>
   </div>
 
-  <!-- Date picker + PDF -->
+  <!-- Date picker + PDF (PDF admin-only) -->
   <div style="display:flex;gap:8px;margin-bottom:12px">
     <input type="date" id="summaryDatePicker" style="flex:1" onchange="renderSummary()"/>
-    <button class="btn btn-gold btn-sm" onclick="downloadSummaryPDF()" style="white-space:nowrap">⬇️ PDF</button>
+    <button class="btn btn-gold btn-sm" id="sum-pdf-btn" onclick="downloadSummaryPDF()" style="white-space:nowrap;display:none">⬇️ PDF</button>
   </div>
 
   <!-- Alerts -->
   <div id="sum-alerts" style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:6px"></div>
 
-  <!-- Key metrics — two rows of 3 -->
+  <!-- Operational metrics (visible to all) -->
   <div class="grid3" style="margin-bottom:8px">
     <div class="sum-metric">
       <div class="sum-metric-val" id="sum-milk" style="font-size:20px">—</div>
       <div class="sum-metric-label">Milk In (L)</div>
     </div>
-    <div class="sum-metric">
-      <div class="sum-metric-val" id="sum-cost" style="font-size:16px;color:var(--red)">—</div>
-      <div class="sum-metric-label">Milk Cost</div>
-    </div>
-    <div class="sum-metric">
-      <div class="sum-metric-val" id="sum-revenue" style="font-size:16px;color:var(--green)">—</div>
-      <div class="sum-metric-label">Revenue</div>
-    </div>
-  </div>
-  <div class="grid3" style="margin-bottom:10px">
     <div class="sum-metric">
       <div class="sum-metric-val" id="sum-cups200">—</div>
       <div class="sum-metric-label">200g Cups</div>
@@ -1566,19 +1556,45 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
       <div class="sum-metric-val" id="sum-cups400">—</div>
       <div class="sum-metric-label">400g Cups</div>
     </div>
-    <div class="sum-metric">
-      <div class="sum-metric-val" id="sum-batches">—</div>
-      <div class="sum-metric-label">Batches</div>
+  </div>
+
+  <!-- Financial metrics — admin only -->
+  <div id="sum-finance-metrics" style="display:none">
+    <div class="grid3" style="margin-bottom:8px">
+      <div class="sum-metric">
+        <div class="sum-metric-val" id="sum-cost" style="font-size:16px;color:var(--red)">—</div>
+        <div class="sum-metric-label">Milk Cost</div>
+      </div>
+      <div class="sum-metric">
+        <div class="sum-metric-val" id="sum-revenue" style="font-size:16px;color:var(--green)">—</div>
+        <div class="sum-metric-label">Billed</div>
+      </div>
+      <div class="sum-metric">
+        <div class="sum-metric-val" id="sum-collected" style="font-size:16px;color:var(--teal)">—</div>
+        <div class="sum-metric-label">Collected</div>
+      </div>
+    </div>
+
+    <!-- P&L bar -->
+    <div id="sum-pnl" style="display:none;border-radius:14px;padding:14px 16px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:11px;font-weight:700;color:inherit;opacity:.75;text-transform:uppercase;letter-spacing:.5px">Net P&amp;L (Billed − Milk Cost)</span>
+        <span id="sum-pnl-val" style="font-size:22px;font-weight:700"></span>
+      </div>
+      <div style="font-size:10px;opacity:.7" id="sum-pnl-note"></div>
+    </div>
+
+    <!-- Outstanding balance banner -->
+    <div id="sum-outstanding" style="display:none;background:linear-gradient(135deg,#7c3aed,#6d28d9);border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:11px;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:.5px">Outstanding (unpaid)</div>
+      <div id="sum-outstanding-val" style="font-size:20px;font-weight:700;color:#fff">₹0</div>
     </div>
   </div>
 
-  <!-- P&L bar -->
-  <div id="sum-pnl" style="display:none;border-radius:14px;padding:14px 16px;margin-bottom:12px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <span style="font-size:11px;font-weight:700;color:inherit;opacity:.75;text-transform:uppercase;letter-spacing:.5px">Net P&amp;L (Revenue − Milk Cost)</span>
-      <span id="sum-pnl-val" style="font-size:22px;font-weight:700"></span>
-    </div>
-    <div style="font-size:10px;opacity:.7" id="sum-pnl-note"></div>
+  <!-- Batches (visible to all) -->
+  <div class="sum-metric" style="margin-bottom:10px;grid-column:span 3">
+    <div class="sum-metric-val" id="sum-batches">—</div>
+    <div class="sum-metric-label">Batches</div>
   </div>
 
   <!-- Sections -->
@@ -5132,21 +5148,25 @@ function renderSummary(){
   const today=new Date().toISOString().split('T')[0];
   const date=picker&&picker.value?picker.value:today;
   const isToday=date===today;
+  const isAdmin=_hasRole(currentUser,'admin');
+
+  // Show/hide admin-only controls
+  const finMetrics=document.getElementById('sum-finance-metrics');
+  if(finMetrics)finMetrics.style.display=isAdmin?'block':'none';
+  const pdfBtn=document.getElementById('sum-pdf-btn');
+  if(pdfBtn)pdfBtn.style.display=isAdmin?'inline-flex':'none';
 
   const dayB=productionBatches.filter(b=>b.date===date);
   const dayP=records.filter(r=>r.date===date);
   const dayD=distRecords.filter(r=>r.date===date);
   const dayT=testRecords.filter(r=>r.date===date);
 
-  // Totals
+  // Operational totals (visible to all)
   const milkIn=dayP.length?dayP.reduce((a,r)=>a+r.qty,0):
-    dayB.reduce((a,b)=>a+(parseFloat(b.stages.s1_standardize&&b.stages.s1_standardize.vol)||0),0);
-  const costIn=dayP.reduce((a,r)=>a+r.total,0);
-  const distRevenue=dayD.reduce((a,r)=>a+r.amount,0);
-  const net=distRevenue-costIn;
+    dayB.reduce((a,b)=>a+(parseFloat(b.stages&&b.stages.s1_standardize&&b.stages.s1_standardize.vol)||0),0);
   let passed200=0,passed400=0,rejected=0;
   dayB.forEach(b=>{
-    if(b.stages.s7_qc){
+    if(b.stages&&b.stages.s7_qc){
       const fill=b.stages.s5_fill;const sz=fill?fill.cupSize:'200g';
       const p=parseInt(b.stages.s7_qc.cupsPassed||0);
       if(sz==='200g')passed200+=p;else if(sz==='400g')passed400+=p;
@@ -5155,63 +5175,101 @@ function renderSummary(){
     }
   });
 
+  // Financial totals (admin only)
+  const costIn=dayP.reduce((a,r)=>a+r.total,0);
+  const distBilled=dayD.reduce((a,r)=>a+r.amount,0);
+  // Collected = paid at billing + separate payments logged today
+  const paidAtBilling=dayD.reduce((a,r)=>a+(r.paid||0),0);
+  const sepPaymentsToday=(typeof paymentsLog!=='undefined'?paymentsLog:[])
+    .filter(p=>p.date===date).reduce((a,p)=>a+p.amount,0);
+  const totalCollected=paidAtBilling+sepPaymentsToday;
+  const outstanding=distBilled-totalCollected;
+  const net=distBilled-costIn;
+
   // Hero
   const heroMilk=document.getElementById('sum-hero-milk');
   const heroSub=document.getElementById('sum-hero-sub');
   if(heroMilk)heroMilk.textContent=milkIn?milkIn+' L':'— L';
-  if(heroSub)heroSub.textContent=(isToday?"Today's":'')+(milkIn?' milk · ₹'+costIn.toFixed(0)+' cost':' no data yet');
+  if(heroSub){
+    if(isAdmin)
+      heroSub.textContent=(isToday?"Today's":'')+(milkIn?' milk · Cost ₹'+costIn.toFixed(0)+' · Billed ₹'+distBilled.toFixed(0):' no data yet');
+    else
+      heroSub.textContent=(isToday?"Today's":'')+(milkIn?' milk · '+dayP.length+' entr'+(dayP.length===1?'y':'ies'):(date+' — no data'));
+  }
 
-  // Metrics
   const setText=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
   setText('sum-milk',milkIn||'—');
-  setText('sum-cost',costIn?'₹'+costIn.toFixed(0):'—');
-  setText('sum-revenue',distRevenue?'₹'+distRevenue.toFixed(0):'—');
   setText('sum-cups200',passed200||'—');
   setText('sum-cups400',passed400||'—');
   setText('sum-batches',dayB.length||'—');
 
-  // P&L bar
-  const pnlEl=document.getElementById('sum-pnl');
-  const pnlVal=document.getElementById('sum-pnl-val');
-  const pnlNote=document.getElementById('sum-pnl-note');
-  if(pnlEl&&(costIn||distRevenue)){
-    pnlEl.style.display='block';
-    const pos=net>=0;
-    pnlEl.style.background=pos?'linear-gradient(135deg,#15803d,#16a34a)':'linear-gradient(135deg,#b91c1c,#dc2626)';
-    pnlEl.style.color='#fff';
-    if(pnlVal)pnlVal.textContent=(pos?'₹':'−₹')+Math.abs(net).toFixed(0);
-    if(pnlNote)pnlNote.textContent='Revenue ₹'+distRevenue.toFixed(0)+' − Milk Cost ₹'+costIn.toFixed(0)+(rejected?' · '+rejected+' cups rejected':'');
-  }else if(pnlEl)pnlEl.style.display='none';
+  // Financial metrics (admin only)
+  if(isAdmin){
+    setText('sum-cost',costIn?'₹'+costIn.toFixed(0):'—');
+    setText('sum-revenue',distBilled?'₹'+distBilled.toFixed(0):'—');
+    setText('sum-collected',totalCollected?'₹'+totalCollected.toFixed(0):'—');
 
-  // Alerts
+    // P&L bar
+    const pnlEl=document.getElementById('sum-pnl');
+    const pnlVal=document.getElementById('sum-pnl-val');
+    const pnlNote=document.getElementById('sum-pnl-note');
+    if(pnlEl&&(costIn||distBilled)){
+      pnlEl.style.display='block';
+      const pos=net>=0;
+      pnlEl.style.background=pos?'linear-gradient(135deg,#15803d,#16a34a)':'linear-gradient(135deg,#b91c1c,#dc2626)';
+      pnlEl.style.color='#fff';
+      if(pnlVal)pnlVal.textContent=(pos?'₹':'−₹')+Math.abs(net).toFixed(0);
+      if(pnlNote)pnlNote.textContent=
+        'Billed ₹'+distBilled.toFixed(0)+
+        ' − Milk Cost ₹'+costIn.toFixed(0)+
+        (rejected?' · '+rejected+' cups rejected':'')+
+        (totalCollected?' · Collected ₹'+totalCollected.toFixed(0):'');
+    } else if(pnlEl)pnlEl.style.display='none';
+
+    // Outstanding balance
+    const outEl=document.getElementById('sum-outstanding');
+    const outVal=document.getElementById('sum-outstanding-val');
+    if(outEl){
+      if(outstanding>0.5){outEl.style.display='flex';if(outVal)outVal.textContent='₹'+outstanding.toFixed(0);}
+      else outEl.style.display='none';
+    }
+  }
+
+  // Alerts (visible to all)
   const alertsEl=document.getElementById('sum-alerts');
   if(alertsEl){
     const chips=[];
     if(!dayB.length)chips.push('<span class="alert-chip warn">⚠️ No batches today</span>');
-    dayB.forEach(b=>{if(b.stages.s7_qc){const ph=parseFloat(b.stages.s7_qc.finalPH);if(ph&&(ph<4.4||ph>4.8))chips.push('<span class="alert-chip">❌ '+b.batchId+' pH '+ph+'</span>');}});
+    dayB.forEach(b=>{if(b.stages&&b.stages.s7_qc){const ph=parseFloat(b.stages.s7_qc.finalPH);if(ph&&(ph<4.4||ph>4.8))chips.push('<span class="alert-chip">❌ '+b.batchId+' pH '+ph+'</span>');}});
     if(dayP.some(r=>r.alcohol==='fail'))chips.push('<span class="alert-chip">❌ Alcohol test failed</span>');
     if(!cipLogs.some(r=>r.date===date))chips.push('<span class="alert-chip warn">⚠️ No CIP logged</span>');
     if(rejected>0)chips.push('<span class="alert-chip warn">⚠️ '+rejected+' cups rejected</span>');
     if(dayT.some(r=>r.overall==='fail'))chips.push('<span class="alert-chip">❌ Adulteration detected</span>');
+    if(isAdmin&&outstanding>0.5)chips.push('<span class="alert-chip warn">💰 ₹'+outstanding.toFixed(0)+' outstanding</span>');
     if(!chips.length)chips.push('<span class="alert-chip ok">✅ All clear</span>');
     alertsEl.innerHTML=chips.join('');
   }
 
-  // Procurement
+  // Procurement — show ₹ only to admin
   const pEl=document.getElementById('sum-proc-list');
   if(pEl)pEl.innerHTML=dayP.length?dayP.map(r=>{
     const alcBadge=r.alcohol==='pass'?'<span style="background:#dcfce7;color:#15803d;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px">✅ Alc</span>':r.alcohol==='fail'?'<span style="background:#fee2e2;color:#b91c1c;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px">❌ Alc</span>':'';
-    return`<div class="row"><span class="rl"><span style="font-size:10px;color:var(--blue);font-weight:600">${r.lotId||'—'}</span> · ${_esc(r.supplier)} · ${r.qty}L${alcBadge}</span><span class="rv blue">₹${r.total.toFixed(0)}</span></div>`;
+    const rightCol=isAdmin?`<span class="rv blue">₹${r.total.toFixed(0)}</span>`:`<span class="rv">${r.fat}% F · ${r.snf}% S</span>`;
+    return`<div class="row"><span class="rl"><span style="font-size:10px;color:var(--blue);font-weight:600">${r.lotId||'—'}</span> · ${_esc(r.supplier)} · ${r.qty}L${alcBadge}</span>${rightCol}</div>`;
   }).join(''):'<div class="empty"><div class="empty-icon">🐄</div><div class="empty-text">No procurement</div></div>';
 
-  // Distribution
+  // Distribution — show ₹ only to admin
   const dEl=document.getElementById('sum-dist-list');
   if(dEl)dEl.innerHTML=dayD.length?dayD.map(r=>{
-    const balBadge=r.balance>0?`<span style="font-size:9px;color:var(--red);font-weight:700;margin-left:4px">Bal ₹${r.balance.toFixed(0)}</span>`:'<span style="font-size:9px;color:var(--green);font-weight:700;margin-left:4px">✅</span>';
-    return`<div class="row"><span class="rl">${_esc(r.dist)} · ${r.c200+r.c400} cups${balBadge}</span><span class="rv">₹${r.amount.toFixed(0)}</span></div>`;
+    const cups=r.c200+r.c400;
+    if(isAdmin){
+      const balBadge=r.balance>0?`<span style="font-size:9px;color:var(--red);font-weight:700;margin-left:4px">Bal ₹${r.balance.toFixed(0)}</span>`:'<span style="font-size:9px;color:var(--green);font-weight:700;margin-left:4px">✅</span>';
+      return`<div class="row"><span class="rl">${_esc(r.dist)} · ${cups} cups${balBadge}</span><span class="rv">₹${r.amount.toFixed(0)}</span></div>`;
+    }
+    return`<div class="row"><span class="rl">${_esc(r.dist)}</span><span class="rv">${cups} cups</span></div>`;
   }).join(''):'<div class="empty"><div class="empty-icon">🚚</div><div class="empty-text">No distribution</div></div>';
 
-  // Testing
+  // Testing (visible to all)
   const tSec=document.getElementById('sum-test-section');
   const tEl=document.getElementById('sum-test-list');
   if(tSec)tSec.style.display=dayT.length?'block':'none';
@@ -5220,13 +5278,13 @@ function renderSummary(){
     <span class="rv ${r.overall==='pass'?'green':'red'}">${r.overall==='pass'?'✅ Clean':'❌ Failed'}</span>
   </div>${r.overall==='fail'&&r.failedTests.length?`<div style="font-size:10px;color:var(--red);padding:3px 0 5px;border-bottom:1px solid #fee2e2">⚠️ ${r.failedTests.join(' · ')}</div>`:''}`).join('');
 
-  // Batches
+  // Batches (visible to all)
   const bEl=document.getElementById('sum-batch-list');
   if(bEl)bEl.innerHTML=dayB.length?dayB.map(b=>{
-    const fill=b.stages.s5_fill;
+    const fill=b.stages&&b.stages.s5_fill;
     const cups=fill?fill.cupsCount+' × '+(fill.cupSize||'?'):'no fill yet';
-    const resColor=b.batchResult==='PASSED'?'green':b.status==='active'?'gold':'red';
-    return`<div class="row"><span class="rl">${b.batchId} · ${b.vat||'Vat'}<br/><span style="font-size:9px;color:var(--gray)">${cups}</span></span><span class="rv ${resColor}">${b.batchResult||b.status||'—'}</span></div>`;
+    const resColor=b.batchResult==='PASSED'?'green':b.status==='active'||b.status==='paused'?'gold':'red';
+    return`<div class="row"><span class="rl">${_esc(b.batchId)} · ${_esc(b.vat||'Vat')}<br/><span style="font-size:9px;color:var(--gray)">${cups}</span></span><span class="rv ${resColor}">${_esc(b.batchResult||b.status||'—')}</span></div>`;
   }).join(''):'<div class="empty"><div class="empty-icon">🧫</div><div class="empty-text">No batches</div></div>';
 }
 function downloadSummaryPDF(){
