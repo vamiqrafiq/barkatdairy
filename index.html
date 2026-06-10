@@ -1991,21 +1991,39 @@ function _esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/
 function _hasRole(user,role){if(!user)return false;if(Array.isArray(user.roles))return user.roles.includes(role);return user.role===role;}
 
 // ── Password hashing (so plaintext passwords are never stored or synced) ──
+// Current scheme: PBKDF2-SHA256, 150k iterations, salted per-username — slow by
+// design to resist offline brute-force of the (client-readable) hash list.
+const _hex=buf=>Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 async function hashPassword(username,plain){
-  const data=(username||'')+':barkat:'+plain;
+  const enc=new TextEncoder();
   try{
     if(window.crypto&&crypto.subtle){
-      const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(data));
-      return 'sha256$'+Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+      const key=await crypto.subtle.importKey('raw',enc.encode(plain),{name:'PBKDF2'},false,['deriveBits']);
+      const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:enc.encode((username||'')+':barkat-dairy'),iterations:150000,hash:'SHA-256'},key,256);
+      return 'pbkdf2$150000$'+_hex(bits);
     }
   }catch(e){}
-  // Fallback hash for non-secure contexts (still better than plaintext)
-  let h=0;for(let i=0;i<data.length;i++){h=(h<<5)-h+data.charCodeAt(i);h|=0;}
+  return _fbHash(username,plain); // non-secure-context fallback
+}
+// Legacy scheme verifiers (so already-hashed accounts keep working) ──────────
+async function _sha256Hash(username,plain){
+  try{if(window.crypto&&crypto.subtle){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode((username||'')+':barkat:'+plain));return 'sha256$'+_hex(buf);}}catch(e){}
+  return null;
+}
+function _fbHash(username,plain){
+  const data=(username||'')+':barkat:'+plain;let h=0;
+  for(let i=0;i<data.length;i++){h=(h<<5)-h+data.charCodeAt(i);h|=0;}
   return 'fb$'+(h>>>0).toString(16);
 }
 async function verifyPassword(user,plain){
   if(!user)return false;
-  if(user.pwHash)return (await hashPassword(user.username,plain))===user.pwHash;
+  const stored=user.pwHash;
+  if(stored){
+    if(stored.indexOf('pbkdf2$')===0)return (await hashPassword(user.username,plain))===stored;
+    if(stored.indexOf('sha256$')===0)return (await _sha256Hash(user.username,plain))===stored;
+    if(stored.indexOf('fb$')===0)return _fbHash(user.username,plain)===stored;
+    return false;
+  }
   if(user.password!=null)return user.password===plain; // legacy plaintext
   return false;
 }
@@ -2139,8 +2157,8 @@ async function doLogin(){
   let user=users.find(x=>x.username===u);
   if(user&&!(await verifyPassword(user,p)))user=null;
   if(!user){document.getElementById('loginErr').textContent='❌ Invalid username or password';return;}
-  // Upgrade legacy plaintext password to a hash on successful login
-  if(!user.pwHash){user.pwHash=await hashPassword(user.username,p);delete user.password;store('users',users);}
+  // Upgrade plaintext / legacy-scheme hashes to the current PBKDF2 scheme on login
+  if(!user.pwHash||user.pwHash.indexOf('pbkdf2$')!==0){user.pwHash=await hashPassword(user.username,p);delete user.password;store('users',users);}
   // Nudge to change a still-default password (it ships in the public source)
   if(DEFAULT_CREDS[user.username]===p){
     setTimeout(()=>{try{alert('⚠️ Security: "'+user.username+'" is still using its default password.\nPlease change it now in Admin → Staff Accounts (🔑).');}catch(e){}},500);
