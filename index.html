@@ -2098,6 +2098,8 @@ const DEFAULT_USERS=[
   {username:'proc1',password:'proc123',role:'staff',name:'Procurement Staff'},
   {username:'rider1',password:'rider123',role:'rider',name:'Delivery Rider'},
 ];
+// Seed credentials shipped in source — warn anyone still using them to change it.
+const DEFAULT_CREDS={admin:'barkat2024',ops1:'ops123',proc1:'proc123',rider1:'rider123'};
 const DEFAULT_SETTINGS={smp:305,cult:133,fix:3800,p200:18,p400:34,r200:0.6,r400:0.4,pk200:2.7,pk400:4.1,tsnf:8.5};
 
 let users=load('users',DEFAULT_USERS);
@@ -2139,6 +2141,10 @@ async function doLogin(){
   if(!user){document.getElementById('loginErr').textContent='❌ Invalid username or password';return;}
   // Upgrade legacy plaintext password to a hash on successful login
   if(!user.pwHash){user.pwHash=await hashPassword(user.username,p);delete user.password;store('users',users);}
+  // Nudge to change a still-default password (it ships in the public source)
+  if(DEFAULT_CREDS[user.username]===p){
+    setTimeout(()=>{try{alert('⚠️ Security: "'+user.username+'" is still using its default password.\nPlease change it now in Admin → Staff Accounts (🔑).');}catch(e){}},500);
+  }
   // Remember me
   if(document.getElementById('rememberMe').checked){
     try{localStorage.setItem('bd_savedCreds',JSON.stringify({u,p}));}catch(e){}
@@ -3116,7 +3122,8 @@ function renderUsers(){
     const primaryRole=roles[0]||'staff';
     const col=_roleColors[primaryRole]||'var(--blue)';
     const roleBadges=roles.map(r=>`<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px;background:${(_roleColors[r]||'var(--blue)').replace('var(--blue)','#1a3a8f')}18;color:${_roleColors[r]||'var(--blue)'}">${r}</span>`).join(' ');
-    return`<div class="user-item">
+    return`<div class="user-wrap">
+      <div class="user-item">
       <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
         <div style="width:36px;height:36px;border-radius:50%;background:${col}18;color:${col};font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initial}</div>
         <div style="min-width:0">
@@ -3125,11 +3132,34 @@ function renderUsers(){
           <div style="margin-top:3px;display:flex;gap:3px;flex-wrap:wrap">${roleBadges}</div>
         </div>
       </div>
-      <div style="flex-shrink:0;margin-left:8px">
+      <div style="flex-shrink:0;margin-left:8px;display:flex;gap:4px;align-items:center">
+        <button class="btn btn-outline btn-sm" title="Change password" onclick="togglePwForm(${i})">🔑</button>
         ${!_hasRole(u,'admin')?`<button class="btn btn-red btn-sm" onclick="removeUser(${i})">✕</button>`:'<span style="font-size:10px;color:var(--gray)">Owner</span>'}
+      </div>
+      </div>
+      <div id="pwForm-${i}" style="display:none;gap:6px;margin:6px 0 4px;padding:8px;background:var(--light);border-radius:9px">
+        <input type="password" id="pwNew-${i}" placeholder="New password (min 4 chars)" autocomplete="new-password" style="flex:1"/>
+        <button class="btn btn-primary btn-sm" onclick="changeUserPassword(${i})">Save</button>
       </div>
     </div>`;
   }).join('');
+}
+function togglePwForm(i){
+  const f=document.getElementById('pwForm-'+i);
+  if(f)f.style.display=f.style.display==='none'?'flex':'none';
+}
+async function changeUserPassword(i){
+  if(!users[i])return;
+  const el=document.getElementById('pwNew-'+i);
+  const v=el?el.value.trim():'';
+  if(v.length<4){showAlert('userAlert','alert-red','Password must be at least 4 characters');return;}
+  users[i].pwHash=await hashPassword(users[i].username,v);
+  delete users[i].password;
+  store('users',users);
+  if(currentUser&&currentUser.username===users[i].username)currentUser=users[i];
+  const uname=users[i].username;
+  renderUsers();
+  showAlert('userAlert','alert-green','✅ Password updated for '+uname);
 }
 async function addUser(){
   const displayName=document.getElementById('nu-display').value.trim();

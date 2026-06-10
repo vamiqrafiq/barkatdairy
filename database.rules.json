@@ -1,6 +1,11 @@
 {
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null"
+    "bd": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$key": {
+        ".validate": "$key.matches(/^(records|distRecords|testRecords|productionBatches|cipLogs|users|settings|savedSuppliers|savedDistributors|attRecords|invEntries|invOpening|returnsLog|paymentsLog|auditLog|rateOverride)$/)"
+      }
+    }
   }
 }
