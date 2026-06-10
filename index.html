@@ -1986,7 +1986,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     return _origGetById(id) || _dummy;
   };
 })();
-function _esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function _esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 // Supports both legacy role:string and new roles:array
 function _hasRole(user,role){if(!user)return false;if(Array.isArray(user.roles))return user.roles.includes(role);return user.role===role;}
 
