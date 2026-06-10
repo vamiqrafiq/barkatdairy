@@ -531,6 +531,16 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
         <div id="o-status" style="font-size:12px;font-weight:700;color:var(--dark);margin-top:2px">🟢 Premium</div>
       </div>
     </div>
+  </div>
+
+  <!-- Target Standardisation -->
+  <div class="section">
+    <div class="sec-title">🎯 Target (Standardisation)</div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:10px">Set the Fat % and SNF % you want the finished milk to have. Water dilutes Fat (cheap); SMP is added only to top up SNF (kept minimal to control cost).</div>
+    <div class="grid2">
+      <div><label class="inp-label">Target Fat (%)</label><input type="number" id="o-tfat" value="3.5" step="0.1" min="2.5" max="5" oninput="calcOps()"/></div>
+      <div><label class="inp-label">Target SNF (%)</label><input type="number" id="o-tsnf" value="8.5" step="0.1" min="7.5" max="10" oninput="calcOps()"/></div>
+    </div>
     <!-- Fat quality bar -->
     <div style="margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
@@ -565,6 +575,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
   <!-- Cup Fill Plan -->
   <div class="section">
     <div class="sec-title">🫙 Cup Fill Plan</div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><label class="inp-label">200g Share (%)</label><input type="number" id="o-split200" value="60" step="5" min="0" max="100" oninput="syncSplit('200');calcOps()"/></div>
+      <div><label class="inp-label">400g Share (%)</label><input type="number" id="o-split400" value="40" step="5" min="0" max="100" oninput="syncSplit('400');calcOps()"/></div>
+    </div>
     <div class="grid3">
       <div class="stat"><div class="stat-label">200g Cups</div><div class="stat-val" id="r-c200">—</div><div class="stat-sub">units</div></div>
       <div class="stat"><div class="stat-label">400g Cups</div><div class="stat-val" id="r-c400">—</div><div class="stat-sub">units</div></div>
@@ -625,6 +639,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
         <div class="ac-list" id="proc-ac-list"></div>
       </div>
     </div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><label class="inp-label">Code <span style="font-weight:400;color:var(--gray)">(optional)</span></label><input type="text" id="p-code" placeholder="e.g. 0045" autocomplete="off"/></div>
+      <div><label class="inp-label">Milk Type</label><select id="p-mtype"><option value="Cow">Cow</option><option value="Buffalo">Buffalo</option><option value="Mixed">Mixed</option></select></div>
+    </div>
     <div class="grid2" style="margin-bottom:12px">
       <div><label class="inp-label">Date</label><input type="date" id="p-date" oninput="refreshLotId();calcProc()"/></div>
       <div style="background:var(--light);border-radius:10px;padding:9px 12px;display:flex;flex-direction:column;justify-content:center">
@@ -660,9 +678,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <div><label class="inp-label">Milk Qty (L)</label><input type="number" id="p-qty" placeholder="e.g. 300" min="1" oninput="calcProc()"/></div>
       <div><label class="inp-label">Fat (%)</label><input type="number" id="p-fat" value="4" step="0.1" min="3" max="5" oninput="calcProc()"/></div>
     </div>
-    <div style="margin-bottom:10px">
-      <label class="inp-label">SNF (%)</label>
-      <input type="number" id="p-snf" value="8.1" step="0.1" min="7.5" max="9" oninput="calcProc()"/>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><label class="inp-label">SNF (%)</label><input type="number" id="p-snf" value="8.1" step="0.1" min="7.5" max="9" oninput="calcProc()"/></div>
+      <div><label class="inp-label">CLR <span style="font-weight:400;color:var(--gray)">(optional)</span></label><input type="number" id="p-clr" step="0.1" placeholder="e.g. 28" oninput="calcProc()"/></div>
     </div>
     <!-- Fat bar -->
     <div style="margin-bottom:6px">
@@ -1971,6 +1989,37 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 function _esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 // Supports both legacy role:string and new roles:array
 function _hasRole(user,role){if(!user)return false;if(Array.isArray(user.roles))return user.roles.includes(role);return user.role===role;}
+
+// ── Password hashing (so plaintext passwords are never stored or synced) ──
+async function hashPassword(username,plain){
+  const data=(username||'')+':barkat:'+plain;
+  try{
+    if(window.crypto&&crypto.subtle){
+      const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(data));
+      return 'sha256$'+Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    }
+  }catch(e){}
+  // Fallback hash for non-secure contexts (still better than plaintext)
+  let h=0;for(let i=0;i<data.length;i++){h=(h<<5)-h+data.charCodeAt(i);h|=0;}
+  return 'fb$'+(h>>>0).toString(16);
+}
+async function verifyPassword(user,plain){
+  if(!user)return false;
+  if(user.pwHash)return (await hashPassword(user.username,plain))===user.pwHash;
+  if(user.password!=null)return user.password===plain; // legacy plaintext
+  return false;
+}
+async function migratePasswords(){
+  if(!Array.isArray(users))return;
+  let changed=false;
+  for(const u of users){
+    if(u&&!u.pwHash&&u.password!=null){
+      u.pwHash=await hashPassword(u.username,u.password);
+      delete u.password;changed=true;
+    }
+  }
+  if(changed)store('users',users);
+}
 // ═════════════════════════
 
 // ══════════════════════════════════════════
@@ -1992,7 +2041,27 @@ let RATE_TABLE=[
   [41.2,41.6,42,42.4,42.8,43.2]
 ];
 
+// Milk density (kg/L) from CLR (Corrected Lactometer Reading). Falls back to 1.029.
+function milkDensity(clr){
+  const c=parseFloat(clr);
+  if(!c||isNaN(c)||c<=0)return 1.029;
+  return 1+c/1000;
+}
+// Rate per kg of milk, derived from the per-litre rate and density.
+function getKgRate(rate,clr){
+  const d=milkDensity(clr);
+  return parseFloat((rate/d).toFixed(2));
+}
+let rateOverride=load('rateOverride',null); // optional [{fat,snf,rate},…] pasted by admin
 function getRateFromTable(fat,snf){
+  // Admin-pasted override chart takes priority (exact match, else nearest point)
+  if(Array.isArray(rateOverride)&&rateOverride.length){
+    let exact=rateOverride.find(e=>Math.abs(e.fat-fat)<1e-6&&Math.abs(e.snf-snf)<1e-6);
+    if(exact)return parseFloat(Number(exact.rate).toFixed(2));
+    let best=null,bestD=Infinity;
+    rateOverride.forEach(e=>{const d=Math.pow(e.fat-fat,2)+Math.pow((e.snf-snf)*5,2);if(d<bestD){bestD=d;best=e;}});
+    if(best)return parseFloat(Number(best.rate).toFixed(2));
+  }
   let fi=0,minF=99;
   FAT_STEPS.forEach((f,i)=>{const d=Math.abs(f-fat);if(d<minF){minF=d;fi=i;}});
   let si=0,minS=99;
@@ -2055,11 +2124,14 @@ const TESTS=[
 // ══════════════════════════════════════════
 // LOGIN / LOGOUT
 // ══════════════════════════════════════════
-function doLogin(){
+async function doLogin(){
   const u=document.getElementById('loginUser').value.trim();
   const p=document.getElementById('loginPass').value.trim();
-  const user=users.find(x=>x.username===u&&x.password===p);
+  let user=users.find(x=>x.username===u);
+  if(user&&!(await verifyPassword(user,p)))user=null;
   if(!user){document.getElementById('loginErr').textContent='❌ Invalid username or password';return;}
+  // Upgrade legacy plaintext password to a hash on successful login
+  if(!user.pwHash){user.pwHash=await hashPassword(user.username,p);delete user.password;store('users',users);}
   // Remember me
   if(document.getElementById('rememberMe').checked){
     try{localStorage.setItem('bd_savedCreds',JSON.stringify({u,p}));}catch(e){}
@@ -2115,6 +2187,7 @@ function doLogin(){
 
 // Auto-fill saved credentials on page load
 window.addEventListener('DOMContentLoaded',function(){
+  migratePasswords();
   try{
     const saved=JSON.parse(localStorage.getItem('bd_savedCreds')||'null');
     if(saved&&saved.u&&saved.p){
@@ -2234,74 +2307,94 @@ function calcOps(){
   if(snfLbl)snfLbl.textContent=snf?snf+'%':'—';
 
   if(!qty||!fat||!snf)return;
+  const isAdmin=_hasRole(currentUser,'admin');
   const s=settings;
-  const tsnf=s.tsnf||8.5;const smpPrice=s.smp||305;
+  const smpPrice=s.smp||305;
   const p200=s.p200||18;const p400=s.p400||34;
-  const r200=s.r200||0.6;const r400=s.r400||0.4;
   const pk200=s.pk200||2.7;const pk400=s.pk400||4.1;
-  let best=null;
-  for(let w=0;w<=qty*0.8;w+=0.5){
-    const fv=qty+w;const fFat=(qty*fat)/fv;
-    if(fFat<3.0)break;
-    const snfRaw=(qty*snf)/fv;
-    const smpKg=Math.max(0,(tsnf-snfRaw)*fv/100);
-    const fSnf=snfRaw+(smpKg*100/fv);
-    const c200=Math.floor(fv*r200*5);const c400=Math.floor(fv*r400*2.5);
+
+  // ── Targets (water-first, minimum-SMP standardisation) ──
+  const tfat=parseFloat(document.getElementById('o-tfat').value)||0;
+  const tsnf=parseFloat(document.getElementById('o-tsnf').value)||0;
+  const targetFat=tfat>0?tfat:fat;
+  const targetSnf=tsnf>0?tsnf:(s.tsnf||8.5);
+  // Add water only to bring Fat DOWN to target (water is the cheap lever).
+  let w=targetFat<fat?qty*(fat/targetFat-1):0;
+  if(w<0||!isFinite(w))w=0;
+  w=Math.round(w*2)/2;                     // round to nearest 0.5 L
+  const fv=qty+w;                          // final volume
+  const fFat=qty*fat/fv;                   // final fat after dilution
+  const snfAfterWater=qty*snf/fv;          // SNF after dilution
+  let smpKg=(targetSnf-snfAfterWater)*fv/100; // top up SNF with minimal SMP
+  if(smpKg<0||!isFinite(smpKg))smpKg=0;
+  smpKg=Math.round(smpKg*100)/100;
+  const fSnf=snfAfterWater+smpKg*100/fv;   // final SNF
+  const fatShort=targetFat>fat+0.05;       // cannot raise fat with water/SMP
+
+  // ── Cup split (one batch target, ratio split) ──
+  let sp200=parseFloat(document.getElementById('o-split200').value);
+  let sp400=parseFloat(document.getElementById('o-split400').value);
+  if(isNaN(sp200))sp200=60;if(isNaN(sp400))sp400=40;
+  if(sp200+sp400<=0){sp200=60;sp400=40;}
+  const c200=Math.floor(fv*1000*(sp200/100)/200);
+  const c400=Math.floor(fv*1000*(sp400/100)/400);
+
+  const q=fFat>=3.5&&fSnf>=8.5?'🟢 EXCELLENT':fFat>=3.2&&fSnf>=8.5?'🟢 THICK':fFat>=3.0?'🟡 STANDARD':'🔴 THIN';
+  const grade=fat>=4&&snf>=8.3?'🟢 Premium':fat>=3.8&&snf>=8?'🟡 Good':'🟠 Average';
+  document.getElementById('o-status').textContent=grade;
+
+  // Production plan
+  document.getElementById('r-water').textContent=w>0?w:'None';
+  document.getElementById('r-smp').textContent=smpKg>0?smpKg.toFixed(2):'None';
+  document.getElementById('r-vol').textContent=fv.toFixed(1);
+  document.getElementById('r-ffat').textContent=fFat.toFixed(2)+'%';
+  document.getElementById('r-fsnf').textContent=fSnf.toFixed(2)+'%';
+  document.getElementById('r-qual').textContent=q;
+
+  // Cup plan
+  document.getElementById('r-c200').textContent=c200;
+  document.getElementById('r-c400').textContent=c400;
+  document.getElementById('r-ctotal').textContent=c200+c400;
+
+  // ── Batch economics — ADMIN ONLY (finance hidden from operators) ──
+  const plSec=document.getElementById('opsPLSection');
+  if(plSec)plSec.style.display=isAdmin?'block':'none';
+  if(isAdmin){
     const rev=c200*p200+c400*p400;
     const milkC=qty*getRateFromTable(fat,snf);
     const smpC=smpKg*smpPrice;
     const packC=c200*pk200+c400*pk400;
     const cultC=(s.cult||133)*(fv/100);
-    // Fixed overhead is constant across all water values so exclude it from
-    // the optimization loop — otherwise small batches (<100L) always show
-    // negative ROI and the loop never sets a best result.
     const varNet=rev-milkC-smpC-packC-cultC;
-    const net=varNet-(s.fix||3800);
-    const roi=smpC>0?varNet/smpC:0;
-    if(smpC>0&&varNet<0)continue;
-    if(!best||varNet>best.varNet)best={w,fv,fFat,fSnf,smpKg,c200,c400,net,varNet,roi,snfRaw,rev,milkC,smpC,packC,cultC};
+    const fix=s.fix||3800;
+    const net=varNet-fix;
+    const netColor=net>=0?'var(--green)':'var(--red)';
+    const varColor=varNet>=0?'var(--green)':'var(--red)';
+    const setText=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val;};
+    setText('pl-rev','₹'+rev.toFixed(0));
+    setText('pl-milk','−₹'+milkC.toFixed(0));
+    setText('pl-smp','−₹'+smpC.toFixed(0));
+    setText('pl-pack','−₹'+packC.toFixed(0));
+    setText('pl-cult','−₹'+cultC.toFixed(0));
+    const vn=document.getElementById('pl-varnet');if(vn){vn.textContent=(varNet>=0?'₹':'−₹')+Math.abs(varNet).toFixed(0);vn.style.color=varColor;}
+    setText('pl-fix','−₹'+fix.toFixed(0));
+    const pn=document.getElementById('pl-net');if(pn){pn.textContent=(net>=0?'₹':'−₹')+Math.abs(net).toFixed(0);pn.style.color=netColor;}
   }
-  if(!best){document.getElementById('o-status').textContent='⚠️ Check values';return;}
 
-  const q=best.fFat>=3.5&&best.fSnf>=8.5?'🟢 EXCELLENT':best.fFat>=3.2&&best.fSnf>=8.5?'🟢 THICK':best.fFat>=3.0?'🟡 STANDARD':'🔴 THIN';
-  const grade=fat>=4&&snf>=8.3?'🟢 Premium':fat>=3.8&&snf>=8?'🟡 Good':'🟠 Average';
-  document.getElementById('o-status').textContent=grade;
-
-  // Production plan
-  document.getElementById('r-water').textContent=best.w>0?best.w:'None';
-  document.getElementById('r-smp').textContent=best.smpKg>0?best.smpKg.toFixed(2):'None';
-  document.getElementById('r-vol').textContent=best.fv.toFixed(1);
-  document.getElementById('r-ffat').textContent=best.fFat.toFixed(2)+'%';
-  document.getElementById('r-fsnf').textContent=best.fSnf.toFixed(2)+'%';
-  document.getElementById('r-qual').textContent=q;
-
-  // Cup plan
-  document.getElementById('r-c200').textContent=best.c200;
-  document.getElementById('r-c400').textContent=best.c400;
-  document.getElementById('r-ctotal').textContent=best.c200+best.c400;
-
-  // Batch economics
-  const fix=s.fix||3800;
-  const netColor=best.net>=0?'var(--green)':'var(--red)';
-  const varColor=best.varNet>=0?'var(--green)':'var(--red)';
-  const setText=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val;};
-  setText('pl-rev','₹'+best.rev.toFixed(0));
-  setText('pl-milk','−₹'+best.milkC.toFixed(0));
-  setText('pl-smp','−₹'+best.smpC.toFixed(0));
-  setText('pl-pack','−₹'+best.packC.toFixed(0));
-  setText('pl-cult','−₹'+best.cultC.toFixed(0));
-  const vn=document.getElementById('pl-varnet');if(vn){vn.textContent=(best.varNet>=0?'₹':'−₹')+Math.abs(best.varNet).toFixed(0);vn.style.color=varColor;}
-  setText('pl-fix','−₹'+fix.toFixed(0));
-  const pn=document.getElementById('pl-net');if(pn){pn.textContent=(best.net>=0?'₹':'−₹')+Math.abs(best.net).toFixed(0);pn.style.color=netColor;}
-  const plSec=document.getElementById('opsPLSection');if(plSec)plSec.style.display='block';
-
-  // Step-by-step instructions
+  // Step-by-step instructions (operational only — no money)
   const steps=[];
-  if(best.w>0) steps.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f8"><div style="width:26px;height:26px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--dark)">Add water</div><div style="font-size:11px;color:var(--gray)">Pour ${best.w} litres into the vat</div></div></div>`);
-  if(best.smpKg>0) steps.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f8"><div style="width:26px;height:26px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${steps.length+1}</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--dark)">Add SMP powder</div><div style="font-size:11px;color:var(--gray)">Dissolve ${best.smpKg.toFixed(2)} kg in warm water first</div></div></div>`);
-  steps.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f8"><div style="width:26px;height:26px;border-radius:50%;background:var(--teal);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${steps.length+1}</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--dark)">Mix and verify</div><div style="font-size:11px;color:var(--gray)">Final volume: ${best.fv.toFixed(1)} L · Fat: ${best.fFat.toFixed(2)}% · SNF: ${best.fSnf.toFixed(2)}%</div></div></div>`);
-  steps.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 0"><div style="width:26px;height:26px;border-radius:50%;background:var(--gold);color:#1a0000;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${steps.length+1}</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--dark)">Fill cups</div><div style="font-size:11px;color:var(--gray)">${best.c200} × 200g + ${best.c400} × 400g = ${best.c200+best.c400} cups total</div></div></div>`);
+  if(fatShort) steps.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f8"><div style="width:26px;height:26px;border-radius:50%;background:var(--red);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">!</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--red)">Fat below target</div><div style="font-size:11px;color:var(--gray)">Raw fat ${fat}% is under target ${targetFat}% — water can't raise fat. Add cream or lower the target.</div></div></div>`);
+  if(w>0) steps.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f8"><div style="width:26px;height:26px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${steps.length+1}</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--dark)">Add water</div><div style="font-size:11px;color:var(--gray)">Pour ${w} litres into the vat to bring Fat to ${targetFat}%</div></div></div>`);
+  if(smpKg>0) steps.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f8"><div style="width:26px;height:26px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${steps.length+1}</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--dark)">Add SMP powder</div><div style="font-size:11px;color:var(--gray)">Dissolve ${smpKg.toFixed(2)} kg in warm water first (only enough to reach SNF ${targetSnf}%)</div></div></div>`);
+  steps.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f8"><div style="width:26px;height:26px;border-radius:50%;background:var(--teal);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${steps.length+1}</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--dark)">Mix and verify</div><div style="font-size:11px;color:var(--gray)">Final volume: ${fv.toFixed(1)} L · Fat: ${fFat.toFixed(2)}% · SNF: ${fSnf.toFixed(2)}%</div></div></div>`);
+  steps.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 0"><div style="width:26px;height:26px;border-radius:50%;background:var(--gold);color:#1a0000;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${steps.length+1}</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--dark)">Fill cups</div><div style="font-size:11px;color:var(--gray)">${c200} × 200g + ${c400} × 400g = ${c200+c400} cups total</div></div></div>`);
   document.getElementById('opsInstructions').innerHTML=steps.join('');
+}
+function syncSplit(which){
+  const a=document.getElementById('o-split200'),b=document.getElementById('o-split400');
+  if(!a||!b)return;
+  if(which==='200'){let v=parseFloat(a.value);if(isNaN(v))return;v=Math.max(0,Math.min(100,v));b.value=100-v;}
+  else{let v=parseFloat(b.value);if(isNaN(v))return;v=Math.max(0,Math.min(100,v));a.value=100-v;}
 }
 
 // ══════════════════════════════════════════
@@ -2350,7 +2443,11 @@ function saveProc(){
   const total=qty*rate;
   const lotId=genLotId(date);
   const temp=parseFloat(document.getElementById('p-temp').value)||null;
-  const rec={id:Date.now(),lotId,supplier,qty,fat,snf,rate,total,date,temp,
+  const clrEl=document.getElementById('p-clr');const clr=clrEl&&clrEl.value!==''?parseFloat(clrEl.value):null;
+  const codeEl=document.getElementById('p-code');const code=codeEl?codeEl.value.trim():'';
+  const mtypeEl=document.getElementById('p-mtype');const mtype=mtypeEl?mtypeEl.value:'Cow';
+  const rec={id:Date.now(),lotId,supplier,qty,fat,snf,rate,total,date,temp,clr,code,mtype,
+    kgRate:getKgRate(rate,clr),
     alcohol:window._alcoholResult||'not-tested',
     status:'in-storage',
     savedBy:currentUser?currentUser.name:'Staff'};
@@ -2360,7 +2457,7 @@ function saveProc(){
   window._alcoholResult=null;
   showAlert('procAlert','alert-green','✅ Saved · Lot ID: '+lotId);
   // Reset form
-  ['p-supplier','p-qty','p-fat','p-snf','p-temp'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['p-supplier','p-qty','p-fat','p-snf','p-temp','p-clr','p-code'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('p-date').value=new Date().toISOString().split('T')[0];
   // Reset camera state
   camVerified=false;
@@ -2423,6 +2520,13 @@ function renderAllRecords(){
 // PROCUREMENT SLIP + THERMAL PRINT
 // ══════════════════════════════════════════
 let currentSlipData={};
+function nextSlipNo(){
+  let n=parseInt(localStorage.getItem('bd_slipCounter')||'0',10);
+  if(isNaN(n))n=0;
+  n++;
+  try{localStorage.setItem('bd_slipCounter',String(n));}catch(e){}
+  return n;
+}
 function showSlip(){
   const supplier=document.getElementById('p-supplier').value.trim();
   const qty=parseFloat(document.getElementById('p-qty').value)||0;
@@ -2430,73 +2534,65 @@ function showSlip(){
   const snf=parseFloat(document.getElementById('p-snf').value)||0;
   const date=document.getElementById('p-date').value||new Date().toISOString().split('T')[0];
   if(!supplier||!qty||!fat||!snf){showAlert('procAlert','alert-red','⚠️ Fill all fields to generate slip');return;}
+  const clrEl=document.getElementById('p-clr');const clr=clrEl&&clrEl.value!==''?parseFloat(clrEl.value):null;
+  const codeEl=document.getElementById('p-code');const code=(codeEl&&codeEl.value.trim())||'0000';
+  const mtypeEl=document.getElementById('p-mtype');const mtype=(mtypeEl&&mtypeEl.value)||'Cow';
   const rate=getRateFromTable(fat,snf);
+  const kgRate=getKgRate(rate,clr);
   const total=(qty*rate).toFixed(2);
-  const dec=fat>=4&&snf>=8.3?'GOOD BUY':fat>=3.8&&snf>=8.1?'SAFE BUY':'POOR QUALITY';
-  const slipNo='#'+Date.now().toString().slice(-6);
-  currentSlipData={supplier,qty,fat,snf,date,rate,total,dec,slipNo};
+  const now=new Date();
+  const hr=now.getHours();
+  const shift=hr<12?'Morning':hr<17?'Afternoon':'Evening';
+  const timeStr=now.toLocaleTimeString('en-US',{hour12:true,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const ddmmyyyy=date.split('-').reverse().join('/');
+  const slipNo=nextSlipNo();
+  currentSlipData={supplier,qty,fat,snf,clr,code,mtype,date,ddmmyyyy,rate,kgRate,total,slipNo,shift,timeStr};
   document.getElementById('slipContent').innerHTML=`
     <div class="slip-header">
-      <div class="slip-brand">BARKAT DAIRY PLANT</div>
+      <div class="slip-brand">BARKAT DAIRY # ${slipNo}</div>
       <div class="slip-brand-urdu">برکت ڈیری پلانٹ</div>
-      <div class="slip-sub">WATLAR, GANDERBAL · KASHMIR<br/>Pure Goodness, Blessed by Quality</div>
+      <div class="slip-sub">WATLAR, GANDERBAL · KASHMIR</div>
     </div>
-    <div class="slip-title">MILK PROCUREMENT SLIP</div>
     <hr class="slip-divider"/>
-    <div class="slip-row"><span class="slip-row-label">Date</span><span class="slip-row-val">${date}</span></div>
-    <div class="slip-row"><span class="slip-row-label">Slip No.</span><span class="slip-row-val">${slipNo}</span></div>
+    <div class="slip-row"><span class="slip-row-label">${ddmmyyyy} ${shift}</span><span class="slip-row-val">${timeStr}</span></div>
+    <div class="slip-row"><span class="slip-row-label">Code= ${_esc(code)}</span><span class="slip-row-val">${_esc(mtype)}</span></div>
+    <div class="slip-row"><span class="slip-row-label">Name=</span><span class="slip-row-val">${_esc(supplier.toUpperCase())}</span></div>
     <hr class="slip-divider"/>
-    <div class="slip-row"><span class="slip-row-label">Supplier</span><span class="slip-row-val">${_esc(supplier)}</span></div>
-    <div class="slip-row"><span class="slip-row-label">Milk Qty</span><span class="slip-row-val">${qty} L</span></div>
-    <div class="slip-row"><span class="slip-row-label">Fat %</span><span class="slip-row-val">${fat}%</span></div>
-    <div class="slip-row"><span class="slip-row-label">SNF %</span><span class="slip-row-val">${snf}%</span></div>
-    <div class="slip-row"><span class="slip-row-label">Rate</span><span class="slip-row-val">₹${rate}/L</span></div>
-    <div class="slip-row"><span class="slip-row-label">Quality</span><span class="slip-row-val">${dec}</span></div>
+    <div class="slip-row"><span class="slip-row-label">Liter=</span><span class="slip-row-val">${qty}</span></div>
+    <div class="slip-row"><span class="slip-row-label">Fat%=</span><span class="slip-row-val">${fat}</span></div>
+    <div class="slip-row"><span class="slip-row-label">SNF%=</span><span class="slip-row-val">${snf}</span></div>
+    <div class="slip-row"><span class="slip-row-label">CLR=</span><span class="slip-row-val">${clr!=null?clr:'—'}</span></div>
+    <div class="slip-row"><span class="slip-row-label">KgRate=</span><span class="slip-row-val">${kgRate.toFixed(2)}</span></div>
+    <div class="slip-row"><span class="slip-row-label">Rate/Lit=</span><span class="slip-row-val">${rate.toFixed(2)}</span></div>
     <hr class="slip-divider"/>
-    <div class="slip-total"><span class="slip-total-label">TOTAL AMOUNT</span><span class="slip-total-val">₹${total}</span></div>
-    <div class="slip-sig">
-      <div class="slip-sig-box"><div class="slip-sig-line"></div>Supplier Signature</div>
-      <div class="slip-sig-box"><div class="slip-sig-line"></div>Plant Incharge</div>
-    </div>
-    <div class="slip-footer">Barkat Dairy Plant · ${new Date().toLocaleTimeString()}</div>`;
+    <div class="slip-total"><span class="slip-total-label">Amount+Rs</span><span class="slip-total-val">${total}</span></div>
+    <div class="slip-footer">@ ${timeStr} · Barkat Dairy Plant</div>`;
   document.getElementById('slipModal').classList.add('open');
 }
 function closeSlip(){document.getElementById('slipModal').classList.remove('open');}
 
 function buildThermalText(d){
   const W=42;
-  const line='='.repeat(W);
   const dash='-'.repeat(W);
   function c(s){const p=Math.max(0,Math.floor((W-s.length)/2));return ' '.repeat(p)+s;}
   function tw(l,r){const sp=Math.max(1,W-l.length-r.length);return l+' '.repeat(sp)+r;}
+  const clr=d.clr!=null?String(d.clr):'';
   return [
-    c('BARKAT DAIRY PLANT'),
-    c('Watlar, Ganderbal, Kashmir'),
-    c('Pure Goodness, Blessed by Quality'),
-    line,
-    c('MILK PROCUREMENT SLIP'),
     dash,
-    tw('Date:',d.date),
-    tw('Slip No:',d.slipNo),
+    c('BARKAT DAIRY  # '+d.slipNo),
     dash,
-    tw('Supplier:',d.supplier),
-    tw('Milk Qty:',d.qty+' L'),
-    tw('Fat %:',d.fat+'%'),
-    tw('SNF %:',d.snf+'%'),
-    tw('Rate:','Rs.'+d.rate+'/L'),
-    tw('Quality:',d.dec),
-    line,
-    tw('TOTAL AMOUNT:','Rs.'+d.total),
-    line,
-    '',
-    c('Supplier Signature'),
-    ' '.repeat(10)+'________________',
-    '',
-    c('Plant Incharge'),
-    ' '.repeat(10)+'________________',
-    '',
-    c('Computer generated slip'),
+    d.ddmmyyyy+' '+d.shift+' '+d.timeStr,
+    'Code= '+d.code+'  '+d.mtype,
+    'Name= '+String(d.supplier).toUpperCase(),
+    tw('Liter= = '+d.qty,'Fat%=  '+d.fat),
+    'SNF%= '+d.snf+'  CLR= '+clr,
+    'KgRate= '+Number(d.kgRate).toFixed(2),
+    'Rate/Lit= '+Number(d.rate).toFixed(2),
+    'Amount+Rs '+d.total+'  @ '+d.timeStr,
+    dash,
     c('Barkat Dairy Plant'),
+    c('Watlar, Ganderbal'),
+    '',
   ].join('\n');
 }
 
@@ -3028,7 +3124,7 @@ function renderUsers(){
     </div>`;
   }).join('');
 }
-function addUser(){
+async function addUser(){
   const displayName=document.getElementById('nu-display').value.trim();
   const username=document.getElementById('nu-name').value.trim();
   const pass=document.getElementById('nu-pass').value.trim();
@@ -3037,8 +3133,9 @@ function addUser(){
   if(!displayName||!username||!pass){showAlert('userAlert','alert-red','Fill display name, username and password');return;}
   if(pass.length<4){showAlert('userAlert','alert-red','Password must be at least 4 characters');return;}
   if(users.find(u=>u.username===username)){showAlert('userAlert','alert-red','Username already exists');return;}
-  // Store both role (legacy compat) and roles (array)
-  users.push({username,password:pass,roles,role:roles[0],name:displayName});
+  // Store a password hash (never plaintext); keep role (legacy compat) and roles (array)
+  const pwHash=await hashPassword(username,pass);
+  users.push({username,pwHash,roles,role:roles[0],name:displayName});
   store('users',users);renderUsers();
   document.getElementById('nu-display').value='';
   document.getElementById('nu-name').value='';
@@ -3075,9 +3172,22 @@ function clearAllRecords(){if(confirm('Delete ALL procurement records?')){record
 function clearDistRecords(){if(confirm('Delete ALL distribution records?')){distRecords=[];store('distRecords',distRecords);renderDistRecords();}}
 function clearTestRecords(){if(confirm('Delete ALL test records?')){testRecords=[];store('testRecords',testRecords);renderTestHistory();}}
 function updateRates(){
-  const ra=document.getElementById('rateAlert');
-  try{JSON.parse(document.getElementById('rateJson').value);showAlert('rateAlert','alert-green','✅ Contact developer to apply updated rates.');}
-  catch(e){showAlert('rateAlert','alert-red','❌ Invalid JSON format');}
+  const raw=document.getElementById('rateJson').value.trim();
+  if(!raw){
+    rateOverride=null;
+    try{localStorage.removeItem('bd_rateOverride');}catch(e){}
+    showAlert('rateAlert','alert-green','✅ Reverted to built-in rate table.');
+    calcProc();return;
+  }
+  let arr;
+  try{arr=JSON.parse(raw);}catch(e){showAlert('rateAlert','alert-red','❌ Invalid JSON format');return;}
+  if(!Array.isArray(arr)||!arr.length||!arr.every(e=>e&&isFinite(e.fat)&&isFinite(e.snf)&&isFinite(e.rate))){
+    showAlert('rateAlert','alert-red','❌ Expected: [{"fat":4,"snf":8.1,"rate":40},…]');return;
+  }
+  rateOverride=arr.map(e=>({fat:+e.fat,snf:+e.snf,rate:+e.rate}));
+  store('rateOverride',rateOverride);
+  showAlert('rateAlert','alert-green','✅ Applied '+rateOverride.length+' rate points.');
+  calcProc();calcOps();
 }
 function downloadHTML(){
   const html=document.documentElement.outerHTML;
@@ -3391,7 +3501,7 @@ function confirmCapture(){
     body:JSON.stringify({
       contents:[{parts:[
         {inline_data:{mime_type:'image/jpeg',data:base64}},
-        {text:'This is a photo of a milk analyser display screen. Extract the Fat percentage and SNF (Solid-Not-Fat) percentage values shown on the screen. Reply ONLY with a JSON object like: {"fat": 4.1, "snf": 8.5}. If you cannot read the values clearly, return {"fat": null, "snf": null}. No other text.'}
+        {text:'This is a photo of a milk analyser display screen. The screen shows labelled values, typically FAT, SNF, DENSITY/CLR (and sometimes added water/temperature). Extract the Fat percentage, the SNF (Solids-Not-Fat) percentage, and the CLR / Density reading. Reply ONLY with a JSON object like: {"fat": 4.1, "snf": 8.5, "clr": 28}. Use null for any value you cannot read clearly. No other text.'}
       ]}],
       generationConfig:{maxOutputTokens:100,temperature:0}
     })
@@ -3399,17 +3509,18 @@ function confirmCapture(){
   .then(r=>r.json())
   .then(data=>{
     const txt=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
-    let parsed={fat:null,snf:null};
+    let parsed={fat:null,snf:null,clr:null};
     try{
       // Try to find a JSON object anywhere in the response
       const m=txt.match(/\{[^{}]*\}/);
       if(m) parsed=JSON.parse(m[0]);
       else parsed=JSON.parse(txt.replace(/```json|```/g,'').trim());
     }catch(e){
-      // Fallback: extract numbers after "fat" and "snf" keywords
+      // Fallback: extract numbers after "fat" / "snf" / "clr" keywords
       const fm=txt.match(/fat["'\s:]+(\d+\.?\d*)/i);
       const sm=txt.match(/snf["'\s:]+(\d+\.?\d*)/i);
-      if(fm&&sm){parsed={fat:parseFloat(fm[1]),snf:parseFloat(sm[1])};}
+      const cm=txt.match(/(?:clr|density)["'\s:]+(\d+\.?\d*)/i);
+      if(fm&&sm){parsed={fat:parseFloat(fm[1]),snf:parseFloat(sm[1]),clr:cm?parseFloat(cm[1]):null};}
     }
     camVerified=true;
     stopCamStream();
@@ -3419,8 +3530,9 @@ function confirmCapture(){
     if(parsed.fat!==null&&parsed.snf!==null){
       document.getElementById('p-fat').value=parsed.fat;
       document.getElementById('p-snf').value=parsed.snf;
+      if(parsed.clr!==null&&parsed.clr!==undefined){const clrEl=document.getElementById('p-clr');if(clrEl)clrEl.value=parsed.clr;}
       calcProc();
-      document.getElementById('camVerifyStatus').innerHTML='✅ Analyser read: Fat <b>'+parsed.fat+'%</b> · SNF <b>'+parsed.snf+'%</b> — auto-filled!';
+      document.getElementById('camVerifyStatus').innerHTML='✅ Analyser read: Fat <b>'+parsed.fat+'%</b> · SNF <b>'+parsed.snf+'%</b>'+(parsed.clr!=null?' · CLR <b>'+parsed.clr+'</b>':'')+' — auto-filled!';
     } else {
       document.getElementById('camVerifyStatus').innerHTML='✅ Photo captured — could not auto-read values, please fill Fat & SNF manually';
     }
@@ -4371,9 +4483,11 @@ function createBatch(){
   const fat=parseFloat(document.getElementById('nb-fat').value)||0;
   const snf=parseFloat(document.getElementById('nb-snf').value)||0;
   const vat=document.getElementById('nb-vat').value.trim()||'Vat 1';
+  if(!procId){showAlert('newBatchAlert','alert-red','⚠️ Select the milk receipt this batch is made from (batches must be linked to procured milk)');return;}
+  const procRec=records.find(r=>String(r.id)===procId);
+  if(!procRec){showAlert('newBatchAlert','alert-red','⚠️ Linked milk receipt not found — pick a valid receipt');return;}
   if(!vol){showAlert('newBatchAlert','alert-red','⚠️ Enter milk volume');return;}
   const batchId=genBatchId();
-  const procRec=records.find(r=>String(r.id)===procId);
   const now=new Date();
   const batch={
     batchId, status:'active', date:now.toISOString().split('T')[0],
@@ -4969,7 +5083,7 @@ function renderColdStore(){
     const daysLabel=days===999?'No BB date':days<0?'EXPIRED':days===0?'Expires today':days===1?'Expires tomorrow':days+' days left';
     return`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f3f4f8">
       <div style="flex:1">
-        <div style="font-size:12px;font-weight:700;color:var(--dark)">${_esc(b.batchId)} <span style="font-size:10px;font-weight:400;color:var(--gray)">· ${fill.cupSize}</span></div>
+        <div style="font-size:12px;font-weight:700;color:var(--dark)">${_esc(b.batchId)} <span style="font-size:10px;font-weight:400;color:var(--gray)">· ${fill.cupSize}</span>${b.linkedLotId?` <span style="font-size:9px;color:var(--blue);background:var(--light);padding:1px 5px;border-radius:5px">${_esc(b.linkedLotId)}</span>`:''}</div>
         <div style="font-size:10px;color:var(--gray);margin-top:1px">BB: ${bb||'—'} <span style="color:${urgencyColor};font-weight:600">· ${daysLabel}</span></div>
       </div>
       <div style="text-align:right">
@@ -5452,7 +5566,7 @@ function clearCipRecords(){if(confirm('Delete ALL CIP records?')){cipLogs=[];sto
 var _fb=null,_fbReady=false,_fbListening=false;
 var _syncKeys=['records','distRecords','testRecords','productionBatches','cipLogs',
   'users','settings','savedSuppliers','savedDistributors','attRecords',
-  'invEntries','invOpening','returnsLog','paymentsLog','auditLog'];
+  'invEntries','invOpening','returnsLog','paymentsLog','auditLog','rateOverride'];
 
 function _initFB(){
   try{
@@ -5507,6 +5621,7 @@ function _syncDown(){
       }
     });
     if(!_fbListening)_listen();
+    migratePasswords();
     if(currentUser)_refreshUI();
   }).catch(function(e){console.warn('Sync error:',e);});
 }
