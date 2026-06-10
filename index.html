@@ -133,7 +133,7 @@ input:focus,select:focus,textarea:focus{box-shadow:0 0 0 3px rgba(26,58,143,.12)
 .logout-btn:active{background:rgba(255,255,255,0.22)}
 
 /* TABS - scrollable */
-.tabbar{display:flex;border-top:1px solid rgba(255,255,255,0.08);overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 4px}
+.tabbar{display:flex;flex-wrap:wrap;justify-content:center;border-top:1px solid rgba(255,255,255,0.08);scrollbar-width:none;padding:2px 4px}
 .tabbar::-webkit-scrollbar{display:none}
 .tab{flex:0 0 auto;padding:8px 11px;font-size:10px;font-weight:500;color:rgba(255,255,255,0.45);border:none;background:transparent;cursor:pointer;border-bottom:2.5px solid transparent;font-family:inherit;letter-spacing:0.3px;transition:all 0.2s;white-space:nowrap;position:relative}
 .tab.active{color:#fff;font-weight:700;border-bottom:2.5px solid var(--gold);text-shadow:0 0 12px rgba(196,154,42,.4)}
