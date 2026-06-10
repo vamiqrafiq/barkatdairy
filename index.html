@@ -2155,10 +2155,25 @@ async function doLogin(){
   const u=document.getElementById('loginUser').value.trim();
   const p=document.getElementById('loginPass').value.trim();
   let user=users.find(x=>x.username===u);
-  if(user&&!(await verifyPassword(user,p)))user=null;
-  if(!user){document.getElementById('loginErr').textContent='❌ Invalid username or password';return;}
+  let localOK=!!(user&&await verifyPassword(user,p));
+  let fbFallback=false;
+  // If the local check fails, this device's data may be stale (e.g. password
+  // was changed on another device). Verify against Firebase, and if that
+  // succeeds, pull the corrected user list down so the device self-heals.
+  if(!localOK){
+    if(await _fbTrySignIn(u,p)){
+      fbFallback=true;
+      await _pullUsers();
+      user=users.find(x=>x.username===u);
+    }
+  }
+  if(!localOK&&!fbFallback){document.getElementById('loginErr').textContent='❌ Invalid username or password';return;}
+  if(!user){user={username:u,name:u,roles:['staff'],role:'staff'};} // authed via cloud but not in local list yet
   // Upgrade plaintext / legacy-scheme hashes to the current PBKDF2 scheme on login
-  if(!user.pwHash||user.pwHash.indexOf('pbkdf2$')!==0){user.pwHash=await hashPassword(user.username,p);delete user.password;store('users',users);}
+  if(localOK&&(!user.pwHash||user.pwHash.indexOf('pbkdf2$')!==0)){user.pwHash=await hashPassword(user.username,p);delete user.password;store('users',users);}
+  // Ensure a Firebase session (real per-user auth) so cloud sync runs securely.
+  // Safe by design: if this fails the app still works locally — no lockout.
+  if(!fbFallback)await _fbSignIn(user.username,p);
   // Nudge to change a still-default password (it ships in the public source)
   if(DEFAULT_CREDS[user.username]===p){
     setTimeout(()=>{try{alert('⚠️ Security: "'+user.username+'" is still using its default password.\nPlease change it now in Admin → Staff Accounts (🔑).');}catch(e){}},500);
@@ -2234,6 +2249,7 @@ document.getElementById('loginUser').addEventListener('keydown',e=>{if(e.key==='
 
 function doLogout(){
   stopRiderLocation();
+  try{if(typeof firebase!=='undefined'&&typeof firebase.auth==='function'&&firebase.auth().currentUser)firebase.auth().signOut();}catch(e){}
   currentUser=null;
   document.getElementById('loginScreen').classList.remove('hidden');
   // Don't clear username if remember me was on
@@ -3156,7 +3172,7 @@ function renderUsers(){
       </div>
       </div>
       <div id="pwForm-${i}" style="display:none;gap:6px;margin:6px 0 4px;padding:8px;background:var(--light);border-radius:9px">
-        <input type="password" id="pwNew-${i}" placeholder="New password (min 4 chars)" autocomplete="new-password" style="flex:1"/>
+        <input type="password" id="pwNew-${i}" placeholder="New password (min 6 chars)" autocomplete="new-password" style="flex:1"/>
         <button class="btn btn-primary btn-sm" onclick="changeUserPassword(${i})">Save</button>
       </div>
     </div>`;
@@ -3170,7 +3186,7 @@ async function changeUserPassword(i){
   if(!users[i])return;
   const el=document.getElementById('pwNew-'+i);
   const v=el?el.value.trim():'';
-  if(v.length<4){showAlert('userAlert','alert-red','Password must be at least 4 characters');return;}
+  if(v.length<6){showAlert('userAlert','alert-red','Password must be at least 6 characters');return;}
   users[i].pwHash=await hashPassword(users[i].username,v);
   delete users[i].password;
   store('users',users);
@@ -3186,7 +3202,7 @@ async function addUser(){
   const checkedBoxes=Array.from(document.querySelectorAll('#nu-roles-grid input[type=checkbox]:checked')).map(c=>c.value);
   const roles=checkedBoxes.length?checkedBoxes:['staff'];
   if(!displayName||!username||!pass){showAlert('userAlert','alert-red','Fill display name, username and password');return;}
-  if(pass.length<4){showAlert('userAlert','alert-red','Password must be at least 4 characters');return;}
+  if(pass.length<6){showAlert('userAlert','alert-red','Password must be at least 6 characters');return;}
   if(users.find(u=>u.username===username)){showAlert('userAlert','alert-red','Username already exists');return;}
   // Store a password hash (never plaintext); keep role (legacy compat) and roles (array)
   const pwHash=await hashPassword(username,pass);
@@ -5618,7 +5634,7 @@ function clearBatchRecords(){if(confirm('Delete ALL batch records?')){production
 function clearCipRecords(){if(confirm('Delete ALL CIP records?')){cipLogs=[];store('cipLogs',cipLogs);renderCIPList();renderCIPCalendar();}}
 
 // ═══ FIREBASE CLOUD SYNC ═══
-var _fb=null,_fbReady=false,_fbListening=false;
+var _fb=null,_fbReady=false,_fbListening=false,_fbAuthed=false;
 var _syncKeys=['records','distRecords','testRecords','productionBatches','cipLogs',
   'users','settings','savedSuppliers','savedDistributors','attRecords',
   'invEntries','invOpening','returnsLog','paymentsLog','auditLog','rateOverride'];
@@ -5638,21 +5654,60 @@ function _initFB(){
     _fb=firebase.database();
     _fbReady=true;
     console.log('Firebase connected');
-    // Sign in anonymously so database rules can enforce auth != null,
-    // blocking unauthenticated REST API access to the database.
+    // Sync runs once a real (Email/Password) staff account is signed in.
+    // The session persists across reloads, so returning users sync automatically.
     if(typeof firebase.auth==='function'){
-      firebase.auth().signInAnonymously()
-        .then(function(){_syncDown();})
-        .catch(function(e){
-          console.warn('Firebase anon auth failed:',e.code);
-          // Fall back to direct sync if Anonymous Auth is not yet enabled
-          // in the Firebase console (remove this fallback once it is enabled).
-          _syncDown();
-        });
-    }else{
-      _syncDown();
+      firebase.auth().onAuthStateChanged(function(u){
+        if(u){_fbAuthed=true;_syncDown();}
+        else{_fbAuthed=false;}
+      });
     }
   }catch(e){console.warn('FB error:',e);}
+}
+// Map an app username to a stable synthetic email for Firebase Email/Password auth.
+function _fbEmail(username){
+  var local=String(username||'').toLowerCase().replace(/[^a-z0-9._-]/g,'')||'user';
+  return local+'@barkatdairy.app';
+}
+// Sign the staff member into Firebase after their local credentials are verified.
+// Provisions the account on first login. Never throws — a failure here just
+// means this device stays local-only (no lockout), exactly like before.
+async function _fbSignIn(username,password){
+  try{
+    if(typeof firebase==='undefined'||typeof firebase.auth!=='function')return;
+    var email=_fbEmail(username);
+    try{
+      await firebase.auth().signInWithEmailAndPassword(email,password);
+    }catch(e){
+      var c=e&&e.code;
+      if(c==='auth/user-not-found'||c==='auth/invalid-credential'||c==='auth/invalid-login-credentials'){
+        try{await firebase.auth().createUserWithEmailAndPassword(email,password);}
+        catch(e2){console.warn('FB provision skipped:',e2&&e2.code);}
+      }else{
+        console.warn('FB sign-in skipped:',c);
+      }
+    }
+  }catch(e){console.warn('FB auth error:',e);}
+}
+// Try a plain Firebase sign-in (no account creation). Returns true on success.
+async function _fbTrySignIn(username,password){
+  try{
+    if(typeof firebase==='undefined'||typeof firebase.auth!=='function')return false;
+    await firebase.auth().signInWithEmailAndPassword(_fbEmail(username),password);
+    return true;
+  }catch(e){return false;}
+}
+// Pull the latest user list from the cloud into local state (used to self-heal
+// a device whose cached credentials are out of date).
+function _pullUsers(){
+  return new Promise(function(res){
+    if(!_fbReady||!_fb){res(false);return;}
+    _fb.ref('bd/users').once('value').then(function(snap){
+      var v=snap.val();
+      if(Array.isArray(v)&&v.length){window.users=users=v;try{localStorage.setItem('bd_users',JSON.stringify(v));}catch(e){}}
+      res(true);
+    }).catch(function(){res(false);});
+  });
 }
 function _syncDown(){
   if(!_fbReady)return;
