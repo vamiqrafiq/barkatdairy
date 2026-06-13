@@ -493,18 +493,18 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <button class="logout-btn" onclick="doLogout()">Logout</button>
   </div>
   <div class="tabbar">
+    <button class="tab" onclick="goTab('attend',this);initAttendance()">🕐 Attendance</button>
     <button class="tab active" onclick="goTab('proc',this)">🐄 Procurement</button>
-    <button class="tab" onclick="goTab('test',this)">🔬 Testing</button>
     <button class="tab" onclick="goTab('ops',this)">⚙️ Operations</button>
+    <button class="tab" onclick="goTab('cip',this)">🧼 CIP</button>
     <button class="tab" onclick="goTab('batch',this);initBatchTab()">🧫 Batches</button>
     <button class="tab" onclick="goTab('dist',this)">🚚 Distribution</button>
     <button class="tab" onclick="goTab('returns',this);renderReturns()">↩️ Returns</button>
-    <button class="tab" id="paymentsTabBtn" onclick="goTab('payments',this);renderPayments()" style="display:none">💰 Payments</button>
-    <button class="tab" id="summaryTabBtn" onclick="goTab('summary',this);renderSummary()">📊 Summary</button>
-    <button class="tab" onclick="goTab('inv',this)">📦 Inventory</button>
-    <button class="tab" onclick="goTab('cip',this)">🧼 CIP</button>
-    <button class="tab" onclick="goTab('attend',this);initAttendance()">🕐 Attendance</button>
     <button class="tab" onclick="goTab('recall',this);initRecall()">🔍 Recall</button>
+    <button class="tab" onclick="goTab('inv',this)">📦 Inventory</button>
+    <button class="tab" onclick="goTab('test',this)">🔬 Testing</button>
+    <button class="tab" id="summaryTabBtn" onclick="goTab('summary',this);renderSummary()">📊 Summary</button>
+    <button class="tab" id="paymentsTabBtn" onclick="goTab('payments',this);renderPayments()" style="display:none">💰 Payments</button>
     <button class="tab" onclick="goTab('ai',this);initAIChat()">🤖 AI</button>
     <button class="tab" id="riderTabBtn" onclick="goTab('rider',this)" style="display:none">🛵 My Deliveries</button>
     <button class="tab" id="trackerTabBtn" onclick="goTab('tracker',this);initTracker()" style="display:none">🗺️ Tracker</button>
@@ -2155,25 +2155,10 @@ async function doLogin(){
   const u=document.getElementById('loginUser').value.trim();
   const p=document.getElementById('loginPass').value.trim();
   let user=users.find(x=>x.username===u);
-  let localOK=!!(user&&await verifyPassword(user,p));
-  let fbFallback=false;
-  // If the local check fails, this device's data may be stale (e.g. password
-  // was changed on another device). Verify against Firebase, and if that
-  // succeeds, pull the corrected user list down so the device self-heals.
-  if(!localOK){
-    if(await _fbTrySignIn(u,p)){
-      fbFallback=true;
-      await _pullUsers();
-      user=users.find(x=>x.username===u);
-    }
-  }
-  if(!localOK&&!fbFallback){document.getElementById('loginErr').textContent='❌ Invalid username or password';return;}
-  if(!user){user={username:u,name:u,roles:['staff'],role:'staff'};} // authed via cloud but not in local list yet
+  if(user&&!(await verifyPassword(user,p)))user=null;
+  if(!user){document.getElementById('loginErr').textContent='❌ Invalid username or password';return;}
   // Upgrade plaintext / legacy-scheme hashes to the current PBKDF2 scheme on login
-  if(localOK&&(!user.pwHash||user.pwHash.indexOf('pbkdf2$')!==0)){user.pwHash=await hashPassword(user.username,p);delete user.password;store('users',users);}
-  // Ensure a Firebase session (real per-user auth) so cloud sync runs securely.
-  // Safe by design: if this fails the app still works locally — no lockout.
-  if(!fbFallback)await _fbSignIn(user.username,p);
+  if(!user.pwHash||user.pwHash.indexOf('pbkdf2$')!==0){user.pwHash=await hashPassword(user.username,p);delete user.password;store('users',users);}
   // Nudge to change a still-default password (it ships in the public source)
   if(DEFAULT_CREDS[user.username]===p){
     setTimeout(()=>{try{alert('⚠️ Security: "'+user.username+'" is still using its default password.\nPlease change it now in Admin → Staff Accounts (🔑).');}catch(e){}},500);
@@ -2249,7 +2234,6 @@ document.getElementById('loginUser').addEventListener('keydown',e=>{if(e.key==='
 
 function doLogout(){
   stopRiderLocation();
-  try{if(typeof firebase!=='undefined'&&typeof firebase.auth==='function'&&firebase.auth().currentUser)firebase.auth().signOut();}catch(e){}
   currentUser=null;
   document.getElementById('loginScreen').classList.remove('hidden');
   // Don't clear username if remember me was on
@@ -3572,7 +3556,7 @@ function confirmCapture(){
     body:JSON.stringify({
       contents:[{parts:[
         {inline_data:{mime_type:'image/jpeg',data:base64}},
-        {text:'This is a photo of a milk analyser display screen. The screen shows labelled values, typically FAT, SNF, DENSITY/CLR (and sometimes added water/temperature). Extract the Fat percentage, the SNF (Solids-Not-Fat) percentage, and the CLR / Density reading. Reply ONLY with a JSON object like: {"fat": 4.1, "snf": 8.5, "clr": 28}. Use null for any value you cannot read clearly. No other text.'}
+        {text:'This is a photo of a milk analyser LCD. It shows numbers in a fixed order under the labels FAT, SNF, DENSITY. Read the numbers left-to-right on the top line: the FIRST number is Fat %, the SECOND number is SNF %, the THIRD number is Density/CLR. (There may be a 4th number on a second line — ignore it.) Reply ONLY with a JSON object exactly like: {"fat": 3.4, "snf": 6.3, "clr": 12.7}. Use the numbers exactly as shown including decimals. Use null only if a number is truly unreadable. No other text.'}
       ]}],
       generationConfig:{maxOutputTokens:100,temperature:0}
     })
@@ -4484,9 +4468,13 @@ function genLotId(date){
   return 'RM-'+d+'-'+n;
 }
 function genBatchId(){
-  const d=todayStr();
-  const n=String(productionBatches.filter(b=>b.batchId.startsWith('B-'+d)).length+1).padStart(3,'0');
-  return 'B-'+d+'-'+n;
+  // Sequential BDP-NNN, continuing from BDP-004 onwards.
+  let max=3;
+  productionBatches.forEach(b=>{
+    const m=b&&b.batchId&&String(b.batchId).match(/BDP-(\d+)/);
+    if(m){const n=parseInt(m[1],10);if(n>max)max=n;}
+  });
+  return 'BDP-'+String(max+1).padStart(3,'0');
 }
 function genCipId(){
   const d=todayStr();
@@ -5654,60 +5642,35 @@ function _initFB(){
     _fb=firebase.database();
     _fbReady=true;
     console.log('Firebase connected');
-    // Sync runs once a real (Email/Password) staff account is signed in.
-    // The session persists across reloads, so returning users sync automatically.
+    // Cloud sync runs under a single shared app identity so every device shares
+    // the same data automatically. The in-app login (hashed, role-based) is what
+    // actually controls who can use the app and what they see.
     if(typeof firebase.auth==='function'){
+      try{firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);}catch(e){}
       firebase.auth().onAuthStateChanged(function(u){
         if(u){_fbAuthed=true;_syncDown();}
-        else{_fbAuthed=false;}
+        else{_fbAuthed=false;_fbSharedSignIn();}
       });
+      _fbSharedSignIn();
     }
   }catch(e){console.warn('FB error:',e);}
 }
-// Map an app username to a stable synthetic email for Firebase Email/Password auth.
-function _fbEmail(username){
-  var local=String(username||'').toLowerCase().replace(/[^a-z0-9._-]/g,'')||'user';
-  return local+'@barkatdairy.app';
-}
-// Sign the staff member into Firebase after their local credentials are verified.
-// Provisions the account on first login. Never throws — a failure here just
-// means this device stays local-only (no lockout), exactly like before.
-async function _fbSignIn(username,password){
+// Shared sync identity (auto-provisioned on first run). Sign-in/creation happens
+// from the app's authorised domain, so the referrer-locked API key allows it.
+var _SYNC_EMAIL='appsync@barkatdairy.app';
+var _SYNC_PW='BdpSync_8FwYowbbS5UJdrDO!9';
+function _fbSharedSignIn(){
   try{
     if(typeof firebase==='undefined'||typeof firebase.auth!=='function')return;
-    var email=_fbEmail(username);
-    try{
-      await firebase.auth().signInWithEmailAndPassword(email,password);
-    }catch(e){
+    var a=firebase.auth();
+    if(a.currentUser){_fbAuthed=true;_syncDown();return;}
+    a.signInWithEmailAndPassword(_SYNC_EMAIL,_SYNC_PW).catch(function(e){
       var c=e&&e.code;
       if(c==='auth/user-not-found'||c==='auth/invalid-credential'||c==='auth/invalid-login-credentials'){
-        try{await firebase.auth().createUserWithEmailAndPassword(email,password);}
-        catch(e2){console.warn('FB provision skipped:',e2&&e2.code);}
-      }else{
-        console.warn('FB sign-in skipped:',c);
-      }
-    }
+        a.createUserWithEmailAndPassword(_SYNC_EMAIL,_SYNC_PW).catch(function(e2){console.warn('shared provision failed:',e2&&e2.code);});
+      }else{console.warn('shared sign-in failed:',c);}
+    });
   }catch(e){console.warn('FB auth error:',e);}
-}
-// Try a plain Firebase sign-in (no account creation). Returns true on success.
-async function _fbTrySignIn(username,password){
-  try{
-    if(typeof firebase==='undefined'||typeof firebase.auth!=='function')return false;
-    await firebase.auth().signInWithEmailAndPassword(_fbEmail(username),password);
-    return true;
-  }catch(e){return false;}
-}
-// Pull the latest user list from the cloud into local state (used to self-heal
-// a device whose cached credentials are out of date).
-function _pullUsers(){
-  return new Promise(function(res){
-    if(!_fbReady||!_fb){res(false);return;}
-    _fb.ref('bd/users').once('value').then(function(snap){
-      var v=snap.val();
-      if(Array.isArray(v)&&v.length){window.users=users=v;try{localStorage.setItem('bd_users',JSON.stringify(v));}catch(e){}}
-      res(true);
-    }).catch(function(){res(false);});
-  });
 }
 function _syncDown(){
   if(!_fbReady)return;
