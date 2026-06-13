@@ -1461,23 +1461,60 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 
     <!-- New Batch Form (inline, collapsible) -->
     <div id="newBatchForm" style="display:none;background:var(--light);border-radius:14px;padding:14px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:10px">🧫 New Production Batch</div>
-      <div style="margin-bottom:10px">
-        <label class="inp-label">Link to Milk Receipt (auto-fills values)</label>
-        <select id="nb-proc" onchange="prefillFromProc()">
-          <option value="">— Select procurement entry —</option>
-        </select>
+      <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:10px">🧫 New Batch</div>
+
+      <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">① Milk used</div>
+      <label class="inp-label">Tick the procured milk used (one or more)</label>
+      <div id="nb-procList" style="max-height:150px;overflow-y:auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:4px;margin-bottom:8px"></div>
+      <div class="grid3" style="margin-bottom:12px">
+        <div class="stat"><div class="stat-label">Raw Qty</div><div class="stat-val" id="nb-rawqty" style="font-size:16px">0</div><div class="stat-sub">L</div></div>
+        <div class="stat"><div class="stat-label">Avg Fat</div><div class="stat-val" id="nb-rawfat" style="font-size:16px">0</div><div class="stat-sub">%</div></div>
+        <div class="stat"><div class="stat-label">Avg SNF</div><div class="stat-val" id="nb-rawsnf" style="font-size:16px">0</div><div class="stat-sub">%</div></div>
       </div>
-      <div class="grid2" style="margin-bottom:10px">
-        <div><label class="inp-label">Volume (L)</label><input type="number" id="nb-vol" placeholder="e.g. 400"/></div>
-        <div><label class="inp-label">Vat / Tank</label><input type="text" id="nb-vat" placeholder="e.g. Vat 1"/></div>
+
+      <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">② Standardisation</div>
+      <div class="grid2" style="margin-bottom:8px">
+        <div><label class="inp-label">Water added (L)</label><input type="number" id="nb-water" step="0.1" placeholder="0"/></div>
+        <div><label class="inp-label">SMP added (kg)</label><input type="number" id="nb-smp" step="0.01" placeholder="0"/></div>
+      </div>
+      <div class="grid3" style="margin-bottom:12px">
+        <div><label class="inp-label">Final Vol (L)</label><input type="number" id="nb-fvol" step="0.1"/></div>
+        <div><label class="inp-label">Final Fat %</label><input type="number" id="nb-ffat" step="0.1"/></div>
+        <div><label class="inp-label">Final SNF %</label><input type="number" id="nb-fsnf" step="0.1"/></div>
+      </div>
+
+      <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">③ Culture</div>
+      <div class="grid2" style="margin-bottom:8px">
+        <div><label class="inp-label">Culture brand</label><input type="text" id="nb-cbrand" placeholder="brand name"/></div>
+        <div><label class="inp-label">Culture expiry</label><input type="date" id="nb-cexp"/></div>
       </div>
       <div class="grid2" style="margin-bottom:12px">
-        <div><label class="inp-label">Fat %</label><input type="number" id="nb-fat" step="0.1" placeholder="auto-filled"/></div>
-        <div><label class="inp-label">SNF %</label><input type="number" id="nb-snf" step="0.1" placeholder="auto-filled"/></div>
+        <div><label class="inp-label">Quantity (ml)</label><input type="number" id="nb-cml" step="1"/></div>
+        <div><label class="inp-label">Time added</label><input type="time" id="nb-ctime"/></div>
       </div>
+
+      <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">④ Process</div>
+      <div class="grid2" style="margin-bottom:8px">
+        <div><label class="inp-label">Pasteurization temp (°C)</label><input type="number" id="nb-ptemp" step="1"/></div>
+        <div><label class="inp-label">Pasteurization time (min)</label><input type="number" id="nb-ptime" step="1"/></div>
+      </div>
+      <div class="grid2" style="margin-bottom:12px">
+        <div><label class="inp-label">Homogenization</label><select id="nb-homog"><option value="Yes">Yes</option><option value="No">No</option></select></div>
+        <div><label class="inp-label">Final temp before packing (°C)</label><input type="number" id="nb-ftemp" step="0.1"/></div>
+      </div>
+
+      <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">⑤ Filling &amp; storage</div>
+      <div class="grid2" style="margin-bottom:8px">
+        <div><label class="inp-label">200g cups filled</label><input type="number" id="nb-c200" step="1"/></div>
+        <div><label class="inp-label">400g cups filled</label><input type="number" id="nb-c400" step="1"/></div>
+      </div>
+      <div class="grid2" style="margin-bottom:12px">
+        <div><label class="inp-label">Time into incubation</label><input type="time" id="nb-inctime"/></div>
+        <div><label class="inp-label">Time into cold</label><input type="time" id="nb-coldtime"/></div>
+      </div>
+
       <div style="display:flex;gap:8px">
-        <button class="btn btn-primary" style="flex:2" onclick="createBatch()">✅ Create Batch</button>
+        <button class="btn btn-primary" style="flex:2" onclick="createBatch()">✅ Save Batch</button>
         <button class="btn btn-outline" style="flex:1" onclick="document.getElementById('newBatchForm').style.display='none'">Cancel</button>
       </div>
       <div id="newBatchAlert" style="margin-top:8px"></div>
@@ -4506,17 +4543,27 @@ function setAlcohol(result){
 function initBatchTab(){
   renderBatchList();
   renderColdStore();
-  // Populate procurement select
-  const sel=document.getElementById('nb-proc');
-  if(sel){
-    sel.innerHTML='<option value="">— Select milk receipt —</option>';
-    records.slice(0,30).forEach(r=>{
-      const opt=document.createElement('option');
-      opt.value=r.id;
-      opt.textContent=(r.lotId||'No Lot')+ ' · '+r.supplier+' · '+r.qty+'L · '+r.date;
-      sel.appendChild(opt);
-    });
+  // Build the multi-select procurement list
+  const el=document.getElementById('nb-procList');
+  if(el){
+    if(!records.length){
+      el.innerHTML='<div style="font-size:11px;color:var(--gray);padding:8px">No procured milk yet — add it in the Procurement tab first.</div>';
+    }else{
+      el.innerHTML=records.slice(0,50).map(r=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #f3f4f8;font-size:12px;cursor:pointer">
+        <input type="checkbox" class="nb-proc-cb" value="${r.id}" data-qty="${r.qty}" data-fat="${r.fat}" data-snf="${r.snf}" onchange="recalcBatchRaw()" style="width:16px;height:16px;accent-color:var(--blue);flex-shrink:0"/>
+        <span>${_esc(r.lotId||'No Lot')} · ${_esc(r.supplier)} · ${r.qty}L · ${r.fat}%F ${r.snf}%S · ${r.date}</span>
+      </label>`).join('');
+    }
   }
+}
+function recalcBatchRaw(){
+  const cbs=Array.from(document.querySelectorAll('.nb-proc-cb:checked'));
+  let q=0,fw=0,sw=0;
+  cbs.forEach(c=>{const qty=parseFloat(c.dataset.qty)||0;q+=qty;fw+=qty*(parseFloat(c.dataset.fat)||0);sw+=qty*(parseFloat(c.dataset.snf)||0);});
+  const fat=q?fw/q:0,snf=q?sw/q:0;
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  set('nb-rawqty',q.toFixed(1));set('nb-rawfat',fat.toFixed(2));set('nb-rawsnf',snf.toFixed(2));
+  const fvol=document.getElementById('nb-fvol');if(fvol&&!fvol.value&&q)fvol.value=q.toFixed(1);
 }
 
 function showNewBatchForm(){
@@ -4524,47 +4571,41 @@ function showNewBatchForm(){
   if(form){form.style.display=form.style.display==='none'?'block':'none';}
   initBatchTab();
 }
-
-function prefillFromProc(){
-  const sel=document.getElementById('nb-proc');
-  if(!sel||!sel.value) return;
-  const rec=records.find(r=>String(r.id)===sel.value);
-  if(!rec) return;
-  const setVal=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
-  setVal('nb-vol',rec.qty);
-  setVal('nb-fat',rec.fat);
-  setVal('nb-snf',rec.snf);
-}
+function prefillFromProc(){/* legacy no-op (single-select removed) */}
 
 function createBatch(){
-  const procId=document.getElementById('nb-proc').value;
-  const vol=parseFloat(document.getElementById('nb-vol').value)||0;
-  const fat=parseFloat(document.getElementById('nb-fat').value)||0;
-  const snf=parseFloat(document.getElementById('nb-snf').value)||0;
-  const vat=document.getElementById('nb-vat').value.trim()||'Vat 1';
-  if(!procId){showAlert('newBatchAlert','alert-red','⚠️ Select the milk receipt this batch is made from (batches must be linked to procured milk)');return;}
-  const procRec=records.find(r=>String(r.id)===procId);
-  if(!procRec){showAlert('newBatchAlert','alert-red','⚠️ Linked milk receipt not found — pick a valid receipt');return;}
-  if(!vol){showAlert('newBatchAlert','alert-red','⚠️ Enter milk volume');return;}
-  const batchId=genBatchId();
+  const cbs=Array.from(document.querySelectorAll('.nb-proc-cb:checked'));
+  if(!cbs.length){showAlert('newBatchAlert','alert-red','⚠️ Tick at least one procured lot this batch is made from');return;}
+  const procIds=[],lots=[],suppliers=[];
+  let q=0,fw=0,sw=0;
+  cbs.forEach(c=>{
+    const rec=records.find(r=>String(r.id)===c.value);
+    if(rec){procIds.push(rec.id);lots.push(rec.lotId||('#'+rec.id));if(rec.supplier)suppliers.push(rec.supplier);
+      const qty=parseFloat(rec.qty)||0;q+=qty;fw+=qty*(parseFloat(rec.fat)||0);sw+=qty*(parseFloat(rec.snf)||0);}
+  });
+  const g=id=>{const e=document.getElementById(id);return e?e.value:'';};
+  const num=id=>parseFloat(g(id))||0;
   const now=new Date();
   const batch={
-    batchId, status:'active', date:now.toISOString().split('T')[0],
-    startTime:now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
-    createdAt:now.toISOString(), currentStage:1,
-    vat, procId,
-    rawVol:vol, rawFat:fat, rawSnf:snf,
-    linkedLotId:procRec?procRec.lotId:'',
-    linkedSupplier:procRec?procRec.supplier:'',
-    stages:{}, pHLog:[],
-    createdBy:currentUser?currentUser.name:'Staff'
+    batchId:genBatchId(), status:'completed', date:now.toISOString().split('T')[0],
+    createdAt:now.toISOString(), createdBy:currentUser?currentUser.name:'Staff',
+    procIds, linkedLots:lots, linkedLotId:lots.join(', '), linkedSupplier:Array.from(new Set(suppliers)).join(', '),
+    rawVol:+q.toFixed(1), rawFat:q?+(fw/q).toFixed(2):0, rawSnf:q?+(sw/q).toFixed(2):0,
+    waterAdded:num('nb-water'), smpAdded:num('nb-smp'),
+    finalVol:num('nb-fvol'), finalFat:num('nb-ffat'), finalSnf:num('nb-fsnf'),
+    cultureBrand:g('nb-cbrand').trim(), cultureExpiry:g('nb-cexp'), cultureMl:num('nb-cml'), cultureTime:g('nb-ctime'),
+    pastTemp:num('nb-ptemp'), pastTime:num('nb-ptime'), homogenized:g('nb-homog')||'Yes', finalTempPack:num('nb-ftemp'),
+    cups200:num('nb-c200'), cups400:num('nb-c400'),
+    incubTime:g('nb-inctime'), coldTime:g('nb-coldtime')
   };
   productionBatches.unshift(batch);
   store('productionBatches',productionBatches);
   document.getElementById('newBatchForm').style.display='none';
-  showAlert('newBatchAlert','alert-green','✅ Batch created: '+batchId);
+  showAlert('newBatchAlert','alert-green','✅ Batch saved: '+batch.batchId);
+  document.querySelectorAll('.nb-proc-cb').forEach(c=>c.checked=false);
+  ['nb-water','nb-smp','nb-fvol','nb-ffat','nb-fsnf','nb-cbrand','nb-cexp','nb-cml','nb-ctime','nb-ptemp','nb-ptime','nb-ftemp','nb-c200','nb-c400','nb-inctime','nb-coldtime'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  recalcBatchRaw();
   renderBatchList();
-  openBatch(batchId);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -4574,114 +4615,43 @@ const STAGE_NAMES=['Standardize','Pasteurize','Cool','Inoculate','Fill Cups','In
 const STAGE_ICONS=['🧪','🔥','❄️','🦠','🫙','⏱️','✅'];
 
 function renderBatchList(){
-  const active=productionBatches.filter(b=>b.status==='active'||b.status==='paused');
-  const done=productionBatches.filter(b=>b.status!=='active'&&b.status!=='paused');
-
-  // Hero pills
-  const heroVal=document.getElementById('batchHeroVal');
-  if(heroVal)heroVal.textContent=active.length;
-  const heroDone=document.getElementById('batch-hero-done');
-  if(heroDone)heroDone.textContent=done.length+' done';
-
-  // Global overdue/warning alerts
-  const alertsEl=document.getElementById('batchAlerts');
-  if(alertsEl){
-    const chips=[];
-    active.forEach(b=>{
-      if(b.currentStage===6&&b.stages.s6_incubate){
-        const startT=b.stages.s6_incubate.startTime;
-        if(startT){
-          const elapsed=incubElapsed(startT);
-          if(elapsed>5.25)chips.push('<span class="alert-chip">🔴 '+b.batchId+' OVERDUE — move to blast cooler!</span>');
-          else if(elapsed>5)chips.push('<span class="alert-chip warn">⚠️ '+b.batchId+' check pH now</span>');
-        }
-      }
-    });
-    alertsEl.innerHTML=chips.join('');
-    alertsEl.style.display=chips.length?'flex':'none';
-  }
-
+  const all=productionBatches.slice();
+  const heroVal=document.getElementById('batchHeroVal'); if(heroVal)heroVal.textContent=all.length;
+  const heroDone=document.getElementById('batch-hero-done'); if(heroDone)heroDone.textContent=all.length+' total';
+  const alertsEl=document.getElementById('batchAlerts'); if(alertsEl){alertsEl.innerHTML='';alertsEl.style.display='none';}
   const activeEl=document.getElementById('activeBatchList');
-  if(activeEl)activeEl.innerHTML=active.length?active.map(batchCardHTML).join(''):
-    '<div class="empty"><div class="empty-icon">🧫</div><div class="empty-text">No active batches — tap + New Batch above</div></div>';
-
-  const doneEl=document.getElementById('completedBatchList');
-  const doneCount=document.getElementById('completedBatchCount');
-  if(doneCount)doneCount.textContent=done.length+' total';
-  if(doneEl)doneEl.innerHTML=done.length?done.slice(0,10).map(completedBatchRow).join(''):
-    '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">None yet</div></div>';
-
+  if(activeEl)activeEl.innerHTML=all.length?all.slice(0,60).map(batchCardHTML).join(''):
+    '<div class="empty"><div class="empty-icon">🧫</div><div class="empty-text">No batches yet — tap + New Batch above</div></div>';
+  // The single list above shows everything now; clear the old "completed" section.
+  const doneEl=document.getElementById('completedBatchList'); if(doneEl)doneEl.innerHTML='<div style="font-size:11px;color:var(--gray);padding:4px">All batches are listed above.</div>';
+  const doneCount=document.getElementById('completedBatchCount'); if(doneCount)doneCount.textContent='';
   renderColdStore();
 }
-
 function incubElapsed(startTime){
   if(!startTime) return 0;
   const [h,m]=startTime.split(':').map(Number);
   const start=new Date();start.setHours(h,m,0,0);
   return(Date.now()-start.getTime())/3600000;
 }
-
 function batchCardHTML(b){
-  const stage=b.currentStage||1;
-  const pct=Math.round((stage-1)/7*100);
-  const dots=STAGE_ICONS.map((ic,i)=>{
-    const sNum=i+1;
-    const cls=sNum<stage?'done':sNum===stage?'active':'pending';
-    return '<div class="stage-dot '+cls+'" title="'+STAGE_NAMES[i]+'">'+ic+'</div>';
-  }).join('');
-  let statusBadge='';
-  let bottomInfo='';
-  let urgency=false;
-  if(b.status==='paused'){
-    statusBadge='<span class="badge badge-gold">⏸ Paused</span>';
-    bottomInfo='Batch paused — tap to resume';
-  } else if(b.status==='active'){
-    if(stage===6&&b.stages.s6_incubate){
-      const elapsed=incubElapsed(b.stages.s6_incubate.startTime);
-      const remaining=Math.max(0,5-elapsed);
-      if(elapsed>5.25){statusBadge='<span class="badge badge-red">🔴 OVERDUE</span>';bottomInfo='🚨 Move to blast cooler NOW!';urgency=true;}
-      else if(elapsed>5){statusBadge='<span class="badge badge-gold">⚠️ Check pH</span>';bottomInfo='Target pH 4.5–4.6 — ready for blast cooling';urgency=true;}
-      else{statusBadge='<span class="badge badge-green">⏱️ Incubating</span>';bottomInfo='⏱️ '+Math.floor(remaining*60)+'min remaining';}
-    } else {
-      statusBadge='<span class="badge badge-blue">⚡ Active</span>';
-      bottomInfo='Stage '+stage+': '+STAGE_NAMES[stage-1];
-    }
-  }
-  const linkedInfo=b.linkedLotId?'<span style="font-size:9px;color:var(--blue);background:var(--light);padding:2px 6px;border-radius:6px;margin-left:4px">'+_esc(b.linkedLotId)+'</span>':'';
-  return `<div class="batch-card active-batch" style="${urgency?'border-left-color:var(--red);background:#fff8f8':''}" onclick="openBatch('${b.batchId}')">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+  const c2=b.cups200!=null?(parseInt(b.cups200)||0):0;
+  const c4=b.cups400!=null?(parseInt(b.cups400)||0):0;
+  const lot=b.linkedLotId||(b.linkedLots?b.linkedLots.join(', '):'');
+  return `<div class="batch-card" style="cursor:pointer;background:#fff;border:1px solid #eef0f6;border-radius:12px;padding:12px;margin-bottom:8px" onclick="openBatch('${_esc(b.batchId)}')">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div>
-        <div style="display:flex;align-items:center;gap:4px"><div class="batch-id">${_esc(b.batchId)}</div>${linkedInfo}</div>
-        <div style="font-size:11px;color:var(--gray);margin-top:2px">${_esc(b.vat||'Vat')} · ${b.startTime||b.date} · ${_esc(b.createdBy||'Staff')}</div>
+        <div class="batch-id">${_esc(b.batchId)}</div>
+        <div style="font-size:10px;color:var(--gray);margin-top:2px">${b.date} · ${_esc(b.createdBy||'Staff')}${lot?' · '+_esc(lot):''}</div>
       </div>
-      <div>${statusBadge}</div>
+      <div style="text-align:right">
+        <div style="font-size:15px;font-weight:700;color:var(--dark)">${c2+c4} cups</div>
+        <div style="font-size:9px;color:var(--gray)">${c2}×200g · ${c4}×400g</div>
+      </div>
     </div>
-    <div class="stage-stepper" style="gap:3px">${dots}</div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px;margin-bottom:6px">
-      <div style="font-size:10px;color:var(--gray)">Stage ${stage}/7 · ${STAGE_NAMES[stage-1]}</div>
-      <div style="font-size:10px;color:var(--gray)">${pct}%</div>
-    </div>
-    <div style="height:5px;background:#e5e7eb;border-radius:3px;overflow:hidden;margin-bottom:6px">
-      <div style="height:100%;width:${pct}%;background:${urgency?'var(--red)':'var(--gold)'};border-radius:3px;transition:width .5s"></div>
-    </div>
-    ${bottomInfo?'<div style="font-size:11px;color:'+(urgency?'var(--red)':'var(--gray)')+'">'+bottomInfo+'</div>':''}
+    <div style="font-size:10px;color:var(--gray);margin-top:6px">Raw ${b.rawVol||0}L (${b.rawFat||0}%F ${b.rawSnf||0}%S) → Final ${b.finalVol||0}L (${b.finalFat||0}%F ${b.finalSnf||0}%S)</div>
   </div>`;
 }
-function completedBatchRow(b){
-  const res=b.batchResult||'—';
-  const ok=res==='PASSED';
-  const cups=b.stages&&b.stages.s7_qc?parseInt(b.stages.s7_qc.cupsPassed||0)+' cups':'—';
-  const fill=b.stages&&b.stages.s5_fill;
-  const size=fill?fill.cupSize:'';
-  return`<div class="row" style="cursor:pointer" onclick="openBatch('${_esc(b.batchId)}')">
-    <span class="rl"><span style="font-size:11px;font-weight:700;color:var(--dark)">${_esc(b.batchId)}</span><br/>
-    <span style="font-size:9px;color:var(--gray)">${b.date} · ${_esc(b.vat||'Vat')}${b.linkedLotId?' · '+_esc(b.linkedLotId):''}</span></span>
-    <span class="rv" style="text-align:right">
-      <span style="background:${ok?'#dcfce7':'#fee2e2'};color:${ok?'var(--green)':'var(--red)'};font-size:10px;font-weight:700;padding:2px 7px;border-radius:7px">${_esc(res)}</span>
-      <br/><span style="font-size:10px;color:var(--gray)">${cups}${size?' × '+size:''}</span>
-    </span>
-  </div>`;
-}
+function completedBatchRow(b){return batchCardHTML(b);}
 
 // ════════════════════════════════════════════════════════════
 // BATCH DETAIL MODAL
@@ -4692,17 +4662,46 @@ function openBatch(batchId){
   clearInterval(window._incubTimer);
   const b=productionBatches.find(x=>x.batchId===batchId);
   if(!b) return;
-  document.getElementById('batchModalContent').innerHTML=buildBatchModal(b);
-  document.getElementById('batchModal').classList.add('open');
-  const pb=document.getElementById('batchPauseBtn');
-  if(pb)pb.textContent=b.status==='paused'?'▶ Resume':'⏸ Pause';
-  // Start incubation countdown if on stage 6
-  if(b.currentStage===6&&b.stages.s6_incubate){
-    window._incubTimer=setInterval(()=>{
-      const b2=productionBatches.find(x=>x.batchId===batchId);
-      if(b2&&b2.currentStage===6) updateIncubCountdown(b2);
-    },10000);
+  const R=(l,v)=>`<div class="row"><span class="rl">${l}</span><span class="rv">${(v==null||v==='')?'—':_esc(String(v))}</span></div>`;
+  const sec=t=>`<div class="sec-title" style="font-size:12px;margin-top:10px">${t}</div>`;
+  let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div class="batch-id">${_esc(b.batchId)}</div><span style="font-size:11px;color:var(--gray)">${b.date}</span></div>`;
+  // Legacy batches (old 7-stage shape) — show a short note instead of blank fields
+  const isNew = b.cups200!=null||b.finalVol!=null||b.waterAdded!=null||Array.isArray(b.procIds);
+  if(!isNew){
+    h+='<div style="font-size:12px;color:var(--gray);padding:8px 0">This is an older batch record.</div>';
+    h+=R('Lots', b.linkedLotId);R('Vat', b.vat);
+    document.getElementById('batchModalContent').innerHTML=h;
+    document.getElementById('batchModal').classList.add('open');
+    const pb0=document.getElementById('batchPauseBtn');if(pb0)pb0.style.display='none';
+    return;
   }
+  h+=sec('① Milk source');
+  h+=R('Lots used', b.linkedLotId||(b.linkedLots?b.linkedLots.join(', '):''));
+  h+=R('Supplier(s)', b.linkedSupplier);
+  h+=R('Raw quantity', (b.rawVol||0)+' L');
+  h+=R('Average fat / SNF', (b.rawFat||0)+'% / '+(b.rawSnf||0)+'%');
+  h+=sec('② Standardisation');
+  h+=R('Water added', (b.waterAdded||0)+' L');
+  h+=R('SMP added', (b.smpAdded||0)+' kg');
+  h+=R('Final volume', (b.finalVol||0)+' L');
+  h+=R('Final fat / SNF', (b.finalFat||0)+'% / '+(b.finalSnf||0)+'%');
+  h+=sec('③ Culture');
+  h+=R('Brand', b.cultureBrand);
+  h+=R('Expiry', b.cultureExpiry);
+  h+=R('Quantity', (b.cultureMl||0)+' ml');
+  h+=R('Time added', b.cultureTime);
+  h+=sec('④ Process');
+  h+=R('Pasteurization', (b.pastTemp||0)+'°C for '+(b.pastTime||0)+' min');
+  h+=R('Homogenization', b.homogenized);
+  h+=R('Final temp before packing', (b.finalTempPack||0)+'°C');
+  h+=sec('⑤ Filling & storage');
+  h+=R('200g cups filled', b.cups200);
+  h+=R('400g cups filled', b.cups400);
+  h+=R('Into incubation at', b.incubTime);
+  h+=R('Into cold at', b.coldTime);
+  document.getElementById('batchModalContent').innerHTML=h;
+  document.getElementById('batchModal').classList.add('open');
+  const pb=document.getElementById('batchPauseBtn');if(pb)pb.style.display='none';
 }
 
 function buildBatchModal(b){
@@ -5116,44 +5115,32 @@ function calcBatchCost(b){
 // ── Cold Store View ──
 function renderColdStore(){
   const el=document.getElementById('coldStoreView');if(!el)return;
-  const passedBatches=productionBatches.filter(b=>b.batchResult==='PASSED'&&b.stages&&b.stages.s5_fill);
-  if(!passedBatches.length){
-    el.innerHTML='<div class="empty"><div class="empty-icon">🧊</div><div class="empty-text">No passed batches in store</div></div>';
-    const storePill=document.getElementById('batch-hero-store');
-    if(storePill)storePill.textContent='0 in store';
-    return;
-  }
-  let total200=0,total400=0,totalCups=0;
-  const rows=passedBatches.map(b=>{
-    const fill=b.stages.s5_fill;
-    const produced=parseInt(fill.cupsCount||0);
-    const dispatched=distRecords.filter(d=>(d.batchIds||'').includes(b.batchId)).reduce((s,d)=>s+d.c200+d.c400,0);
-    const remaining=Math.max(0,produced-dispatched);
-    if(!remaining)return'';// fully dispatched
-    const bb=fill.bestBefore||'';
-    const days=bb?Math.round((new Date(bb)-new Date())/86400000):999;
-    const urgency=days<=1?'🔴':days<=3?'🟡':'🟢';
-    const urgencyBg=days<=1?'#fee2e2':days<=3?'#fff8e7':'#f0fdf4';
-    const urgencyColor=days<=1?'var(--red)':days<=3?'#7a5a00':'var(--green)';
-    if(fill.cupSize==='200g')total200+=remaining;
-    else if(fill.cupSize==='400g')total400+=remaining;
-    else{total200+=Math.floor(remaining/2);total400+=Math.ceil(remaining/2);}
-    totalCups+=remaining;
-    const daysLabel=days===999?'No BB date':days<0?'EXPIRED':days===0?'Expires today':days===1?'Expires tomorrow':days+' days left';
+  const batches=productionBatches.filter(b=>(parseInt(b.cups200)||0)||(parseInt(b.cups400)||0));
+  let total200=0,total400=0;
+  const rows=batches.map(b=>{
+    const c2=parseInt(b.cups200)||0, c4=parseInt(b.cups400)||0;
+    const disp=distRecords.filter(d=>String(d.batchIds||'').split(',').map(s=>s.trim()).includes(b.batchId));
+    const d2=disp.reduce((s,d)=>s+(parseInt(d.c200)||0),0), d4=disp.reduce((s,d)=>s+(parseInt(d.c400)||0),0);
+    const r2=Math.max(0,c2-d2), r4=Math.max(0,c4-d4);
+    if(!r2&&!r4)return'';
+    total200+=r2;total400+=r4;
     return`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f3f4f8">
       <div style="flex:1">
-        <div style="font-size:12px;font-weight:700;color:var(--dark)">${_esc(b.batchId)} <span style="font-size:10px;font-weight:400;color:var(--gray)">· ${fill.cupSize}</span>${b.linkedLotId?` <span style="font-size:9px;color:var(--blue);background:var(--light);padding:1px 5px;border-radius:5px">${_esc(b.linkedLotId)}</span>`:''}</div>
-        <div style="font-size:10px;color:var(--gray);margin-top:1px">BB: ${bb||'—'} <span style="color:${urgencyColor};font-weight:600">· ${daysLabel}</span></div>
+        <div style="font-size:12px;font-weight:700;color:var(--dark)">${_esc(b.batchId)}${b.linkedLotId?` <span style="font-size:9px;color:var(--blue);background:var(--light);padding:1px 5px;border-radius:5px">${_esc(b.linkedLotId)}</span>`:''}</div>
+        <div style="font-size:10px;color:var(--gray);margin-top:1px">${b.date}</div>
       </div>
       <div style="text-align:right">
-        <div style="font-size:18px;font-weight:700;color:var(--dark)">${remaining}</div>
-        <div style="font-size:9px;color:var(--gray)">cups</div>
+        <div style="font-size:13px;font-weight:700;color:var(--dark)">${r2} ×200g · ${r4} ×400g</div>
+        <div style="font-size:9px;color:var(--gray)">${r2+r4} cups in store</div>
       </div>
-      <div style="width:28px;height:28px;border-radius:50%;background:${urgencyBg};display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">${urgency}</div>
     </div>`;
   }).filter(Boolean).join('');
   const storePill=document.getElementById('batch-hero-store');
-  if(storePill)storePill.textContent=totalCups+' in store';
+  if(storePill)storePill.textContent=(total200+total400)+' in store';
+  if(!batches.length){
+    el.innerHTML='<div class="empty"><div class="empty-icon">🧊</div><div class="empty-text">No batches with cups yet</div></div>';
+    return;
+  }
   el.innerHTML=`<div style="display:flex;gap:8px;margin-bottom:10px">
     <div class="auto-box" style="flex:1"><div class="auto-box-label">200g Cups</div><div class="auto-box-val">${total200}</div></div>
     <div class="auto-box" style="flex:1"><div class="auto-box-label">400g Cups</div><div class="auto-box-val">${total400}</div></div>
