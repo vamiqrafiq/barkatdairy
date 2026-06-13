@@ -666,7 +666,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <!-- Analyser camera -->
     <div style="margin-bottom:12px">
       <div id="camVerifyStatus" style="background:#f8faff;border:1.5px dashed #e2e8f0;border-radius:10px;padding:10px 12px;font-size:12px;color:var(--gray);text-align:center;margin-bottom:8px">
-        📷 Camera verification required before saving
+        📷 Optional: scan analyser to auto-fill, or enter values manually
       </div>
       <button class="btn btn-outline btn-full" onclick="openCamModal()" style="border-color:var(--blue);color:var(--blue)">📷 Scan Milk Analyser Display</button>
       <img id="camThumb" style="display:none;width:100%;border-radius:10px;margin-top:8px;max-height:120px;object-fit:cover"/>
@@ -716,7 +716,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <div id="p-decision" style="margin-bottom:14px"></div>
 
     <!-- Actions -->
-    <button class="btn btn-primary btn-full" id="saveProcBtn" onclick="saveProc()" disabled style="opacity:0.4;margin-bottom:8px;padding:14px;font-size:14px">💾 Save Entry</button>
+    <button class="btn btn-primary btn-full" id="saveProcBtn" onclick="saveProc()" style="margin-bottom:8px;padding:14px;font-size:14px">💾 Save Entry</button>
     <button class="btn btn-gold btn-full" onclick="showSlip()" style="margin-bottom:4px">🖨️ Print Slip</button>
     <div id="procAlert" style="margin-top:8px"></div>
   </div>
@@ -2503,9 +2503,7 @@ function calcProc(){
   document.getElementById('p-decision').innerHTML=`<div class="alert alert-${dec.c==='green'?'green':dec.c==='gold'?'gold':'red'}" style="font-size:13px;font-weight:700;text-align:center;padding:11px">${dec.l}<div style="font-size:10px;font-weight:500;margin-top:3px;opacity:.8">Fat: ${fat}% · SNF: ${snf}% · ₹${rate}/L</div></div>`;
 }
 function saveProc(){
-  if(!camVerified){
-    showAlert('procAlert','alert-red','📷 Please verify the analyser reading with camera first');return;
-  }
+  // Camera scan is optional — manual entry must always be able to save.
   const supplier=document.getElementById('p-supplier').value.trim();
   const qty=parseFloat(document.getElementById('p-qty').value)||0;
   const fat=parseFloat(document.getElementById('p-fat').value)||0;
@@ -2534,12 +2532,10 @@ function saveProc(){
   // Reset form
   ['p-supplier','p-qty','p-fat','p-snf','p-temp','p-clr','p-code'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('p-date').value=new Date().toISOString().split('T')[0];
-  // Reset camera state
+  // Reset camera state (scan is optional)
   camVerified=false;
   const vs=document.getElementById('camVerifyStatus');
-  if(vs){vs.textContent='📷 Camera verification required before saving';vs.style.cssText='background:#f8faff;color:var(--gray);border:1.5px dashed #e2e8f0';}
-  document.getElementById('saveProcBtn').disabled=true;
-  document.getElementById('saveProcBtn').style.opacity='0.4';
+  if(vs){vs.textContent='📷 Optional: scan analyser to auto-fill, or enter values manually';vs.style.cssText='background:#f8faff;color:var(--gray);border:1.5px dashed #e2e8f0';}
   calcProc();
   renderAllRecords();
 }
