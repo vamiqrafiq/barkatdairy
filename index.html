@@ -5777,9 +5777,10 @@ function _syncDown(){
     _syncKeys.forEach(function(k){
       var cloud=d[k],local=load(k,null);
       if(cloud!=null&&Array.isArray(cloud)&&Array.isArray(local)){
-        // Both sides have a list → merge by id, push any local-only items up
-        var ids={};cloud.forEach(function(x){if(x&&x.id)ids[x.id]=1;});
-        var extra=local.filter(function(x){return x&&x.id&&!ids[x.id];});
+        // Both sides have a list → merge by natural key, push any local-only items up
+        var _rid=function(x){return x&&(x.id||x.batchId||x.username||x.lotId);};
+        var ids={};cloud.forEach(function(x){var r=_rid(x);if(r)ids[r]=1;});
+        var extra=local.filter(function(x){var r=_rid(x);return r&&!ids[r];});
         var merged=cloud.concat(extra);
         _setGlobal(k,merged);
         if(extra.length)try{_fb.ref('bd/'+k).set(merged);}catch(e){}
