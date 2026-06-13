@@ -5775,17 +5775,20 @@ function _syncDown(){
     var d=snap.val();
     if(!d){_syncUp();return;}
     _syncKeys.forEach(function(k){
-      if(d[k]!=null){
-        var cloud=d[k],local=load(k,null);
-        if(Array.isArray(cloud)&&Array.isArray(local)){
-          var ids={};cloud.forEach(function(x){if(x&&x.id)ids[x.id]=1;});
-          var extra=local.filter(function(x){return x&&x.id&&!ids[x.id];});
-          var merged=cloud.concat(extra);
-          _setGlobal(k,merged);
-          if(extra.length)_fb.ref('bd/'+k).set(merged);
-        }else{
-          _setGlobal(k,cloud);
-        }
+      var cloud=d[k],local=load(k,null);
+      if(cloud!=null&&Array.isArray(cloud)&&Array.isArray(local)){
+        // Both sides have a list → merge by id, push any local-only items up
+        var ids={};cloud.forEach(function(x){if(x&&x.id)ids[x.id]=1;});
+        var extra=local.filter(function(x){return x&&x.id&&!ids[x.id];});
+        var merged=cloud.concat(extra);
+        _setGlobal(k,merged);
+        if(extra.length)try{_fb.ref('bd/'+k).set(merged);}catch(e){}
+      }else if(cloud!=null){
+        // Cloud has this key (non-list, e.g. settings) → take it
+        _setGlobal(k,cloud);
+      }else if(local!=null&&!(Array.isArray(local)&&local.length===0)){
+        // Cloud is MISSING this key but we have local data → upload it
+        try{_fb.ref('bd/'+k).set(local);}catch(e){}
       }
     });
     if(!_fbListening)_listen();
