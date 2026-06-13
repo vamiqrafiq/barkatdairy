@@ -5744,6 +5744,31 @@ function _fbSharedSignIn(){
     });
   }catch(e){console.warn('FB auth error:',e);}
 }
+// Write a synced value into BOTH localStorage AND the app's live in-memory
+// variable. (The app reads block-scoped `let` globals, which are NOT the same as
+// window.* — writing only window[k] left the UI showing stale data.)
+function _setGlobal(k,v){
+  try{localStorage.setItem('bd_'+k,JSON.stringify(v));}catch(e){}
+  switch(k){
+    case 'records':records=v;break;
+    case 'distRecords':distRecords=v;break;
+    case 'testRecords':testRecords=v;break;
+    case 'productionBatches':productionBatches=v;break;
+    case 'cipLogs':cipLogs=v;break;
+    case 'users':users=v;break;
+    case 'settings':settings=v;break;
+    case 'savedSuppliers':savedSuppliers=v;break;
+    case 'savedDistributors':savedDistributors=v;break;
+    case 'attRecords':attRecords=v;break;
+    case 'invEntries':invEntries=v;break;
+    case 'invOpening':invOpening=v;break;
+    case 'returnsLog':returnsLog=v;break;
+    case 'paymentsLog':paymentsLog=v;break;
+    case 'auditLog':auditLog=v;break;
+    case 'rateOverride':rateOverride=v;break;
+    default: try{window[k]=v;}catch(e){}
+  }
+}
 function _syncDown(){
   if(!_fbReady)return;
   _fb.ref('bd').once('value').then(function(snap){
@@ -5756,18 +5781,16 @@ function _syncDown(){
           var ids={};cloud.forEach(function(x){if(x&&x.id)ids[x.id]=1;});
           var extra=local.filter(function(x){return x&&x.id&&!ids[x.id];});
           var merged=cloud.concat(extra);
-          window[k]=merged;
-          try{localStorage.setItem('bd_'+k,JSON.stringify(merged));}catch(e){}
+          _setGlobal(k,merged);
           if(extra.length)_fb.ref('bd/'+k).set(merged);
         }else{
-          window[k]=cloud;
-          try{localStorage.setItem('bd_'+k,JSON.stringify(cloud));}catch(e){}
+          _setGlobal(k,cloud);
         }
       }
     });
     if(!_fbListening)_listen();
     migratePasswords();
-    if(currentUser)_refreshUI();
+    _refreshUI();
   }).catch(function(e){console.warn('Sync error:',e);});
 }
 function _syncUp(){
@@ -5784,10 +5807,9 @@ function _listen(){
     _fb.ref('bd/'+k).on('value',function(snap){
       var v=snap.val();
       if(v!=null){
-        window[k]=v;
-        try{localStorage.setItem('bd_'+k,JSON.stringify(v));}catch(e){}
+        _setGlobal(k,v);
         clearTimeout(window._fbTimer);
-        window._fbTimer=setTimeout(function(){if(currentUser)_refreshUI();},2000);
+        window._fbTimer=setTimeout(function(){_refreshUI();},1200);
       }
     });
   });
