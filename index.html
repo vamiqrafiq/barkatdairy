@@ -477,6 +477,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     </div>
     <button class="login-btn" onclick="doLogin()">Login →</button>
     <div class="login-err" id="loginErr"></div>
+    <div id="appVersionTag" style="text-align:center;font-size:10px;color:#94a3b8;margin-top:14px">Build —</div>
   </div>
   <div class="login-footer">BARKAT DAIRY PLANT · WATLAR GANDERBAL<br/>برکت ڈیری پلانٹ · واٹلار گاندربل</div>
 </div>
@@ -2261,8 +2262,10 @@ async function doLogin(){
 }
 
 // Auto-fill saved credentials on page load
+var APP_BUILD='2026-06-14 · v9 (camera-optional, no-cache)';
 window.addEventListener('DOMContentLoaded',function(){
   migratePasswords();
+  var vt=document.getElementById('appVersionTag');if(vt)vt.textContent='Build '+APP_BUILD;
   try{
     const saved=JSON.parse(localStorage.getItem('bd_savedCreds')||'null');
     if(saved&&saved.u&&saved.p){
