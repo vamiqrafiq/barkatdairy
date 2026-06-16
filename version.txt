@@ -1,1 +1,1 @@
-2026-06-14 · v16 (batch+operations merged)
+2026-06-14 · v17 (batch finance, admin-only)

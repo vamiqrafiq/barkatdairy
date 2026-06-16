@@ -1088,7 +1088,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <div class="grid2" style="margin-bottom:12px">
       <div><label class="inp-label">SMP Price (₹/kg)</label><input type="number" id="a-smp" value="305" oninput="saveSettings()"/></div>
       <div><label class="inp-label">Culture (₹/100L)</label><input type="number" id="a-cult" value="133" oninput="saveSettings()"/></div>
-      <div><label class="inp-label">Fixed Overhead (₹/day)</label><input type="number" id="a-fix" value="3800" oninput="saveSettings()"/></div>
+      <div><label class="inp-label">Fixed Overhead (₹/day)</label><input type="number" id="a-fix" value="5100" oninput="saveSettings()"/></div>
       <div><label class="inp-label">Credit Limit (₹)</label><input type="number" id="a-creditLimit" value="20000" oninput="saveSettings()"/></div>
     </div>
 
@@ -2230,7 +2230,7 @@ const DEFAULT_USERS=[
 ];
 // Seed credentials shipped in source — warn anyone still using them to change it.
 const DEFAULT_CREDS={admin:'barkat2024',ops1:'ops123',proc1:'proc123',rider1:'rider123'};
-const DEFAULT_SETTINGS={smp:305,cult:133,fix:3800,p200:18,p400:34,r200:0.6,r400:0.4,pk200:2.7,pk400:4.1,tsnf:8.5};
+const DEFAULT_SETTINGS={smp:305,cult:133,fix:5100,p200:18,p400:34,r200:0.6,r400:0.4,pk200:2.7,pk400:4.1,tsnf:8.5};
 
 let users=load('users',DEFAULT_USERS);
 let settings=load('settings',DEFAULT_SETTINGS);
@@ -2329,7 +2329,7 @@ async function doLogin(){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v16 (batch+operations merged)';
+var APP_BUILD='2026-06-14 · v17 (batch finance, admin-only)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -4971,6 +4971,21 @@ function openBatch(batchId){
   h+=R('Into incubation at', b.incubTime);
   h+=R('Into cold at', b.coldTime);
   h+=R('Use by', b.useBy);
+  // ── Finance breakdown — ADMIN ONLY ──
+  if(_hasRole(currentUser,'admin')){
+    const f=batchFinance(b);
+    h+='<div class="sec-title" style="font-size:12px;margin-top:12px;color:#7a5a00">💰 Finance (admin only)</div>';
+    h+=R('Revenue (all cups sold)', '₹'+f.revenue.toFixed(0));
+    h+=R('Milk cost'+(f.milkSrc==='actual'?' (actual)':' (est.)'), '−₹'+f.milkCost.toFixed(0));
+    h+=R('SMP cost', '−₹'+f.smpCost.toFixed(0));
+    h+=R('Packaging cost', '−₹'+f.packCost.toFixed(0));
+    h+=R('Culture cost', '−₹'+f.cultCost.toFixed(0));
+    h+=R('Fixed overhead', '−₹'+f.fix.toFixed(0));
+    h+=R('Total expenses', '−₹'+f.totalCost.toFixed(0));
+    var netCol=f.net>=0?'var(--green)':'var(--red)';
+    h+='<div style="background:var(--light);border-radius:10px;padding:11px 13px;margin-top:8px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:700;color:var(--dark)">Net Profit / Loss</span><span style="font-size:18px;font-weight:700;color:'+netCol+'">'+(f.net>=0?'₹':'−₹')+Math.abs(f.net).toFixed(0)+'</span></div>';
+    h+='<div style="font-size:11px;color:var(--gray);margin-top:6px;text-align:right">Cost per cup: ₹'+f.perCup.toFixed(2)+' · '+f.cups+' cups</div>';
+  }
   document.getElementById('batchModalContent').innerHTML=h;
   document.getElementById('batchModal').classList.add('open');
   const pb=document.getElementById('batchPauseBtn');if(pb)pb.style.display='none';
@@ -5367,21 +5382,30 @@ function updateIncubCountdown(b){
   el.style.color=remaining<0.25?'#ff4444':remaining<0.5?'#f97316':'var(--gold)';
 }
 
-function calcBatchCost(b){
-  try{
-    const vol=parseFloat(b.stages.s1_standardize&&b.stages.s1_standardize.vol)||0;
-    const fat=parseFloat(b.rawFat)||4; const snf=parseFloat(b.rawSnf)||8.5;
-    const smp=parseFloat(b.stages.s1_standardize&&b.stages.s1_standardize.smpAdded)||0;
-    const cups200=b.stages.s5_fill&&b.stages.s5_fill.cupSize==='200g'?parseInt(b.stages.s5_fill.cupsCount||0):0;
-    const cups400=b.stages.s5_fill&&b.stages.s5_fill.cupSize==='400g'?parseInt(b.stages.s5_fill.cupsCount||0):0;
-    const goodCups=parseInt(b.stages.s7_qc&&b.stages.s7_qc.cupsPassed)||(cups200+cups400);
-    const milkCost=vol*getRateFromTable(fat,snf);
-    const smpCost=smp*(settings.smp||305);
-    const cultCost=(settings.cult||133)*(vol/100);
-    const packCost=cups200*(settings.pk200||18)+cups400*(settings.pk400||34);
-    const total=milkCost+smpCost+cultCost+packCost;
-    return {total:total.toFixed(0),perCup:goodCups>0?(total/goodCups).toFixed(2):'N/A'};
-  }catch(e){return null;}
+// Full finance breakdown for a batch (ADMIN ONLY in the UI).
+function batchFinance(b){
+  const s=settings;
+  const p200=s.p200||18,p400=s.p400||34;
+  const pk200=s.pk200||2.7,pk400=s.pk400||4.1;
+  const smpPrice=s.smp||305,cultPer100=s.cult||133,fix=s.fix||5100;
+  const c200=parseInt(b.cups200)||0,c400=parseInt(b.cups400)||0;
+  const cups=c200+c400;
+  // Milk cost: prefer ACTUAL cost from the linked procurement lots; else estimate
+  let milkCost=0,milkSrc='estimated';
+  if(Array.isArray(b.procIds)&&b.procIds.length){
+    let sum=0,found=false;
+    b.procIds.forEach(id=>{const r=records.find(x=>String(x.id)===String(id));if(r){sum+=(r.total!=null?r.total:((parseFloat(r.qty)||0)*(parseFloat(r.rate)||getRateFromTable(r.fat,r.snf))));found=true;}});
+    if(found){milkCost=sum;milkSrc='actual';}
+  }
+  if(!milkCost){milkCost=(parseFloat(b.rawVol)||0)*getRateFromTable(parseFloat(b.rawFat)||4,parseFloat(b.rawSnf)||8.5);}
+  const smpCost=(parseFloat(b.smpAdded)||0)*smpPrice;
+  const packCost=c200*pk200+c400*pk400;
+  const cultCost=cultPer100*((parseFloat(b.finalVol)||0)/100);
+  const revenue=c200*p200+c400*p400;
+  const variableCost=milkCost+smpCost+packCost+cultCost;
+  const totalCost=variableCost+fix;
+  const net=revenue-totalCost;
+  return {revenue,milkCost,milkSrc,smpCost,packCost,cultCost,fix,variableCost,totalCost,net,cups,perCup:cups?totalCost/cups:0};
 }
 
 // ── Cold Store View ──
