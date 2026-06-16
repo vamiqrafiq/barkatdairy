@@ -502,6 +502,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <button class="tab" onclick="goTab('returns',this);renderReturns()">↩️ Returns</button>
     <button class="tab" onclick="goTab('recall',this);initRecall()">🔍 Recall</button>
     <button class="tab" onclick="goTab('inv',this)">📦 Inventory</button>
+    <button class="tab" onclick="goTab('calc',this);calcTest();calcRate()">🧮 Calc</button>
     <button class="tab" onclick="goTab('test',this)">🔬 Testing</button>
     <button class="tab" id="summaryTabBtn" onclick="goTab('summary',this);renderSummary()">📊 Summary</button>
     <button class="tab" id="paymentsTabBtn" onclick="goTab('payments',this);renderPayments()" style="display:none">💰 Payments</button>
@@ -877,6 +878,60 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <button class="btn btn-sm btn-outline" onclick="clearDistFilter()">All</button>
     </div>
     <div id="allDistRecords"></div>
+  </div>
+
+</div>
+
+<!-- ══ CALC (TEST CALCULATIONS) TAB ══ -->
+<div class="page" id="tab-calc">
+
+  <div class="hero" style="background:linear-gradient(135deg,#1e3a5f 0%,#6d28d9 60%,#7c3aed 100%)">
+    <div class="hero-label">🧮 CALC SANDBOX</div>
+    <div class="gold-bar"></div>
+    <div class="hero-val" style="font-size:20px">Test &amp; assumptions</div>
+    <div class="hero-sub">Nothing here is saved — just for trying numbers</div>
+  </div>
+
+  <!-- Standardisation tester -->
+  <div class="section">
+    <div class="sec-title">🥛 Water &amp; SMP Tester</div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:10px">Enter the milk you have and the targets — it shows the best water + SMP to add.</div>
+    <div class="grid3" style="margin-bottom:8px">
+      <div><label class="inp-label">Milk Qty (L)</label><input type="number" id="ct-qty" value="100" step="1" oninput="calcTest()"/></div>
+      <div><label class="inp-label">Fat %</label><input type="number" id="ct-fat" value="4.5" step="0.1" oninput="calcTest()"/></div>
+      <div><label class="inp-label">SNF %</label><input type="number" id="ct-snf" value="8.0" step="0.1" oninput="calcTest()"/></div>
+    </div>
+    <div class="grid3" style="margin-bottom:10px">
+      <div><label class="inp-label">Target Fat %</label><input type="number" id="ct-tfat" value="3.5" step="0.1" oninput="calcTest()"/></div>
+      <div><label class="inp-label">Target SNF %</label><input type="number" id="ct-tsnf" value="8.5" step="0.1" oninput="calcTest()"/></div>
+      <div><label class="inp-label">Flashing (L)</label><input type="number" id="ct-flash" value="0" step="0.5" min="0" max="5" oninput="calcTest()"/></div>
+    </div>
+    <div class="calc-result">
+      <div class="calc-grid">
+        <div class="calc-item highlight"><div class="calc-item-label">Pour Water</div><div class="calc-item-val" id="ct-water">—</div><div class="calc-item-sub">litres</div></div>
+        <div class="calc-item highlight"><div class="calc-item-label">Add SMP</div><div class="calc-item-val" id="ct-smp">—</div><div class="calc-item-sub">kg</div></div>
+        <div class="calc-item"><div class="calc-item-label">Final Vol</div><div class="calc-item-val" id="ct-vol">—</div><div class="calc-item-sub">L</div></div>
+        <div class="calc-item"><div class="calc-item-label">Final Fat</div><div class="calc-item-val" id="ct-ffat">—</div><div class="calc-item-sub">%</div></div>
+        <div class="calc-item"><div class="calc-item-label">Final SNF</div><div class="calc-item-val" id="ct-fsnf">—</div><div class="calc-item-sub">%</div></div>
+        <div class="calc-item"><div class="calc-item-label">Quality</div><div class="calc-item-val" id="ct-qual" style="font-size:11px">—</div><div class="calc-item-sub">curd</div></div>
+      </div>
+    </div>
+    <div id="ct-note" style="font-size:11px;color:#7a5a00;background:#fff8e7;border:1px solid #fde68a;border-radius:9px;padding:8px 10px;margin-top:8px"></div>
+  </div>
+
+  <!-- Rate calculator -->
+  <div class="section">
+    <div class="sec-title">💱 Rate Calculator</div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:10px">Enter Fat % and SNF % to get the ₹/L rate from your rate chart.</div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><label class="inp-label">Fat %</label><input type="number" id="cr-fat" value="4.0" step="0.1" oninput="calcRate()"/></div>
+      <div><label class="inp-label">SNF %</label><input type="number" id="cr-snf" value="8.5" step="0.1" oninput="calcRate()"/></div>
+    </div>
+    <div style="background:linear-gradient(135deg,var(--dark),var(--blue));border-radius:12px;padding:16px;text-align:center">
+      <div style="font-size:10px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.5px">Rate</div>
+      <div style="font-size:30px;font-weight:700;color:#fff" id="cr-rate">—</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.55)">₹ per litre</div>
+    </div>
   </div>
 
 </div>
@@ -2346,7 +2401,7 @@ async function doLogin(){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v21 (sales PDF)';
+var APP_BUILD='2026-06-14 · v22 (calc sandbox tab)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -4811,6 +4866,39 @@ function recalcBatchRaw(){
 }
 // Standardisation calculator merged from Operations: from selected milk + targets
 // + flashing, work out water/SMP/final/quality/cups and auto-fill the batch fields.
+// Calc sandbox: water/SMP tester (no saving)
+function calcTest(){
+  const g=id=>parseFloat((document.getElementById(id)||{}).value)||0;
+  const setT=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  const qty=g('ct-qty'),fat=g('ct-fat'),snf=g('ct-snf');
+  if(!qty||!fat||!snf){['ct-water','ct-smp','ct-vol','ct-ffat','ct-fsnf','ct-qual'].forEach(id=>setT(id,'—'));const n=document.getElementById('ct-note');if(n)n.textContent='Enter milk qty, fat and SNF.';return;}
+  const tfat=g('ct-tfat')||fat, tsnf=g('ct-tsnf')||(settings.tsnf||8.5);
+  let flash=g('ct-flash');if(flash<0)flash=0;if(flash>5)flash=5;
+  let totalW=tfat<fat?qty*(fat/tfat-1):0;if(totalW<0||!isFinite(totalW))totalW=0;
+  totalW=Math.max(totalW,flash);totalW=Math.round(totalW*2)/2;
+  const manualW=Math.max(0,Math.round((totalW-flash)*2)/2);
+  const fv=qty+totalW;
+  const fFat=qty*fat/fv;
+  const snfAfter=qty*snf/fv;
+  let smpKg=(tsnf-snfAfter)*fv/100;if(smpKg<0||!isFinite(smpKg))smpKg=0;smpKg=Math.round(smpKg*100)/100;
+  const fSnf=snfAfter+smpKg*100/fv;
+  const fatShort=tfat>fat+0.05;
+  const qual=fFat>=3.5&&fSnf>=8.5?'🟢 Excellent':fFat>=3.2&&fSnf>=8.3?'🟢 Good':fFat>=3.0&&fSnf>=8.0?'🟡 Standard':'🔴 Thin';
+  setT('ct-water',manualW>0?manualW:'None');setT('ct-smp',smpKg>0?smpKg.toFixed(2):'None');
+  setT('ct-vol',fv.toFixed(1));setT('ct-ffat',fFat.toFixed(2)+'%');setT('ct-fsnf',fSnf.toFixed(2)+'%');setT('ct-qual',qual);
+  const n=document.getElementById('ct-note');
+  if(n)n.innerHTML=fatShort
+    ? '⚠️ Raw fat '+fat+'% is below target '+tfat+'% — water can\'t raise fat. Lower target fat or add cream.'
+    : '💡 Pour <b>'+manualW+' L</b> water'+(flash>0?' (flashing adds '+flash+' L → '+totalW+' L total)':'')+' + <b>'+smpKg.toFixed(2)+' kg</b> SMP → '+fv.toFixed(1)+' L at '+fFat.toFixed(2)+'% Fat, '+fSnf.toFixed(2)+'% SNF. Least SMP for these targets; more water would need more SMP.';
+}
+// Calc sandbox: rate from the chart
+function calcRate(){
+  const fat=parseFloat((document.getElementById('cr-fat')||{}).value)||0;
+  const snf=parseFloat((document.getElementById('cr-snf')||{}).value)||0;
+  const el=document.getElementById('cr-rate');if(!el)return;
+  if(!fat||!snf){el.textContent='—';return;}
+  el.textContent='₹'+getRateFromTable(fat,snf).toFixed(2);
+}
 function calcBatchStd(){
   const qty=parseFloat((document.getElementById('nb-rawqty')||{}).textContent)||0;
   const fat=parseFloat((document.getElementById('nb-rawfat')||{}).textContent)||0;
