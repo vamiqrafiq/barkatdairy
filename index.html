@@ -1119,6 +1119,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
             <label style="display:flex;align-items:center;gap:7px;background:var(--light);border-radius:9px;padding:8px 10px;cursor:pointer"><input type="checkbox" value="dist"  style="width:15px;height:15px;accent-color:var(--blue)"/> <span style="font-size:12px;font-weight:600">🚚 Distribution</span></label>
             <label style="display:flex;align-items:center;gap:7px;background:var(--light);border-radius:9px;padding:8px 10px;cursor:pointer"><input type="checkbox" value="test"  style="width:15px;height:15px;accent-color:var(--blue)"/> <span style="font-size:12px;font-weight:600">🔬 Testing</span></label>
             <label style="display:flex;align-items:center;gap:7px;background:var(--light);border-radius:9px;padding:8px 10px;cursor:pointer"><input type="checkbox" value="rider" style="width:15px;height:15px;accent-color:var(--blue)"/> <span style="font-size:12px;font-weight:600">🛵 Rider</span></label>
+            <label style="display:flex;align-items:center;gap:7px;background:var(--light);border-radius:9px;padding:8px 10px;cursor:pointer"><input type="checkbox" value="labour" style="width:15px;height:15px;accent-color:var(--blue)"/> <span style="font-size:12px;font-weight:600">👷 Labour (attendance only)</span></label>
           </div>
         </div>
         <button class="btn btn-primary btn-full" onclick="addUser()">✅ Add Staff Member</button>
@@ -2362,20 +2363,8 @@ async function doLogin(){
   const isRider=_hasRole(user,'rider')&&!isAdmin;
   const roleLabel=user.roles.join(', ').toUpperCase();
   document.getElementById('appbarUser').textContent=user.name+' · '+roleLabel;
-  // Tab visibility by role
-  document.getElementById('adminTabBtn').style.display=isAdmin?'block':'none';
-  const ttb=document.getElementById('trackerTabBtn');if(ttb)ttb.style.display=isAdmin?'block':'none';
-  const rtb=document.getElementById('riderTabBtn');if(rtb)rtb.style.display=isRider?'block':'none';
-  // Payments tab: admin only (finance restricted)
-  const ptb=document.getElementById('paymentsTabBtn');if(ptb)ptb.style.display=isAdmin?'block':'none';
-  // Hide all tabs for pure-rider accounts
-  document.querySelectorAll('.tab').forEach(t=>{
-    if(isRider){
-      const onclick=t.getAttribute('onclick')||'';
-      if(!onclick.includes("'rider'")) t.style.display='none';
-      else t.style.display='block';
-    }
-  });
+  // Tab visibility by role (granular)
+  _applyTabAccess(user);
   setToday();
   loadSettings();
   if(!isRider){
@@ -2396,12 +2385,49 @@ async function doLogin(){
     goTab('rider');
     renderRiderView();
   } else {
-    goTab('proc');
+    // Land on the first tab this user is allowed to see
+    const firstVis=Array.from(document.querySelectorAll('.tabbar .tab')).find(t=>t.style.display!=='none');
+    const m=firstVis?(firstVis.getAttribute('onclick')||'').match(/goTab\('([a-z]+)'/):null;
+    goTab(m?m[1]:'attend');
   }
+  // Auto-share location for roles we track (works only while the app is open)
+  if(_hasRole(user,'rider')||_hasRole(user,'labour')) startRiderLocation();
+}
+// ── Role → which tabs are visible ('*' = everyone who can log in) ──
+var TAB_ROLES={
+  attend:['*'],
+  proc:['admin','proc'],
+  batch:['admin','ops'],
+  cip:['admin','ops'],
+  dist:['admin','dist'],
+  returns:['admin','dist'],
+  recall:['admin','ops','proc'],
+  inv:['admin','ops','proc'],
+  calc:['admin','ops','proc','test','dist'],
+  test:['admin','test'],
+  summary:['admin'],
+  payments:['admin'],
+  ai:['admin','ops','proc'],
+  admin:['admin'],
+  rider:['rider'],
+  tracker:['admin']
+};
+function _applyTabAccess(user){
+  const isAdmin=_hasRole(user,'admin');
+  document.querySelectorAll('.tabbar .tab').forEach(function(t){
+    const mm=(t.getAttribute('onclick')||'').match(/goTab\('([a-z]+)'/);
+    const name=mm?mm[1]:'';
+    let allowed=isAdmin;
+    if(!allowed){
+      const roles=TAB_ROLES[name]||['admin'];
+      allowed=roles.indexOf('*')>=0||roles.some(function(r){return _hasRole(user,r);});
+    }
+    t.style.display=allowed?'':'none';
+  });
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v22 (calc sandbox tab)';
+var APP_BUILD='2026-06-14 · v23 (roles, labour, cloud tracking)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -4197,8 +4223,8 @@ function startRiderLocation(){
     return;
   }
   showRiderLocStatus('📡 Acquiring GPS signal…','alert-gold');
-  document.getElementById('riderLocBtn').style.display='none';
-  document.getElementById('riderLocStopBtn').style.display='block';
+  var _b=document.getElementById('riderLocBtn');if(_b)_b.style.display='none';
+  var _s=document.getElementById('riderLocStopBtn');if(_s)_s.style.display='block';
 
   riderLocWatchId=1;function _riderLocTick(){navigator.geolocation.getCurrentPosition(
     pos=>{
@@ -4207,10 +4233,13 @@ function startRiderLocation(){
         lng:pos.coords.longitude,
         acc:Math.round(pos.coords.accuracy),
         ts:Date.now(),
-        name:currentUser?currentUser.name:'Rider',
-        username:currentUser?currentUser.username:'rider'
+        name:currentUser?currentUser.name:'Staff',
+        username:currentUser?currentUser.username:'user',
+        role:currentUser&&currentUser.roles?currentUser.roles.join(','):''
       };
       try{localStorage.setItem('bd_riderLoc_'+loc.username, JSON.stringify(loc));}catch(e){}
+      // Push to the cloud so the admin Tracker (on another device) can see it
+      try{if(typeof _fb!=='undefined'&&_fb&&_fbAuthed)_fb.ref('bd/liveLocations/'+loc.username).set(loc);}catch(e){}
       showRiderLocStatus('✅ Sharing live location — accuracy ±'+loc.acc+'m','alert-green');
     },
     err=>{showRiderLocStatus('⚠️ Location error: '+err.message,'alert-gold');},
@@ -4259,6 +4288,8 @@ function initTracker(){
   if(trackerInterval)clearInterval(trackerInterval);
   trackerInterval=setInterval(updateTrackerMap,4000);
   setTimeout(updateTrackerMap,500);
+  // Subscribe to cloud live locations (so we see staff on other devices)
+  try{if(typeof _fb!=='undefined'&&_fb&&!window._locSub){window._locSub=true;_fb.ref('bd/liveLocations').on('value',function(s){window._liveLocs=s.val()||{};});}}catch(e){}
 }
 
 function updateTrackerMap(){
@@ -4274,6 +4305,8 @@ function updateTrackerMap(){
       }
     }
   }catch(e){}
+  // Merge in cloud live locations from other devices
+  try{var ll=window._liveLocs||{};Object.keys(ll).forEach(function(k){var loc=ll[k];if(loc&&loc.ts&&(Date.now()-loc.ts)<120000&&!riderLocations.some(function(x){return x.username===loc.username;}))riderLocations.push(loc);});}catch(e){}
 
   const statusEl=document.getElementById('trackerStatus');
   const infoEl=document.getElementById('trackerInfo');
