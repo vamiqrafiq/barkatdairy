@@ -496,7 +496,6 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
   <div class="tabbar">
     <button class="tab" onclick="goTab('attend',this);initAttendance()">🕐 Attendance</button>
     <button class="tab active" onclick="goTab('proc',this)">🐄 Procurement</button>
-    <button class="tab" onclick="goTab('ops',this)">⚙️ Operations</button>
     <button class="tab" onclick="goTab('batch',this);initBatchTab()">🧫 Batches</button>
     <button class="tab" onclick="goTab('cip',this)">🧼 CIP</button>
     <button class="tab" onclick="goTab('dist',this)">🚚 Distribution</button>
@@ -1496,8 +1495,20 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <div id="newBatchForm" style="display:none;background:var(--light);border-radius:14px;padding:14px;margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:10px">🧫 New Batch</div>
 
+      <!-- Batch ID + Date -->
+      <div class="grid2" style="margin-bottom:12px">
+        <div>
+          <label class="inp-label">Batch ID</label>
+          <div style="display:flex;align-items:center;gap:5px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:0 10px">
+            <span style="font-size:14px;font-weight:700;color:var(--blue)">BDP-</span>
+            <input type="text" id="nb-idsuffix" placeholder="004" autocomplete="off" style="border:none;padding:10px 0;flex:1;background:transparent"/>
+          </div>
+        </div>
+        <div><label class="inp-label">Batch Date</label><input type="date" id="nb-date"/></div>
+      </div>
+
       <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">① Milk used</div>
-      <label class="inp-label">Tick the procured milk used (one or more)</label>
+      <label class="inp-label">Tap the procured milk used (one or more)</label>
       <div id="nb-procList" style="max-height:150px;overflow-y:auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:4px;margin-bottom:8px"></div>
       <div class="grid3" style="margin-bottom:12px">
         <div class="stat"><div class="stat-label">Raw Qty</div><div class="stat-val" id="nb-rawqty" style="font-size:16px">0</div><div class="stat-sub">L</div></div>
@@ -1505,9 +1516,38 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
         <div class="stat"><div class="stat-label">Avg SNF</div><div class="stat-val" id="nb-rawsnf" style="font-size:16px">0</div><div class="stat-sub">%</div></div>
       </div>
 
-      <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">② Standardisation</div>
+      <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">② Target → auto plan</div>
+      <div class="grid3" style="margin-bottom:8px">
+        <div><label class="inp-label">Target Fat %</label><input type="number" id="nb-tfat" value="3.5" step="0.1" oninput="calcBatchStd()"/></div>
+        <div><label class="inp-label">Target SNF %</label><input type="number" id="nb-tsnf" value="8.5" step="0.1" oninput="calcBatchStd()"/></div>
+        <div><label class="inp-label">Flashing (L)</label><input type="number" id="nb-flash" value="4" step="0.5" min="0" max="5" oninput="calcBatchStd()"/></div>
+      </div>
+      <div class="calc-result" id="nb-plan" style="margin-bottom:8px">
+        <div class="calc-grid">
+          <div class="calc-item highlight"><div class="calc-item-label">Pour Water</div><div class="calc-item-val" id="nbr-water">—</div><div class="calc-item-sub">litres</div></div>
+          <div class="calc-item highlight"><div class="calc-item-label">Add SMP</div><div class="calc-item-val" id="nbr-smp">—</div><div class="calc-item-sub">kg</div></div>
+          <div class="calc-item"><div class="calc-item-label">Final Vol</div><div class="calc-item-val" id="nbr-vol">—</div><div class="calc-item-sub">L</div></div>
+          <div class="calc-item"><div class="calc-item-label">Final Fat</div><div class="calc-item-val" id="nbr-ffat">—</div><div class="calc-item-sub">%</div></div>
+          <div class="calc-item"><div class="calc-item-label">Final SNF</div><div class="calc-item-val" id="nbr-fsnf">—</div><div class="calc-item-sub">%</div></div>
+          <div class="calc-item"><div class="calc-item-label">Curd Quality</div><div class="calc-item-val" id="nbr-qual" style="font-size:11px">—</div><div class="calc-item-sub">grade</div></div>
+        </div>
+      </div>
+      <div id="nbr-opt" style="font-size:11px;color:#7a5a00;background:#fff8e7;border:1px solid #fde68a;border-radius:9px;padding:8px 10px;margin-bottom:10px">💡 Optimal-SMP tip appears here</div>
+
+      <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">③ Cup fill plan</div>
       <div class="grid2" style="margin-bottom:8px">
-        <div><label class="inp-label">Water added (L)</label><input type="number" id="nb-water" step="0.1" placeholder="0"/></div>
+        <div><label class="inp-label">200g share (%)</label><input type="number" id="nb-sp200" value="60" step="5" min="0" max="100" oninput="calcBatchStd()"/></div>
+        <div><label class="inp-label">400g share (%)</label><input type="number" id="nb-sp400" value="40" step="5" min="0" max="100" oninput="calcBatchStd()"/></div>
+      </div>
+      <div class="grid3" style="margin-bottom:12px">
+        <div class="stat"><div class="stat-label">200g Cups</div><div class="stat-val" id="nbr-c200" style="font-size:16px">—</div></div>
+        <div class="stat"><div class="stat-label">400g Cups</div><div class="stat-val" id="nbr-c400" style="font-size:16px">—</div></div>
+        <div class="stat" style="background:#fff8e7"><div class="stat-label">Total</div><div class="stat-val" id="nbr-ctotal" style="font-size:16px;color:#7a5a00">—</div></div>
+      </div>
+
+      <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">④ Standardisation actually done <span style="font-weight:400;color:var(--gray);text-transform:none">(auto-filled — edit if needed)</span></div>
+      <div class="grid2" style="margin-bottom:8px">
+        <div><label class="inp-label">Water poured (L)</label><input type="number" id="nb-water" step="0.1" placeholder="0"/></div>
         <div><label class="inp-label">SMP added (kg)</label><input type="number" id="nb-smp" step="0.01" placeholder="0"/></div>
       </div>
       <div class="grid3" style="margin-bottom:12px">
@@ -1516,7 +1556,18 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
         <div><label class="inp-label">Final SNF %</label><input type="number" id="nb-fsnf" step="0.1"/></div>
       </div>
 
-      <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">③ Culture</div>
+      <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">⑤ Process</div>
+      <div class="grid2" style="margin-bottom:8px">
+        <div><label class="inp-label">Pasteurization done?</label><select id="nb-pdone"><option value="Yes">✅ Yes</option><option value="No">No</option></select></div>
+        <div><label class="inp-label">Homogenization done?</label><select id="nb-homog"><option value="Yes">✅ Yes</option><option value="No">No</option></select></div>
+      </div>
+      <div class="grid3" style="margin-bottom:12px">
+        <div><label class="inp-label">Past. temp (°C)</label><input type="number" id="nb-ptemp" step="1"/></div>
+        <div><label class="inp-label">Past. time (min)</label><input type="number" id="nb-ptime" step="1"/></div>
+        <div><label class="inp-label">Final temp (°C)</label><input type="number" id="nb-ftemp" step="0.1"/></div>
+      </div>
+
+      <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">⑥ Culture</div>
       <div class="grid2" style="margin-bottom:8px">
         <div><label class="inp-label">Culture brand</label><input type="text" id="nb-cbrand" placeholder="brand name"/></div>
         <div><label class="inp-label">Culture expiry</label><input type="date" id="nb-cexp"/></div>
@@ -1526,25 +1577,16 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
         <div><label class="inp-label">Time added</label><input type="time" id="nb-ctime"/></div>
       </div>
 
-      <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">④ Process</div>
-      <div class="grid2" style="margin-bottom:8px">
-        <div><label class="inp-label">Pasteurization temp (°C)</label><input type="number" id="nb-ptemp" step="1"/></div>
-        <div><label class="inp-label">Pasteurization time (min)</label><input type="number" id="nb-ptime" step="1"/></div>
-      </div>
-      <div class="grid2" style="margin-bottom:12px">
-        <div><label class="inp-label">Homogenization</label><select id="nb-homog"><option value="Yes">Yes</option><option value="No">No</option></select></div>
-        <div><label class="inp-label">Final temp before packing (°C)</label><input type="number" id="nb-ftemp" step="0.1"/></div>
-      </div>
-
-      <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">⑤ Filling &amp; storage</div>
+      <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">⑦ Filling &amp; storage</div>
       <div class="grid2" style="margin-bottom:8px">
         <div><label class="inp-label">200g cups filled</label><input type="number" id="nb-c200" step="1"/></div>
         <div><label class="inp-label">400g cups filled</label><input type="number" id="nb-c400" step="1"/></div>
       </div>
-      <div class="grid2" style="margin-bottom:12px">
+      <div class="grid2" style="margin-bottom:8px">
         <div><label class="inp-label">Time into incubation</label><input type="time" id="nb-inctime"/></div>
         <div><label class="inp-label">Time into cold</label><input type="time" id="nb-coldtime"/></div>
       </div>
+      <div style="margin-bottom:12px"><label class="inp-label">Use-by date</label><input type="date" id="nb-useby"/></div>
 
       <div style="display:flex;gap:8px">
         <button class="btn btn-primary" style="flex:2" onclick="createBatch()">✅ Save Batch</button>
@@ -2287,7 +2329,7 @@ async function doLogin(){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v15 (multi-select fix)';
+var APP_BUILD='2026-06-14 · v16 (batch+operations merged)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -4722,6 +4764,11 @@ function initBatchTab(){
       </div>`).join('');
     }
   }
+  // Defaults: next BDP number + today's date
+  const suf=document.getElementById('nb-idsuffix');
+  if(suf&&!suf.value){let max=3;productionBatches.forEach(b=>{const m=b&&b.batchId&&String(b.batchId).match(/BDP-0*(\d+)/);if(m){const n=parseInt(m[1],10);if(n>max)max=n;}});suf.value=String(max+1).padStart(3,'0');}
+  const dt=document.getElementById('nb-date');if(dt&&!dt.value)dt.value=new Date().toISOString().split('T')[0];
+  calcBatchStd();
 }
 function toggleNbProc(id){
   if(_nbSel[id])delete _nbSel[id];else _nbSel[id]=1;
@@ -4741,7 +4788,45 @@ function recalcBatchRaw(){
   const fat=q?fw/q:0,snf=q?sw/q:0;
   const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
   set('nb-rawqty',q.toFixed(1));set('nb-rawfat',fat.toFixed(2));set('nb-rawsnf',snf.toFixed(2));
-  const fvol=document.getElementById('nb-fvol');if(fvol&&!fvol.value&&q)fvol.value=q.toFixed(1);
+  calcBatchStd();
+}
+// Standardisation calculator merged from Operations: from selected milk + targets
+// + flashing, work out water/SMP/final/quality/cups and auto-fill the batch fields.
+function calcBatchStd(){
+  const qty=parseFloat((document.getElementById('nb-rawqty')||{}).textContent)||0;
+  const fat=parseFloat((document.getElementById('nb-rawfat')||{}).textContent)||0;
+  const snf=parseFloat((document.getElementById('nb-rawsnf')||{}).textContent)||0;
+  const setT=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  const fill=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
+  if(!qty||!fat||!snf){['nbr-water','nbr-smp','nbr-vol','nbr-ffat','nbr-fsnf','nbr-qual','nbr-c200','nbr-c400','nbr-ctotal'].forEach(id=>setT(id,'—'));const o=document.getElementById('nbr-opt');if(o)o.innerHTML='💡 Tap milk lots above to see the plan.';return;}
+  const tfat=parseFloat(document.getElementById('nb-tfat').value)||fat;
+  const tsnf=parseFloat(document.getElementById('nb-tsnf').value)||(settings.tsnf||8.5);
+  let flash=parseFloat(document.getElementById('nb-flash').value)||0;if(flash<0)flash=0;if(flash>5)flash=5;
+  let totalW=tfat<fat?qty*(fat/tfat-1):0;if(totalW<0||!isFinite(totalW))totalW=0;
+  totalW=Math.max(totalW,flash);totalW=Math.round(totalW*2)/2;
+  const manualW=Math.max(0,Math.round((totalW-flash)*2)/2);
+  const fv=qty+totalW;
+  const fFat=qty*fat/fv;
+  const snfAfter=qty*snf/fv;
+  let smpKg=(tsnf-snfAfter)*fv/100;if(smpKg<0||!isFinite(smpKg))smpKg=0;smpKg=Math.round(smpKg*100)/100;
+  const fSnf=snfAfter+smpKg*100/fv;
+  let sp200=parseFloat(document.getElementById('nb-sp200').value);let sp400=parseFloat(document.getElementById('nb-sp400').value);
+  if(isNaN(sp200))sp200=60;if(isNaN(sp400))sp400=40;if(sp200+sp400<=0){sp200=60;sp400=40;}
+  const c200=Math.floor(fv*1000*(sp200/100)/200),c400=Math.floor(fv*1000*(sp400/100)/400);
+  const fatShort=tfat>fat+0.05;
+  const qual=fFat>=3.5&&fSnf>=8.5?'🟢 Excellent':fFat>=3.2&&fSnf>=8.3?'🟢 Good':fFat>=3.0&&fSnf>=8.0?'🟡 Standard':'🔴 Thin';
+  setT('nbr-water',manualW>0?manualW:'None');
+  setT('nbr-smp',smpKg>0?smpKg.toFixed(2):'None');
+  setT('nbr-vol',fv.toFixed(1));setT('nbr-ffat',fFat.toFixed(2)+'%');setT('nbr-fsnf',fSnf.toFixed(2)+'%');setT('nbr-qual',qual);
+  setT('nbr-c200',c200);setT('nbr-c400',c400);setT('nbr-ctotal',c200+c400);
+  const optEl=document.getElementById('nbr-opt');
+  if(optEl){
+    optEl.innerHTML=fatShort
+      ? '⚠️ Raw fat '+fat+'% is below target '+tfat+'% — water can\'t raise fat. Lower target fat or add cream.'
+      : '💡 Cheapest mix: pour <b>'+manualW+' L</b> water + <b>'+smpKg.toFixed(2)+' kg</b> SMP (flashing adds '+flash+' L → '+totalW+' L total). More water needs more SMP (costlier); raise Target Fat a little to use less of both.';
+  }
+  // Auto-fill the editable "actually done" fields with the plan
+  fill('nb-water',manualW);fill('nb-smp',smpKg.toFixed(2));fill('nb-fvol',fv.toFixed(1));fill('nb-ffat',fFat.toFixed(2));fill('nb-fsnf',fSnf.toFixed(2));fill('nb-c200',c200);fill('nb-c400',c400);
 }
 
 function showNewBatchForm(){
@@ -4764,25 +4849,32 @@ function createBatch(){
   const g=id=>{const e=document.getElementById(id);return e?e.value:'';};
   const num=id=>parseFloat(g(id))||0;
   const now=new Date();
+  // Batch ID: BDP- + editable suffix (auto next number if blank)
+  let suffix=(g('nb-idsuffix')||'').trim();
+  if(!suffix){let max=3;productionBatches.forEach(b=>{const m=b&&b.batchId&&String(b.batchId).match(/BDP-0*(\d+)/);if(m){const n=parseInt(m[1],10);if(n>max)max=n;}});suffix=String(max+1).padStart(3,'0');}
+  const batchId='BDP-'+suffix;
+  if(productionBatches.some(b=>b&&b.batchId===batchId)){showAlert('newBatchAlert','alert-red','⚠️ Batch ID '+batchId+' already exists — choose another suffix');return;}
   const batch={
-    batchId:genBatchId(), status:'completed', date:now.toISOString().split('T')[0],
+    batchId, status:'completed', date:g('nb-date')||now.toISOString().split('T')[0],
     createdAt:now.toISOString(), createdBy:currentUser?currentUser.name:'Staff',
     procIds, linkedLots:lots, linkedLotId:lots.join(', '), linkedSupplier:Array.from(new Set(suppliers)).join(', '),
     rawVol:+q.toFixed(1), rawFat:q?+(fw/q).toFixed(2):0, rawSnf:q?+(sw/q).toFixed(2):0,
     waterAdded:num('nb-water'), smpAdded:num('nb-smp'),
     finalVol:num('nb-fvol'), finalFat:num('nb-ffat'), finalSnf:num('nb-fsnf'),
     cultureBrand:g('nb-cbrand').trim(), cultureExpiry:g('nb-cexp'), cultureMl:num('nb-cml'), cultureTime:g('nb-ctime'),
-    pastTemp:num('nb-ptemp'), pastTime:num('nb-ptime'), homogenized:g('nb-homog')||'Yes', finalTempPack:num('nb-ftemp'),
+    pasteurized:g('nb-pdone')||'Yes', pastTemp:num('nb-ptemp'), pastTime:num('nb-ptime'),
+    homogenized:g('nb-homog')||'Yes', finalTempPack:num('nb-ftemp'),
     cups200:num('nb-c200'), cups400:num('nb-c400'),
-    incubTime:g('nb-inctime'), coldTime:g('nb-coldtime')
+    incubTime:g('nb-inctime'), coldTime:g('nb-coldtime'), useBy:g('nb-useby')
   };
   productionBatches.unshift(batch);
   store('productionBatches',productionBatches);
   document.getElementById('newBatchForm').style.display='none';
   showAlert('newBatchAlert','alert-green','✅ Batch saved: '+batch.batchId);
   _nbSel={};
-  ['nb-water','nb-smp','nb-fvol','nb-ffat','nb-fsnf','nb-cbrand','nb-cexp','nb-cml','nb-ctime','nb-ptemp','nb-ptime','nb-ftemp','nb-c200','nb-c400','nb-inctime','nb-coldtime'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['nb-idsuffix','nb-water','nb-smp','nb-fvol','nb-ffat','nb-fsnf','nb-cbrand','nb-cexp','nb-cml','nb-ctime','nb-ptemp','nb-ptime','nb-ftemp','nb-c200','nb-c400','nb-inctime','nb-coldtime','nb-useby'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   initBatchTab();
+  openBatch(batch.batchId);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -4868,14 +4960,17 @@ function openBatch(batchId){
   h+=R('Quantity', (b.cultureMl||0)+' ml');
   h+=R('Time added', b.cultureTime);
   h+=sec('④ Process');
+  h+=R('Pasteurization done', b.pasteurized||'—');
   h+=R('Pasteurization', (b.pastTemp||0)+'°C for '+(b.pastTime||0)+' min');
   h+=R('Homogenization', b.homogenized);
   h+=R('Final temp before packing', (b.finalTempPack||0)+'°C');
   h+=sec('⑤ Filling & storage');
   h+=R('200g cups filled', b.cups200);
   h+=R('400g cups filled', b.cups400);
+  h+=R('Total cups', (parseInt(b.cups200)||0)+(parseInt(b.cups400)||0));
   h+=R('Into incubation at', b.incubTime);
   h+=R('Into cold at', b.coldTime);
+  h+=R('Use by', b.useBy);
   document.getElementById('batchModalContent').innerHTML=h;
   document.getElementById('batchModal').classList.add('open');
   const pb=document.getElementById('batchPauseBtn');if(pb)pb.style.display='none';
