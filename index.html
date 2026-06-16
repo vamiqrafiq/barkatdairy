@@ -2440,7 +2440,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v24 (rider bill-push, labour notice)';
+var APP_BUILD='2026-06-14 · v25 (edit users: rename/roles/password)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3465,8 +3465,8 @@ function renderTestHistory(){
 // ══════════════════════════════════════════
 // USERS
 // ══════════════════════════════════════════
-var _roleDesc={admin:'Full access + admin panel',staff:'All sections',ops:'Operations only',proc:'Procurement only',dist:'Distribution only',test:'Testing only',rider:'Deliveries + rider view'};
-var _roleColors={admin:'#c49a2a',staff:'var(--blue)',ops:'var(--teal)',proc:'var(--green)',dist:'#0369a1',test:'#7c3aed',rider:'#ea580c'};
+var _roleDesc={admin:'Full access + admin panel',staff:'All sections',ops:'Operations only',proc:'Procurement only',dist:'Distribution only',test:'Testing only',rider:'Deliveries + rider view',labour:'Attendance only'};
+var _roleColors={admin:'#c49a2a',staff:'var(--blue)',ops:'var(--teal)',proc:'var(--green)',dist:'#0369a1',test:'#7c3aed',rider:'#ea580c',labour:'#a16207'};
 function renderUsers(){
   const el=document.getElementById('userList');if(!el)return;
   const heroStaff=document.getElementById('admin-hero-staff');
@@ -3489,6 +3489,7 @@ function renderUsers(){
         </div>
       </div>
       <div style="flex-shrink:0;margin-left:8px;display:flex;gap:4px;align-items:center">
+        <button class="btn btn-outline btn-sm" title="Edit name / username / roles" onclick="toggleEditForm(${i})">✏️</button>
         <button class="btn btn-outline btn-sm" title="Change password" onclick="togglePwForm(${i})">🔑</button>
         ${!_hasRole(u,'admin')?`<button class="btn btn-red btn-sm" onclick="removeUser(${i})">✕</button>`:'<span style="font-size:10px;color:var(--gray)">Owner</span>'}
       </div>
@@ -3497,8 +3498,50 @@ function renderUsers(){
         <input type="password" id="pwNew-${i}" placeholder="New password (min 6 chars)" autocomplete="new-password" style="flex:1"/>
         <button class="btn btn-primary btn-sm" onclick="changeUserPassword(${i})">Save</button>
       </div>
+      <div id="editForm-${i}" style="display:none;margin:6px 0 4px;padding:10px;background:var(--light);border-radius:9px">
+        <div class="grid2" style="margin-bottom:6px">
+          <div><label class="inp-label">Display name</label><input type="text" id="edName-${i}" value="${_esc(u.name||'')}"/></div>
+          <div><label class="inp-label">Username (login)</label><input type="text" id="edUser-${i}" value="${_esc(u.username||'')}" autocomplete="off"/></div>
+        </div>
+        <label class="inp-label">Roles</label>
+        <div id="edRoles-${i}" style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:5px 0 8px">
+          ${['admin','ops','proc','dist','test','rider','labour'].map(rn=>`<label style="display:flex;align-items:center;gap:6px;background:#fff;border-radius:8px;padding:6px 8px;font-size:11px;cursor:pointer"><input type="checkbox" class="edRole-${i}" value="${rn}"${roles.indexOf(rn)>=0?' checked':''} style="width:14px;height:14px;accent-color:var(--blue)"/> ${rn}</label>`).join('')}
+        </div>
+        <div style="font-size:10px;color:var(--gray);margin-bottom:6px">If you change the username you must also set a new password (min 6).</div>
+        <input type="password" id="edPw-${i}" placeholder="New password (needed only if username changed)" autocomplete="new-password" style="margin-bottom:6px"/>
+        <button class="btn btn-primary btn-sm btn-full" onclick="saveUserEdit(${i})">💾 Save changes</button>
+      </div>
     </div>`;
   }).join('');
+}
+function toggleEditForm(i){const f=document.getElementById('editForm-'+i);if(f)f.style.display=f.style.display==='none'?'block':'none';}
+async function saveUserEdit(i){
+  if(!users[i])return;
+  const name=(document.getElementById('edName-'+i).value||'').trim();
+  const newUser=(document.getElementById('edUser-'+i).value||'').trim();
+  const newPw=(document.getElementById('edPw-'+i).value||'').trim();
+  const roles=Array.from(document.querySelectorAll('.edRole-'+i+':checked')).map(c=>c.value);
+  if(!name||!newUser){showAlert('userAlert','alert-red','Name and username are required');return;}
+  if(!roles.length){showAlert('userAlert','alert-red','Pick at least one role');return;}
+  const oldUser=users[i].username;
+  if(newUser!==oldUser){
+    if(users.some((x,j)=>j!==i&&x.username===newUser)){showAlert('userAlert','alert-red','That username already exists');return;}
+    if(newPw.length<6){showAlert('userAlert','alert-red','Changing username needs a new password (min 6 chars)');return;}
+  }
+  users[i].name=name;
+  users[i].roles=roles;users[i].role=roles[0];
+  if(newUser!==oldUser){
+    users[i].username=newUser;
+    users[i].pwHash=await hashPassword(newUser,newPw);
+    delete users[i].password;
+  }else if(newPw){
+    if(newPw.length<6){showAlert('userAlert','alert-red','Password must be at least 6 characters');return;}
+    users[i].pwHash=await hashPassword(newUser,newPw);delete users[i].password;
+  }
+  store('users',users);
+  if(currentUser&&currentUser.username===oldUser)currentUser=users[i];
+  renderUsers();
+  showAlert('userAlert','alert-green','✅ Saved '+name);
 }
 function togglePwForm(i){
   const f=document.getElementById('pwForm-'+i);
@@ -6334,6 +6377,7 @@ function _listen(){
 }
 function _refreshUI(){
   try{
+    if(typeof renderUsers==='function')renderUsers();
     if(typeof renderAllRecords==='function')renderAllRecords();
     if(typeof renderDistRecords==='function')renderDistRecords();
     if(typeof renderStockDashboard==='function')renderStockDashboard();

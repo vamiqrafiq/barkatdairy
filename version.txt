@@ -1,1 +1,1 @@
-2026-06-14 · v24 (rider bill-push, labour notice)
+2026-06-14 · v25 (edit users: rename/roles/password)
