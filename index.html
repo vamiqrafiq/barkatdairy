@@ -2284,9 +2284,23 @@ async function doLogin(){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v12 (flashing + SMP→water calc)';
+var APP_BUILD='2026-06-14 · v13 (auto-update)';
+// Auto-update: compare the running build to the deployed version.txt; if a newer
+// build is live, force a cache-busting reload so devices never get stuck on an
+// old cached copy again.
+function _checkForUpdate(){
+  try{
+    fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.text();}).then(function(t){
+      t=(t||'').trim();
+      if(t&&t!==APP_BUILD&&location.search.indexOf('upd=')===-1){
+        location.replace(location.pathname+'?upd='+Date.now());
+      }
+    }).catch(function(){});
+  }catch(e){}
+}
 window.addEventListener('DOMContentLoaded',function(){
   migratePasswords();
+  _checkForUpdate();
   var vt=document.getElementById('appVersionTag');if(vt)vt.textContent='Build '+APP_BUILD;
   try{
     const saved=JSON.parse(localStorage.getItem('bd_savedCreds')||'null');
