@@ -793,7 +793,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
         <div class="ac-list" id="dist-ac-list"></div>
       </div>
     </div>
-    <div style="margin-bottom:12px"><label class="inp-label">Date</label><input type="date" id="d-date"/></div>
+    <div class="grid2" style="margin-bottom:12px">
+      <div><label class="inp-label">Date</label><input type="date" id="d-date"/></div>
+      <div><label class="inp-label">Assign rider (push bill)</label><select id="d-rider"><option value="">— none —</option></select></div>
+    </div>
 
     <!-- Cup quantities -->
     <div style="font-size:9px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">② Cups &amp; Crates</div>
@@ -1440,6 +1443,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 
 <!-- ══ ATTENDANCE TAB ══ -->
 <div class="page" id="tab-attend">
+
+  <!-- Location-sharing notice (shown for tracked roles: rider/labour) -->
+  <div id="attLocNotice" style="display:none;background:#ecfeff;border:1.5px solid #a5f3fc;border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#0e7490">
+    📍 <b>Location sharing is ON</b> while this app is open, so the plant can confirm you're on site. It stops when you close the app.
+  </div>
 
   <!-- Live hero -->
   <div class="hero" id="attendHero">
@@ -2391,7 +2399,12 @@ async function doLogin(){
     goTab(m?m[1]:'attend');
   }
   // Auto-share location for roles we track (works only while the app is open)
-  if(_hasRole(user,'rider')||_hasRole(user,'labour')) startRiderLocation();
+  if(_hasRole(user,'rider')||_hasRole(user,'labour')){
+    startRiderLocation();
+    const ln=document.getElementById('attLocNotice');if(ln)ln.style.display='block';
+  } else {
+    const ln=document.getElementById('attLocNotice');if(ln)ln.style.display='none';
+  }
 }
 // ── Role → which tabs are visible ('*' = everyone who can log in) ──
 var TAB_ROLES={
@@ -2427,7 +2440,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v23 (roles, labour, cloud tracking)';
+var APP_BUILD='2026-06-14 · v24 (rider bill-push, labour notice)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2972,7 +2985,8 @@ function saveDist(){
   // Carry-forward: sum all unpaid balances for this distributor before this moment
   const prevBal=distRecords.filter(r=>r.dist===dist).reduce((s,r)=>s+(r.amount-r.paid),0);
   const batchIds=Array.from(document.querySelectorAll('.d-batch-cb:checked')).map(c=>c.value).join(',');
-  const rec={id:Date.now(),dist,date,c200,c400,crates,amount,paid,payMode,batchIds,prevBalance:prevBal,balance:prevBal+amount-paid,savedBy:currentUser?currentUser.name:'Staff'};
+  const rider=(document.getElementById('d-rider')||{}).value||'';
+  const rec={id:Date.now(),dist,date,c200,c400,crates,amount,paid,payMode,batchIds,rider,prevBalance:prevBal,balance:prevBal+amount-paid,savedBy:currentUser?currentUser.name:'Staff'};
   distRecords.unshift(rec);
   store('distRecords',distRecords);
   saveDistributorName(dist);
@@ -2995,7 +3009,15 @@ function saveDist(){
   renderDistBatchPicker();
 }
 // Populate the "batches dispatched" picker with batches that still have cups in store
+function _fillRiderSelect(){
+  const sel=document.getElementById('d-rider');if(!sel)return;
+  const cur=sel.value;
+  const riders=(Array.isArray(users)?users:[]).filter(u=>_hasRole(u,'rider'));
+  sel.innerHTML='<option value="">— none —</option>'+riders.map(u=>`<option value="${_esc(u.username)}">${_esc(u.name||u.username)}</option>`).join('');
+  if(cur)sel.value=cur;
+}
 function renderDistBatchPicker(){
+  _fillRiderSelect();
   const el=document.getElementById('d-batchList');if(!el)return;
   const withCups=productionBatches.filter(b=>(parseInt(b.cups200)||0)||(parseInt(b.cups400)||0));
   if(!withCups.length){el.innerHTML='<div style="font-size:11px;color:var(--gray);padding:6px">No batches available — make a batch first.</div>';return;}
@@ -3094,12 +3116,25 @@ function distRecordHTML(r){
         <div class="proc-detail-val" style="color:${balColor}">${r.balance>0?'₹'+r.balance.toFixed(0):'✅'}</div>
       </div>
     </div>
-    ${r.batchIds?`<div style="font-size:10px;color:var(--gray);margin-bottom:8px">🧫 Batches: ${_esc(r.batchIds)}</div>`:''}
+    ${r.batchIds?`<div style="font-size:10px;color:var(--gray);margin-bottom:6px">🧫 Batches: ${_esc(r.batchIds)}</div>`:''}
+    ${_hasRole(currentUser,'admin')?`<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><span style="font-size:10px;color:var(--gray)">🛵 Rider:</span><select onchange="assignRiderDist(${r.id},this.value)" style="flex:1;font-size:11px;padding:5px">${_riderOpts(r.rider)}</select></div>`:(r.rider?`<div style="font-size:10px;color:var(--teal);margin-bottom:8px">🛵 Assigned to ${_esc(_riderName(r.rider))}</div>`:'')}
     <div style="display:flex;gap:6px">
       <button class="btn btn-sm btn-teal" style="flex:1" onclick="showDistBill(${r.id})">📄 Bill</button>
       <button class="btn btn-sm btn-red" style="flex-shrink:0" onclick="deleteDistRecord(${r.id})">🗑 Delete</button>
     </div>
   </div>`;
+}
+function _riderName(username){const u=(Array.isArray(users)?users:[]).find(x=>x&&x.username===username);return u?(u.name||u.username):username;}
+function _riderOpts(sel){
+  const riders=(Array.isArray(users)?users:[]).filter(u=>_hasRole(u,'rider'));
+  return '<option value="">— none —</option>'+riders.map(u=>`<option value="${_esc(u.username)}"${u.username===sel?' selected':''}>${_esc(u.name||u.username)}</option>`).join('');
+}
+function assignRiderDist(id,username){
+  const r=distRecords.find(x=>x.id===id);if(!r)return;
+  r.rider=username||'';
+  store('distRecords',distRecords);
+  showAlert('distAlert','alert-green',username?('✅ Bill pushed to '+_riderName(username)):'Rider unassigned');
+  renderDistRecords();
 }
 function deleteDistRecord(id){
   const r=distRecords.find(x=>x.id===id);if(!r)return;
@@ -4131,13 +4166,15 @@ function renderRiderView(){
   const subEl=document.getElementById('riderSubtitle');
   if(greetEl)greetEl.textContent=greeting+', '+name+'!';
 
-  // Procurement pickups
-  const todayProc=records.filter(r=>r.date===today);
+  // Riders only see distribution bills pushed to them — hide the pickups section
+  const procEl0=document.getElementById('riderProcList');
+  if(procEl0){const sec=procEl0.closest('.section');if(sec)sec.style.display='none';}
+  // Procurement pickups (kept for non-rider use; hidden above for riders)
+  const todayProc=[];
   const procEl=document.getElementById('riderProcList');
   const procCount=document.getElementById('riderProcCount');
   const totalMilk=todayProc.reduce((s,r)=>s+r.qty,0);
-  if(subEl)subEl.textContent=todayProc.length+' pickup'+(todayProc.length===1?'':'s')+' · '+totalMilk+'L today';
-  if(procCount)procCount.textContent=todayProc.length?todayProc.length+' entries':'';
+  if(procCount)procCount.textContent='';
   if(procEl){
     if(!todayProc.length){
       procEl.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No pickups today</div></div>';
@@ -4174,11 +4211,13 @@ function renderRiderView(){
     }
   }
 
-  // Distribution deliveries
-  const todayDist=distRecords.filter(r=>r.date===today);
+  // Distribution deliveries — ONLY bills the admin pushed to this rider
+  const myname=currentUser?currentUser.username:'';
+  const todayDist=distRecords.filter(r=>r.rider&&r.rider===myname).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,30);
   const distEl=document.getElementById('riderDistList');
   const distCount=document.getElementById('riderDistCount');
   const totalCollect=todayDist.filter(r=>r.balance>0).reduce((s,r)=>s+r.balance,0);
+  if(subEl)subEl.textContent=todayDist.length+' bill'+(todayDist.length===1?'':'s')+' assigned to you';
   if(distCount)distCount.textContent=todayDist.length?(totalCollect>0?'Collect ₹'+totalCollect.toFixed(0):'All settled'):'';
   if(distEl){
     if(!todayDist.length){
