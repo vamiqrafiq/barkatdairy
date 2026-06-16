@@ -1825,6 +1825,22 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <div class="sum-metric-label">Batches</div>
   </div>
 
+  <!-- Batch Profit over a date range — ADMIN ONLY -->
+  <div class="section" id="sum-batchprofit" style="display:none;border:1.5px solid #fde68a;background:#fffdf5">
+    <div class="sec-title" style="color:#7a5a00">💰 Batch Profit (admin only)</div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><label class="inp-label">From</label><input type="date" id="bp-from" onchange="batchProfitRange()"/></div>
+      <div><label class="inp-label">To</label><input type="date" id="bp-to" onchange="batchProfitRange()"/></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+      <button class="btn btn-outline btn-sm" onclick="bpQuick('today')">Today</button>
+      <button class="btn btn-outline btn-sm" onclick="bpQuick('7')">7 days</button>
+      <button class="btn btn-outline btn-sm" onclick="bpQuick('month')">This month</button>
+      <button class="btn btn-outline btn-sm" onclick="bpQuick('all')">All</button>
+    </div>
+    <div id="bp-result"></div>
+  </div>
+
   <!-- Sections -->
   <div class="section">
     <div class="sec-title">🐄 Procurement</div>
@@ -2329,7 +2345,7 @@ async function doLogin(){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v18 (batch finance + overhead 5100)';
+var APP_BUILD='2026-06-14 · v19 (plant-wide batch profit)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -5409,6 +5425,54 @@ function batchFinance(b){
   const net=revenue-totalCost;
   return {revenue,milkCost,milkSrc,smpCost,packCost,cultCost,fix,variableCost,totalCost,net,cups,perCup:cups?totalCost/cups:0};
 }
+// Plant-wide batch profit over a date range (ADMIN ONLY)
+function batchProfitRange(){
+  const el=document.getElementById('bp-result');if(!el)return;
+  if(!_hasRole(currentUser,'admin')){el.innerHTML='';return;}
+  const from=(document.getElementById('bp-from')||{}).value||'';
+  const to=(document.getElementById('bp-to')||{}).value||'';
+  const batches=productionBatches.filter(b=>{
+    if(!b)return false;
+    const isB=(b.cups200!=null||b.cups400!=null||b.finalVol!=null||Array.isArray(b.procIds));
+    if(!isB)return false;
+    const d=b.date||'';
+    if(from&&d<from)return false;
+    if(to&&d>to)return false;
+    return true;
+  });
+  let rev=0,milk=0,smp=0,pack=0,cult=0,cups=0;const days={};
+  batches.forEach(b=>{const f=batchFinance(b);rev+=f.revenue;milk+=f.milkCost;smp+=f.smpCost;pack+=f.packCost;cult+=f.cultCost;cups+=f.cups;if(b.date)days[b.date]=1;});
+  const fixPerDay=settings.fix||5100;
+  const nDays=Object.keys(days).length;
+  const overhead=fixPerDay*nDays; // overhead is per production-day, not per batch
+  const varCost=milk+smp+pack+cult;
+  const totalCost=varCost+overhead;
+  const net=rev-totalCost;
+  const R=(l,v,c)=>'<div class="row"><span class="rl">'+l+'</span><span class="rv"'+(c?' style="color:'+c+'"':'')+'>'+v+'</span></div>';
+  if(!batches.length){el.innerHTML='<div style="font-size:12px;color:var(--gray);padding:8px 0">No batches in this range.</div>';return;}
+  const netCol=net>=0?'var(--green)':'var(--red)';
+  el.innerHTML=
+    R('Batches',batches.length+' over '+nDays+' day'+(nDays===1?'':'s'))+
+    R('Cups produced',cups)+
+    R('Revenue','₹'+rev.toFixed(0),'var(--green)')+
+    R('Milk cost','−₹'+milk.toFixed(0),'var(--red)')+
+    R('SMP cost','−₹'+smp.toFixed(0),'var(--red)')+
+    R('Packaging','−₹'+pack.toFixed(0),'var(--red)')+
+    R('Culture','−₹'+cult.toFixed(0),'var(--red)')+
+    R('Overhead ('+nDays+'×₹'+fixPerDay+')','−₹'+overhead.toFixed(0),'var(--red)')+
+    R('Total expenses','−₹'+totalCost.toFixed(0),'var(--red)')+
+    '<div style="background:#fff;border:1px solid #fde68a;border-radius:10px;padding:11px 13px;margin-top:8px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:700;color:var(--dark)">Net Profit / Loss</span><span style="font-size:19px;font-weight:700;color:'+netCol+'">'+(net>=0?'₹':'−₹')+Math.abs(net).toFixed(0)+'</span></div>'+
+    '<div style="font-size:11px;color:var(--gray);margin-top:6px;text-align:right">Avg ₹'+(cups?(net/cups).toFixed(2):'0')+' profit/cup · ₹'+(cups?(totalCost/cups).toFixed(2):'0')+' cost/cup</div>';
+}
+function bpQuick(p){
+  const today=new Date();const iso=d=>d.toISOString().split('T')[0];
+  const fr=document.getElementById('bp-from'),to=document.getElementById('bp-to');if(!fr||!to)return;
+  if(p==='today'){fr.value=iso(today);to.value=iso(today);}
+  else if(p==='7'){const d=new Date();d.setDate(d.getDate()-6);fr.value=iso(d);to.value=iso(today);}
+  else if(p==='month'){const d=new Date();d.setDate(1);fr.value=iso(d);to.value=iso(today);}
+  else if(p==='all'){fr.value='';to.value='';}
+  batchProfitRange();
+}
 
 // ── Cold Store View ──
 function renderColdStore(){
@@ -5726,6 +5790,8 @@ function renderSummary(){
   if(finMetrics)finMetrics.style.display=isAdmin?'block':'none';
   const pdfBtn=document.getElementById('sum-pdf-btn');
   if(pdfBtn)pdfBtn.style.display=isAdmin?'inline-flex':'none';
+  const bpSec=document.getElementById('sum-batchprofit');
+  if(bpSec){bpSec.style.display=isAdmin?'block':'none';if(isAdmin){const to=document.getElementById('bp-to'),fr=document.getElementById('bp-from');if(to&&!to.value)to.value=new Date().toISOString().split('T')[0];if(fr&&!fr.value){const d=new Date();d.setDate(1);fr.value=d.toISOString().split('T')[0];}batchProfitRange();}}
 
   const dayB=productionBatches.filter(b=>b.date===date);
   const dayP=records.filter(r=>r.date===date);
