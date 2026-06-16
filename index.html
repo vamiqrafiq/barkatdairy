@@ -2262,7 +2262,7 @@ async function doLogin(){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v9 (camera-optional, no-cache)';
+var APP_BUILD='2026-06-14 · v10 (sync-safe writes)';
 window.addEventListener('DOMContentLoaded',function(){
   migratePasswords();
   var vt=document.getElementById('appVersionTag');if(vt)vt.textContent='Build '+APP_BUILD;
@@ -5693,7 +5693,7 @@ function clearBatchRecords(){if(confirm('Delete ALL batch records?')){production
 function clearCipRecords(){if(confirm('Delete ALL CIP records?')){cipLogs=[];store('cipLogs',cipLogs);renderCIPList();renderCIPCalendar();}}
 
 // ═══ FIREBASE CLOUD SYNC ═══
-var _fb=null,_fbReady=false,_fbListening=false,_fbAuthed=false;
+var _fb=null,_fbReady=false,_fbListening=false,_fbAuthed=false,_syncReady=false;
 var _syncKeys=['records','distRecords','testRecords','productionBatches','cipLogs',
   'users','settings','savedSuppliers','savedDistributors','attRecords',
   'invEntries','invOpening','returnsLog','paymentsLog','auditLog','rateOverride'];
@@ -5792,6 +5792,7 @@ function _syncDown(){
       }
     });
     if(!_fbListening)_listen();
+    _syncReady=true; // safe to push local changes now (local is merged with cloud)
     migratePasswords();
     _refreshUI();
   }).catch(function(e){console.warn('Sync error:',e);});
@@ -5802,7 +5803,7 @@ function _syncUp(){
   _syncKeys.forEach(function(k){
     try{var v=JSON.parse(localStorage.getItem('bd_'+k)||'null');if(v!=null)d[k]=v;}catch(e){}
   });
-  _fb.ref('bd').set(d).then(function(){if(!_fbListening)_listen();});
+  _fb.ref('bd').set(d).then(function(){_syncReady=true;if(!_fbListening)_listen();});
 }
 function _listen(){
   _fbListening=true;
@@ -5833,8 +5834,11 @@ var _origStore = store;
 store = function(k,v){
   // Save to localStorage (original)
   try{localStorage.setItem('bd_'+k,JSON.stringify(v));}catch(e){}
-  // Save to Firebase cloud
-  if(_fbReady)try{_fb.ref('bd/'+k).set(v);}catch(e){}
+  // Push to cloud ONLY once we're authed AND have pulled current cloud state.
+  // Writing before the first sync would overwrite other devices' data with this
+  // device's stale copy. After sync, local is already merged with cloud, so a
+  // full-array write is safe and propagates adds + deletes correctly.
+  if(_fbReady&&_fbAuthed&&_syncReady){try{_fb.ref('bd/'+k).set(v);}catch(e){}}
 };
 
 // ════════════════════════════════════════════════
