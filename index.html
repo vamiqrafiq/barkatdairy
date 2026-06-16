@@ -542,6 +542,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <div><label class="inp-label">Target Fat (%)</label><input type="number" id="o-tfat" value="3.5" step="0.1" min="2.5" max="5" oninput="calcOps()"/></div>
       <div><label class="inp-label">Target SNF (%)</label><input type="number" id="o-tsnf" value="8.5" step="0.1" min="7.5" max="10" oninput="calcOps()"/></div>
     </div>
+    <div class="grid2" style="margin-top:8px">
+      <div><label class="inp-label">Flashing water (L) <span style="font-weight:400;color:var(--gray)">0–4</span></label><input type="number" id="o-flash" value="0" step="0.5" min="0" max="4" oninput="calcOps()"/></div>
+      <div class="auto-box" style="display:flex;flex-direction:column;justify-content:center"><div class="auto-box-label">Pour manually</div><div id="o-manualwater" style="font-size:13px;font-weight:700;color:var(--blue);margin-top:2px">—</div></div>
+    </div>
+    <div style="font-size:10px;color:var(--gray);margin-top:6px">Flashing adds water during steam pasteurisation, so it counts toward total water — pour only the "manual" amount.</div>
     <!-- Fat quality bar -->
     <div style="margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
@@ -610,6 +615,23 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <div id="opsInstructions" style="font-size:12px;color:var(--gray);padding:8px 0">
       Enter milk quantity, fat % and SNF % above — the production plan will appear here.
     </div>
+  </div>
+
+  <!-- SMP → Water calculator (control SMP cost) -->
+  <div class="section">
+    <div class="sec-title">💰 Cheapest-SMP Calculator</div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:10px">Enter how much SMP you want to use (less SMP = cheaper). It works out how much water to add so the milk still reaches your Target SNF, and shows the resulting Fat &amp; SNF. Uses the milk qty/fat/snf and Target SNF from above.</div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><label class="inp-label">SMP to use (kg)</label><input type="number" id="o-smpwant" step="0.1" min="0" placeholder="e.g. 2" oninput="calcSmpToWater()"/></div>
+      <div class="auto-box" style="display:flex;flex-direction:column;justify-content:center"><div class="auto-box-label">Water to add</div><div id="sw-water" style="font-size:16px;font-weight:700;color:var(--blue);margin-top:2px">—</div></div>
+    </div>
+    <div class="grid3">
+      <div class="stat"><div class="stat-label">Final Vol</div><div class="stat-val" id="sw-vol" style="font-size:15px">—</div><div class="stat-sub">L</div></div>
+      <div class="stat"><div class="stat-label">Final Fat</div><div class="stat-val" id="sw-fat" style="font-size:15px">—</div><div class="stat-sub">%</div></div>
+      <div class="stat"><div class="stat-label">Final SNF</div><div class="stat-val" id="sw-snf" style="font-size:15px">—</div><div class="stat-sub">%</div></div>
+    </div>
+    <div id="sw-note" style="font-size:11px;color:var(--gray);margin-top:8px"></div>
+    <div id="sw-cost" style="font-size:12px;font-weight:700;margin-top:6px"></div>
   </div>
 
 </div>
@@ -2262,7 +2284,7 @@ async function doLogin(){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v11 (delete-all sync, CIP after Batch)';
+var APP_BUILD='2026-06-14 · v12 (flashing + SMP→water calc)';
 window.addEventListener('DOMContentLoaded',function(){
   migratePasswords();
   var vt=document.getElementById('appVersionTag');if(vt)vt.textContent='Build '+APP_BUILD;
@@ -2396,11 +2418,17 @@ function calcOps(){
   const tsnf=parseFloat(document.getElementById('o-tsnf').value)||0;
   const targetFat=tfat>0?tfat:fat;
   const targetSnf=tsnf>0?tsnf:(s.tsnf||8.5);
-  // Add water only to bring Fat DOWN to target (water is the cheap lever).
-  let w=targetFat<fat?qty*(fat/targetFat-1):0;
-  if(w<0||!isFinite(w))w=0;
-  w=Math.round(w*2)/2;                     // round to nearest 0.5 L
-  const fv=qty+w;                          // final volume
+  // Flashing water (added automatically during steam pasteurisation, 0–4 L)
+  let flash=parseFloat(document.getElementById('o-flash').value)||0;
+  if(flash<0)flash=0;if(flash>4)flash=4;
+  // Total water needed to bring Fat DOWN to target (water is the cheap lever).
+  let totalW=targetFat<fat?qty*(fat/targetFat-1):0;
+  if(totalW<0||!isFinite(totalW))totalW=0;
+  totalW=Math.max(totalW,flash);           // flashing water is always part of the batch
+  totalW=Math.round(totalW*2)/2;
+  const manualW=Math.max(0,Math.round((totalW-flash)*2)/2); // what the operator pours
+  let w=totalW;                            // total water in the batch
+  const fv=qty+totalW;                     // final volume (incl. flashing)
   const fFat=qty*fat/fv;                   // final fat after dilution
   const snfAfterWater=qty*snf/fv;          // SNF after dilution
   let smpKg=(targetSnf-snfAfterWater)*fv/100; // top up SNF with minimal SMP
@@ -2422,7 +2450,8 @@ function calcOps(){
   document.getElementById('o-status').textContent=grade;
 
   // Production plan
-  document.getElementById('r-water').textContent=w>0?w:'None';
+  document.getElementById('r-water').textContent=manualW>0?manualW:'None';
+  const mwEl=document.getElementById('o-manualwater');if(mwEl)mwEl.textContent=(manualW>0?manualW+' L':'None')+(flash>0?' (+'+flash+'L flash)':'');
   document.getElementById('r-smp').textContent=smpKg>0?smpKg.toFixed(2):'None';
   document.getElementById('r-vol').textContent=fv.toFixed(1);
   document.getElementById('r-ffat').textContent=fFat.toFixed(2)+'%';
@@ -2462,17 +2491,50 @@ function calcOps(){
   // Step-by-step instructions (operational only — no money)
   const steps=[];
   if(fatShort) steps.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f8"><div style="width:26px;height:26px;border-radius:50%;background:var(--red);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">!</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--red)">Fat below target</div><div style="font-size:11px;color:var(--gray)">Raw fat ${fat}% is under target ${targetFat}% — water can't raise fat. Add cream or lower the target.</div></div></div>`);
-  if(w>0) steps.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f8"><div style="width:26px;height:26px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${steps.length+1}</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--dark)">Add water</div><div style="font-size:11px;color:var(--gray)">Pour ${w} litres into the vat to bring Fat to ${targetFat}%</div></div></div>`);
+  if(manualW>0) steps.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f8"><div style="width:26px;height:26px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${steps.length+1}</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--dark)">Add water</div><div style="font-size:11px;color:var(--gray)">Pour ${manualW} L into the vat${flash>0?` (flashing adds ${flash} L → ${totalW} L total)`:''} to bring Fat to ${targetFat}%</div></div></div>`);
   if(smpKg>0) steps.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f8"><div style="width:26px;height:26px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${steps.length+1}</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--dark)">Add SMP powder</div><div style="font-size:11px;color:var(--gray)">Dissolve ${smpKg.toFixed(2)} kg in warm water first (only enough to reach SNF ${targetSnf}%)</div></div></div>`);
   steps.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f8"><div style="width:26px;height:26px;border-radius:50%;background:var(--teal);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${steps.length+1}</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--dark)">Mix and verify</div><div style="font-size:11px;color:var(--gray)">Final volume: ${fv.toFixed(1)} L · Fat: ${fFat.toFixed(2)}% · SNF: ${fSnf.toFixed(2)}%</div></div></div>`);
   steps.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 0"><div style="width:26px;height:26px;border-radius:50%;background:var(--gold);color:#1a0000;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${steps.length+1}</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--dark)">Fill cups</div><div style="font-size:11px;color:var(--gray)">${c200} × 200g + ${c400} × 400g = ${c200+c400} cups total</div></div></div>`);
   document.getElementById('opsInstructions').innerHTML=steps.join('');
+  try{calcSmpToWater();}catch(e){}
 }
 function syncSplit(which){
   const a=document.getElementById('o-split200'),b=document.getElementById('o-split400');
   if(!a||!b)return;
   if(which==='200'){let v=parseFloat(a.value);if(isNaN(v))return;v=Math.max(0,Math.min(100,v));b.value=100-v;}
   else{let v=parseFloat(b.value);if(isNaN(v))return;v=Math.max(0,Math.min(100,v));a.value=100-v;}
+}
+// Given an SMP amount, work out the water to add so the milk still hits Target SNF.
+function calcSmpToWater(){
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  const qty=parseFloat(document.getElementById('o-qty').value)||0;
+  const fat=parseFloat(document.getElementById('o-fat').value)||0;
+  const snf=parseFloat(document.getElementById('o-snf').value)||0;
+  const tsnf=parseFloat(document.getElementById('o-tsnf').value)||(settings.tsnf||8.5);
+  let flash=parseFloat(document.getElementById('o-flash').value)||0;if(flash<0)flash=0;if(flash>4)flash=4;
+  const smpWant=parseFloat(document.getElementById('o-smpwant').value);
+  const noteEl=document.getElementById('sw-note');const costEl=document.getElementById('sw-cost');
+  if(!qty||!snf||!tsnf||isNaN(smpWant)){set('sw-water','—');set('sw-vol','—');set('sw-fat','—');set('sw-snf','—');if(noteEl)noteEl.textContent='';if(costEl)costEl.textContent='';return;}
+  // finalSnf = (qty*snf + smp*100)/fv = tsnf  →  fv = (qty*snf + smp*100)/tsnf
+  const fv=(qty*snf + smpWant*100)/tsnf;
+  const totalWater=fv-qty;
+  if(totalWater<-0.05){
+    set('sw-water','0');set('sw-vol',qty.toFixed(1));set('sw-fat',(snf? (qty*fat/qty).toFixed(2):'—'));set('sw-snf',((qty*snf+smpWant*100)/qty).toFixed(2));
+    if(noteEl)noteEl.textContent='⚠️ That much SMP already pushes SNF above target with no water. Use less SMP, or accept higher SNF.';
+    if(costEl)costEl.textContent='';
+    return;
+  }
+  const manualW=Math.max(0,Math.round((totalWater-flash)*2)/2);
+  const finalFat=qty*fat/fv;
+  const finalSnf=(qty*snf+smpWant*100)/fv;
+  const c200=Math.floor(fv*1000*0.6/200), c400=Math.floor(fv*1000*0.4/400);
+  set('sw-water',manualW+' L'+(flash>0?' (+'+flash+'L flash)':''));
+  set('sw-vol',fv.toFixed(1));set('sw-fat',finalFat.toFixed(2));set('sw-snf',finalSnf.toFixed(2));
+  if(noteEl)noteEl.textContent='Pour '+manualW+' L water'+(flash>0?' (flashing adds '+flash+' L)':'')+' with '+smpWant+' kg SMP → '+fv.toFixed(1)+' L at '+finalFat.toFixed(2)+'% Fat, '+finalSnf.toFixed(2)+'% SNF (~'+(c200+c400)+' cups).';
+  if(costEl){
+    if(_hasRole(currentUser,'admin')){costEl.style.color='var(--dark)';costEl.textContent='SMP cost: ₹'+(smpWant*(settings.smp||305)).toFixed(0);}
+    else costEl.textContent='';
+  }
 }
 
 // ══════════════════════════════════════════
