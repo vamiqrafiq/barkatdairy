@@ -2287,7 +2287,7 @@ async function doLogin(){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v14 (import/restore)';
+var APP_BUILD='2026-06-14 · v15 (multi-select fix)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -4703,26 +4703,41 @@ function setAlcohol(result){
 // ════════════════════════════════════════════════════════════
 // BATCH TAB INIT
 // ════════════════════════════════════════════════════════════
+var _nbSel={}; // selected procurement record ids for the new batch
 function initBatchTab(){
   renderBatchList();
   renderColdStore();
-  // Build the multi-select procurement list
+  _nbSel={};
+  // Build the multi-select procurement list as JS-controlled tap rows.
+  // (Native label+checkbox misbehaves in some Android WebViews — tapping one
+  // would un-tick another — so selection is tracked in JS and works everywhere.)
   const el=document.getElementById('nb-procList');
   if(el){
     if(!records.length){
       el.innerHTML='<div style="font-size:11px;color:var(--gray);padding:8px">No procured milk yet — add it in the Procurement tab first.</div>';
     }else{
-      el.innerHTML=records.slice(0,50).map(r=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #f3f4f8;font-size:12px;cursor:pointer">
-        <input type="checkbox" class="nb-proc-cb" value="${r.id}" data-qty="${r.qty}" data-fat="${r.fat}" data-snf="${r.snf}" onchange="recalcBatchRaw()" style="width:16px;height:16px;accent-color:var(--blue);flex-shrink:0"/>
+      el.innerHTML=records.slice(0,60).map(r=>`<div class="nb-proc-row" data-id="${_esc(String(r.id))}" data-qty="${r.qty}" data-fat="${r.fat}" data-snf="${r.snf}" onclick="toggleNbProc('${_esc(String(r.id))}')" style="display:flex;align-items:center;gap:9px;padding:9px 6px;border-bottom:1px solid #f3f4f8;font-size:12px;cursor:pointer;-webkit-tap-highlight-color:transparent">
+        <span class="nb-check" style="width:21px;height:21px;border:2px solid #cbd5e1;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">​</span>
         <span>${_esc(r.lotId||'No Lot')} · ${_esc(r.supplier)} · ${r.qty}L · ${r.fat}%F ${r.snf}%S · ${r.date}</span>
-      </label>`).join('');
+      </div>`).join('');
     }
   }
 }
+function toggleNbProc(id){
+  if(_nbSel[id])delete _nbSel[id];else _nbSel[id]=1;
+  document.querySelectorAll('.nb-proc-row').forEach(function(row){
+    const sel=_nbSel[row.dataset.id];
+    const chk=row.querySelector('.nb-check');
+    if(chk){chk.style.background=sel?'var(--blue)':'#fff';chk.style.borderColor=sel?'var(--blue)':'#cbd5e1';chk.textContent=sel?'✓':'';}
+    row.style.background=sel?'#eef4ff':'transparent';
+  });
+  recalcBatchRaw();
+}
 function recalcBatchRaw(){
-  const cbs=Array.from(document.querySelectorAll('.nb-proc-cb:checked'));
   let q=0,fw=0,sw=0;
-  cbs.forEach(c=>{const qty=parseFloat(c.dataset.qty)||0;q+=qty;fw+=qty*(parseFloat(c.dataset.fat)||0);sw+=qty*(parseFloat(c.dataset.snf)||0);});
+  document.querySelectorAll('.nb-proc-row').forEach(function(row){
+    if(_nbSel[row.dataset.id]){const qty=parseFloat(row.dataset.qty)||0;q+=qty;fw+=qty*(parseFloat(row.dataset.fat)||0);sw+=qty*(parseFloat(row.dataset.snf)||0);}
+  });
   const fat=q?fw/q:0,snf=q?sw/q:0;
   const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
   set('nb-rawqty',q.toFixed(1));set('nb-rawfat',fat.toFixed(2));set('nb-rawsnf',snf.toFixed(2));
@@ -4737,12 +4752,12 @@ function showNewBatchForm(){
 function prefillFromProc(){/* legacy no-op (single-select removed) */}
 
 function createBatch(){
-  const cbs=Array.from(document.querySelectorAll('.nb-proc-cb:checked'));
-  if(!cbs.length){showAlert('newBatchAlert','alert-red','⚠️ Tick at least one procured lot this batch is made from');return;}
+  const selIds=Object.keys(_nbSel);
+  if(!selIds.length){showAlert('newBatchAlert','alert-red','⚠️ Tap at least one procured lot this batch is made from');return;}
   const procIds=[],lots=[],suppliers=[];
   let q=0,fw=0,sw=0;
-  cbs.forEach(c=>{
-    const rec=records.find(r=>String(r.id)===c.value);
+  selIds.forEach(idStr=>{
+    const rec=records.find(r=>String(r.id)===idStr);
     if(rec){procIds.push(rec.id);lots.push(rec.lotId||('#'+rec.id));if(rec.supplier)suppliers.push(rec.supplier);
       const qty=parseFloat(rec.qty)||0;q+=qty;fw+=qty*(parseFloat(rec.fat)||0);sw+=qty*(parseFloat(rec.snf)||0);}
   });
@@ -4765,10 +4780,9 @@ function createBatch(){
   store('productionBatches',productionBatches);
   document.getElementById('newBatchForm').style.display='none';
   showAlert('newBatchAlert','alert-green','✅ Batch saved: '+batch.batchId);
-  document.querySelectorAll('.nb-proc-cb').forEach(c=>c.checked=false);
+  _nbSel={};
   ['nb-water','nb-smp','nb-fvol','nb-ffat','nb-fsnf','nb-cbrand','nb-cexp','nb-cml','nb-ctime','nb-ptemp','nb-ptime','nb-ftemp','nb-c200','nb-c400','nb-inctime','nb-coldtime'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
-  recalcBatchRaw();
-  renderBatchList();
+  initBatchTab();
 }
 
 // ════════════════════════════════════════════════════════════
