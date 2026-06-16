@@ -2329,7 +2329,7 @@ async function doLogin(){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v17 (batch finance, admin-only)';
+var APP_BUILD='2026-06-14 · v18 (batch finance + overhead 5100)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2346,6 +2346,8 @@ function _checkForUpdate(){
 window.addEventListener('DOMContentLoaded',function(){
   migratePasswords();
   _checkForUpdate();
+  // One-time bump of fixed overhead 3800 -> 5100 (preserves other settings)
+  try{if(!localStorage.getItem('bd_fix5100')){if(!settings.fix||settings.fix===3800){settings.fix=5100;store('settings',settings);}localStorage.setItem('bd_fix5100','1');}}catch(e){}
   var vt=document.getElementById('appVersionTag');if(vt)vt.textContent='Build '+APP_BUILD;
   try{
     const saved=JSON.parse(localStorage.getItem('bd_savedCreds')||'null');
