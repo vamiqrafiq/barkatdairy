@@ -1839,6 +1839,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <button class="btn btn-outline btn-sm" onclick="bpQuick('all')">All</button>
     </div>
     <div id="bp-result"></div>
+    <button class="btn btn-gold btn-full" style="margin-top:10px" onclick="exportSalesPDF()">📄 Sales Report PDF (this range)</button>
   </div>
 
   <!-- Sections -->
@@ -2345,7 +2346,7 @@ async function doLogin(){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v20 (true cash view)';
+var APP_BUILD='2026-06-14 · v21 (sales PDF)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -5482,6 +5483,56 @@ function batchProfitRange(){
     '<div style="background:#fff;border:1px solid #99f6e4;border-radius:10px;padding:11px 13px;margin-top:8px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:700;color:var(--dark)">Real Cash Flow (collected − costs)</span><span style="font-size:19px;font-weight:700;color:'+cfCol+'">'+(cashFlow>=0?'₹':'−₹')+Math.abs(cashFlow).toFixed(0)+'</span></div>'+
     '<div style="font-size:10px;color:var(--gray);margin-top:6px">Net profit assumes every cup is sold at list price; cash flow is what you actually collected from distributors minus production costs. The gap = unsold cups + credit still owed.</div>';
   el.innerHTML=batchBlock+cashBlock;
+}
+// Sales report PDF (distribution = sales) for the Batch-Profit date range. Admin only.
+function exportSalesPDF(){
+  if(!_hasRole(currentUser,'admin')){alert('Admin access required.');return;}
+  const from=(document.getElementById('bp-from')||{}).value||'';
+  const to=(document.getElementById('bp-to')||{}).value||'';
+  const inR=d=>{d=d||'';if(from&&d<from)return false;if(to&&d>to)return false;return true;};
+  const rows=distRecords.filter(r=>inR(r.date)).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const sepPay=(Array.isArray(paymentsLog)?paymentsLog:[]).filter(p=>inR(p.date)).reduce((s,p)=>s+(p.amount||0),0);
+  let tBill=0,tPaid=0,tc2=0,tc4=0;
+  const body=rows.map(r=>{
+    tBill+=r.amount||0;tPaid+=r.paid||0;tc2+=r.c200||0;tc4+=r.c400||0;
+    return `<tr><td>${r.date||'-'}</td><td>${_esc(r.dist||'')}</td><td>${r.c200||0}</td><td>${r.c400||0}</td><td>${(r.c200||0)+(r.c400||0)}</td><td>₹${(r.amount||0).toFixed(0)}</td><td>₹${(r.paid||0).toFixed(0)}</td><td>₹${(r.balance!=null?r.balance:((r.amount||0)-(r.paid||0))).toFixed(0)}</td></tr>`;
+  }).join('')||'<tr><td colspan="8">No sales in this range.</td></tr>';
+  const collected=tPaid+sepPay;
+  const outstanding=tBill-collected;
+  const rangeLabel=(from||'start')+' to '+(to||'today');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Sales Report</title>
+<style>body{font-family:Arial,sans-serif;padding:24px;color:#1e293b;max-width:800px;margin:0 auto}
+h1{color:#0d1b4b;font-size:20px;border-bottom:3px solid #c49a2a;padding-bottom:8px}
+.sub{font-size:12px;color:#666;margin-bottom:14px}
+table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px}
+th{background:#0f766e;color:#fff;padding:7px 9px;text-align:left;font-size:11px}
+td{padding:6px 9px;border-bottom:1px solid #e5e7eb}
+tfoot td{font-weight:700;border-top:2px solid #0f766e}
+.cards{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.c{flex:1;min-width:120px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:10px 12px}
+.cv{font-size:18px;font-weight:700;color:#0f766e}.cl{font-size:10px;color:#555;text-transform:uppercase}
+.btn{background:#0d1b4b;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:13px;margin-bottom:16px}
+@media print{.btn{display:none}}</style></head><body>
+<button class="btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+<h1>BARKAT DAIRY PLANT — Sales Report</h1>
+<div class="sub">Period: ${rangeLabel} · ${rows.length} sale${rows.length===1?'':'s'}</div>
+<div class="cards">
+  <div class="c"><div class="cv">${tc2+tc4}</div><div class="cl">Cups Sold (${tc2}×200g · ${tc4}×400g)</div></div>
+  <div class="c"><div class="cv">₹${tBill.toFixed(0)}</div><div class="cl">Total Billed</div></div>
+  <div class="c"><div class="cv">₹${collected.toFixed(0)}</div><div class="cl">Collected</div></div>
+  <div class="c"><div class="cv" style="color:${outstanding>0.5?'#b91c1c':'#15803d'}">₹${outstanding.toFixed(0)}</div><div class="cl">Outstanding</div></div>
+</div>
+<table>
+  <thead><tr><th>Date</th><th>Distributor</th><th>200g</th><th>400g</th><th>Cups</th><th>Billed</th><th>Paid</th><th>Balance</th></tr></thead>
+  <tbody>${body}</tbody>
+  <tfoot><tr><td colspan="2">TOTAL</td><td>${tc2}</td><td>${tc4}</td><td>${tc2+tc4}</td><td>₹${tBill.toFixed(0)}</td><td>₹${tPaid.toFixed(0)}</td><td>₹${(tBill-tPaid).toFixed(0)}</td></tr></tfoot>
+</table>
+${sepPay>0?'<div class="sub">Plus ₹'+sepPay.toFixed(0)+' collected via separate payments in this period (included in Collected above).</div>':''}
+</body></html>`;
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),20000);
 }
 function bpQuick(p){
   const today=new Date();const iso=d=>d.toISOString().split('T')[0];
