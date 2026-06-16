@@ -497,8 +497,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <button class="tab" onclick="goTab('attend',this);initAttendance()">🕐 Attendance</button>
     <button class="tab active" onclick="goTab('proc',this)">🐄 Procurement</button>
     <button class="tab" onclick="goTab('ops',this)">⚙️ Operations</button>
-    <button class="tab" onclick="goTab('cip',this)">🧼 CIP</button>
     <button class="tab" onclick="goTab('batch',this);initBatchTab()">🧫 Batches</button>
+    <button class="tab" onclick="goTab('cip',this)">🧼 CIP</button>
     <button class="tab" onclick="goTab('dist',this)">🚚 Distribution</button>
     <button class="tab" onclick="goTab('returns',this);renderReturns()">↩️ Returns</button>
     <button class="tab" onclick="goTab('recall',this);initRecall()">🔍 Recall</button>
@@ -2262,7 +2262,7 @@ async function doLogin(){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v10 (sync-safe writes)';
+var APP_BUILD='2026-06-14 · v11 (delete-all sync, CIP after Batch)';
 window.addEventListener('DOMContentLoaded',function(){
   migratePasswords();
   var vt=document.getElementById('appVersionTag');if(vt)vt.textContent='Build '+APP_BUILD;
@@ -5747,6 +5747,7 @@ function _fbSharedSignIn(){
 // variable. (The app reads block-scoped `let` globals, which are NOT the same as
 // window.* — writing only window[k] left the UI showing stale data.)
 function _setGlobal(k,v){
+  if(v&&typeof v==='object'&&!Array.isArray(v)&&v.__empty)v=[]; // decode empty marker
   try{localStorage.setItem('bd_'+k,JSON.stringify(v));}catch(e){}
   switch(k){
     case 'records':records=v;break;
@@ -5775,7 +5776,10 @@ function _syncDown(){
     if(!d){_syncUp();return;}
     _syncKeys.forEach(function(k){
       var cloud=d[k],local=load(k,null);
-      if(cloud!=null&&Array.isArray(cloud)&&Array.isArray(local)){
+      if(cloud&&typeof cloud==='object'&&!Array.isArray(cloud)&&cloud.__empty){
+        // Cloud was deliberately emptied (delete-all) → clear local too
+        _setGlobal(k,[]);
+      }else if(cloud!=null&&Array.isArray(cloud)&&Array.isArray(local)){
         // Both sides have a list → merge by natural key, push any local-only items up
         var _rid=function(x){return x&&(x.id||x.batchId||x.username||x.lotId);};
         var ids={};cloud.forEach(function(x){var r=_rid(x);if(r)ids[r]=1;});
@@ -5838,7 +5842,13 @@ store = function(k,v){
   // Writing before the first sync would overwrite other devices' data with this
   // device's stale copy. After sync, local is already merged with cloud, so a
   // full-array write is safe and propagates adds + deletes correctly.
-  if(_fbReady&&_fbAuthed&&_syncReady){try{_fb.ref('bd/'+k).set(v);}catch(e){}}
+  if(_fbReady&&_fbAuthed&&_syncReady){
+    // Firebase stores an empty array as null, which other devices can't tell
+    // apart from "never created" — so an empty list is written as an explicit
+    // {__empty:true} marker so delete-all propagates everywhere.
+    var out=(Array.isArray(v)&&v.length===0)?{__empty:true}:v;
+    try{_fb.ref('bd/'+k).set(out);}catch(e){}
+  }
 };
 
 // ════════════════════════════════════════════════
