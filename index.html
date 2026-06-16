@@ -1132,8 +1132,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <div class="sec-title">📤 Export &amp; Backup</div>
     <div style="font-size:11px;color:var(--gray);margin-bottom:10px">Download your data for records or migration.</div>
     <button class="btn btn-green btn-full" onclick="exportAllData()" style="margin-bottom:8px">💾 Full Backup (JSON) — Admin only</button>
+    <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importDataFile(this)"/>
+    <button class="btn btn-gold btn-full" onclick="document.getElementById('importFile').click()" style="margin-bottom:8px">📥 Import / Restore Backup (merges + syncs)</button>
     <button class="btn btn-primary btn-full" onclick="exportExcel()" style="margin-bottom:8px">📊 Export as CSV (Excel)</button>
     <button class="btn btn-outline btn-full" onclick="exportRecords()">📄 Procurement Records (Text)</button>
+    <div id="importAlert" style="margin-top:8px"></div>
   </div>
 
   <!-- ⑥ Rate Table -->
@@ -2284,7 +2287,7 @@ async function doLogin(){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v13 (auto-update)';
+var APP_BUILD='2026-06-14 · v14 (import/restore)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -6288,6 +6291,33 @@ function exportAllData(){
   setTimeout(function(){URL.revokeObjectURL(url);},10000);
 }
 
+function importDataFile(input){
+  var f=input&&input.files&&input.files[0];
+  input.value='';
+  if(!f)return;
+  var rd=new FileReader();
+  rd.onload=function(){
+    var data;try{data=JSON.parse(rd.result);}catch(e){alert('That file is not a valid backup (JSON).');return;}
+    var listKeys=['records','distRecords','testRecords','productionBatches','cipLogs','attRecords','invEntries','returnsLog','paymentsLog','auditLog','savedSuppliers','savedDistributors'];
+    var rid=function(x){return x&&(x.id||x.batchId||x.username||x.lotId);};
+    var added=0;
+    listKeys.forEach(function(k){
+      if(!Array.isArray(data[k]))return;
+      var cur=load(k,[]);if(!Array.isArray(cur))cur=[];
+      var prim=(typeof data[k][0]==='object');
+      var seen={};cur.forEach(function(x){var r=prim?rid(x):x;if(r!=null)seen[r]=1;});
+      data[k].forEach(function(x){var r=prim?rid(x):x;if(r!=null&&!seen[r]){cur.unshift(x);seen[r]=1;added++;}});
+      _setGlobal(k,cur);store(k,cur);
+    });
+    if(data.settings&&typeof data.settings==='object'){settings=Object.assign({},settings,data.settings);store('settings',settings);}
+    if(data.invOpening&&typeof data.invOpening==='object'){invOpening=Object.assign({},invOpening,data.invOpening);store('invOpening',invOpening);}
+    try{if(typeof _refreshUI==='function')_refreshUI();}catch(e){}
+    var a=document.getElementById('importAlert');
+    var msg='✅ Imported '+added+' new record'+(added===1?'':'s')+'. Synced to all devices.';
+    if(a){a.innerHTML='<div class="alert alert-green">'+msg+'</div>';setTimeout(function(){a.innerHTML='';},5000);}else alert(msg);
+  };
+  rd.readAsText(f);
+}
 function exportExcel(){
   // Build CSV for procurement + distribution + payments
   var rows=[];
