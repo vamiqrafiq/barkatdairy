@@ -1,1 +1,1 @@
-2026-06-14 · v19 (plant-wide batch profit)
+2026-06-14 · v20 (true cash view)
