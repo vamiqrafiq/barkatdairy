@@ -490,6 +490,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <div class="appbar-info">
       <div class="appbar-title">Barkat Dairy</div>
       <div class="appbar-user" id="appbarUser">Staff Portal</div>
+      <div id="syncStatus" style="font-size:10px;font-weight:700;margin-top:2px;color:#fbbf24">☁️ connecting…</div>
     </div>
     <button class="logout-btn" onclick="doLogout()">Logout</button>
   </div>
@@ -2432,7 +2433,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v27 (user list cloud-authoritative)';
+var APP_BUILD='2026-06-14 · v28 (cloud sync status indicator)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -6283,6 +6284,13 @@ function _initFB(){
 // from the app's authorised domain, so the referrer-locked API key allows it.
 var _SYNC_EMAIL='appsync@barkatdairy.app';
 var _SYNC_PW='BdpSync_8FwYowbbS5UJdrDO!9';
+function _updateSyncStatus(){
+  var el=document.getElementById('syncStatus');if(!el)return;
+  if(typeof firebase==='undefined'||typeof _fbReady==='undefined'||!_fbReady){el.textContent='⚠️ offline — not connected to cloud';el.style.color='#f87171';return;}
+  if(_fbAuthed){el.textContent='✅ Synced to cloud';el.style.color='#86efac';}
+  else{el.textContent='☁️ connecting to cloud…';el.style.color='#fbbf24';}
+}
+setInterval(_updateSyncStatus,3000);
 function _fbSharedSignIn(){
   try{
     if(typeof firebase==='undefined'||typeof firebase.auth!=='function')return;

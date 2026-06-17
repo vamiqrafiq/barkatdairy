@@ -1,1 +1,1 @@
-2026-06-14 · v27 (user list cloud-authoritative)
+2026-06-14 · v28 (cloud sync status indicator)
