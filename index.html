@@ -1114,16 +1114,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
           <div><label class="inp-label">Password</label><input type="password" id="nu-pass" placeholder="min 6 chars"/></div>
         </div>
         <div style="margin-bottom:12px">
-          <label class="inp-label">Roles <span style="font-weight:400;color:var(--gray)">(select all that apply)</span></label>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px" id="nu-roles-grid">
-            <label style="display:flex;align-items:center;gap:7px;background:var(--light);border-radius:9px;padding:8px 10px;cursor:pointer"><input type="checkbox" value="staff" checked style="width:15px;height:15px;accent-color:var(--blue)"/> <span style="font-size:12px;font-weight:600">👤 Staff</span></label>
-            <label style="display:flex;align-items:center;gap:7px;background:var(--light);border-radius:9px;padding:8px 10px;cursor:pointer"><input type="checkbox" value="ops"   style="width:15px;height:15px;accent-color:var(--blue)"/> <span style="font-size:12px;font-weight:600">⚙️ Operations</span></label>
-            <label style="display:flex;align-items:center;gap:7px;background:var(--light);border-radius:9px;padding:8px 10px;cursor:pointer"><input type="checkbox" value="proc"  style="width:15px;height:15px;accent-color:var(--blue)"/> <span style="font-size:12px;font-weight:600">🐄 Procurement</span></label>
-            <label style="display:flex;align-items:center;gap:7px;background:var(--light);border-radius:9px;padding:8px 10px;cursor:pointer"><input type="checkbox" value="dist"  style="width:15px;height:15px;accent-color:var(--blue)"/> <span style="font-size:12px;font-weight:600">🚚 Distribution</span></label>
-            <label style="display:flex;align-items:center;gap:7px;background:var(--light);border-radius:9px;padding:8px 10px;cursor:pointer"><input type="checkbox" value="test"  style="width:15px;height:15px;accent-color:var(--blue)"/> <span style="font-size:12px;font-weight:600">🔬 Testing</span></label>
-            <label style="display:flex;align-items:center;gap:7px;background:var(--light);border-radius:9px;padding:8px 10px;cursor:pointer"><input type="checkbox" value="rider" style="width:15px;height:15px;accent-color:var(--blue)"/> <span style="font-size:12px;font-weight:600">🛵 Rider</span></label>
-            <label style="display:flex;align-items:center;gap:7px;background:var(--light);border-radius:9px;padding:8px 10px;cursor:pointer"><input type="checkbox" value="labour" style="width:15px;height:15px;accent-color:var(--blue)"/> <span style="font-size:12px;font-weight:600">👷 Labour (attendance only)</span></label>
-          </div>
+          <label class="inp-label">Roles <span style="font-weight:400;color:var(--gray)">(tap all that apply)</span></label>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px" id="nu-roles-grid"></div>
         </div>
         <button class="btn btn-primary btn-full" onclick="addUser()">✅ Add Staff Member</button>
         <div id="userAlert" style="margin-top:8px"></div>
@@ -2440,7 +2432,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v25 (edit users: rename/roles/password)';
+var APP_BUILD='2026-06-14 · v26 (multi-role tap chips)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3467,6 +3459,12 @@ function renderTestHistory(){
 // ══════════════════════════════════════════
 var _roleDesc={admin:'Full access + admin panel',staff:'All sections',ops:'Operations only',proc:'Procurement only',dist:'Distribution only',test:'Testing only',rider:'Deliveries + rider view',labour:'Attendance only'};
 var _roleColors={admin:'#c49a2a',staff:'var(--blue)',ops:'var(--teal)',proc:'var(--green)',dist:'#0369a1',test:'#7c3aed',rider:'#ea580c',labour:'#a16207'};
+// Role selector as tap-chips (native checkboxes misbehave in the Android WebView)
+var _ALL_ROLES=['admin','ops','proc','dist','test','rider','labour'];
+function _chipStyle(on){return 'display:inline-flex;align-items:center;justify-content:center;padding:8px 11px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent;border:1.5px solid '+(on?'#1a3a8f':'#e5e7eb')+';background:'+(on?'#1a3a8f':'#fff')+';color:'+(on?'#fff':'var(--gray)')+';';}
+function _chipsHTML(selected){selected=selected||[];return _ALL_ROLES.map(function(r){var on=selected.indexOf(r)>=0;return '<span class="role-chip" data-role="'+r+'" data-on="'+(on?'1':'0')+'" onclick="toggleRoleChip(this)" style="'+_chipStyle(on)+'">'+r+'</span>';}).join('');}
+function toggleRoleChip(el){var on=el.getAttribute('data-on')!=='1';el.setAttribute('data-on',on?'1':'0');el.style.cssText=_chipStyle(on);}
+function _selectedRoles(sel){return Array.from(document.querySelectorAll(sel+' .role-chip[data-on="1"]')).map(function(c){return c.getAttribute('data-role');});}
 function renderUsers(){
   const el=document.getElementById('userList');if(!el)return;
   const heroStaff=document.getElementById('admin-hero-staff');
@@ -3503,16 +3501,17 @@ function renderUsers(){
           <div><label class="inp-label">Display name</label><input type="text" id="edName-${i}" value="${_esc(u.name||'')}"/></div>
           <div><label class="inp-label">Username (login)</label><input type="text" id="edUser-${i}" value="${_esc(u.username||'')}" autocomplete="off"/></div>
         </div>
-        <label class="inp-label">Roles</label>
-        <div id="edRoles-${i}" style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:5px 0 8px">
-          ${['admin','ops','proc','dist','test','rider','labour'].map(rn=>`<label style="display:flex;align-items:center;gap:6px;background:#fff;border-radius:8px;padding:6px 8px;font-size:11px;cursor:pointer"><input type="checkbox" class="edRole-${i}" value="${rn}"${roles.indexOf(rn)>=0?' checked':''} style="width:14px;height:14px;accent-color:var(--blue)"/> ${rn}</label>`).join('')}
-        </div>
+        <label class="inp-label">Roles (tap to toggle)</label>
+        <div id="edRoles-${i}" style="display:flex;flex-wrap:wrap;gap:6px;margin:5px 0 8px">${_chipsHTML(roles)}</div>
         <div style="font-size:10px;color:var(--gray);margin-bottom:6px">If you change the username you must also set a new password (min 6).</div>
         <input type="password" id="edPw-${i}" placeholder="New password (needed only if username changed)" autocomplete="new-password" style="margin-bottom:6px"/>
         <button class="btn btn-primary btn-sm btn-full" onclick="saveUserEdit(${i})">💾 Save changes</button>
       </div>
     </div>`;
   }).join('');
+  // Populate the Add-Staff role chips (only when empty so we don't reset a selection)
+  const ng=document.getElementById('nu-roles-grid');
+  if(ng&&!ng.querySelector('.role-chip'))ng.innerHTML=_chipsHTML([]);
 }
 function toggleEditForm(i){const f=document.getElementById('editForm-'+i);if(f)f.style.display=f.style.display==='none'?'block':'none';}
 async function saveUserEdit(i){
@@ -3520,7 +3519,7 @@ async function saveUserEdit(i){
   const name=(document.getElementById('edName-'+i).value||'').trim();
   const newUser=(document.getElementById('edUser-'+i).value||'').trim();
   const newPw=(document.getElementById('edPw-'+i).value||'').trim();
-  const roles=Array.from(document.querySelectorAll('.edRole-'+i+':checked')).map(c=>c.value);
+  const roles=_selectedRoles('#edRoles-'+i);
   if(!name||!newUser){showAlert('userAlert','alert-red','Name and username are required');return;}
   if(!roles.length){showAlert('userAlert','alert-red','Pick at least one role');return;}
   const oldUser=users[i].username;
@@ -3564,9 +3563,10 @@ async function addUser(){
   const displayName=document.getElementById('nu-display').value.trim();
   const username=document.getElementById('nu-name').value.trim();
   const pass=document.getElementById('nu-pass').value.trim();
-  const checkedBoxes=Array.from(document.querySelectorAll('#nu-roles-grid input[type=checkbox]:checked')).map(c=>c.value);
-  const roles=checkedBoxes.length?checkedBoxes:['staff'];
+  const picked=_selectedRoles('#nu-roles-grid');
+  const roles=picked.length?picked:['staff'];
   if(!displayName||!username||!pass){showAlert('userAlert','alert-red','Fill display name, username and password');return;}
+  if(!picked.length){showAlert('userAlert','alert-red','Tap at least one role');return;}
   if(pass.length<6){showAlert('userAlert','alert-red','Password must be at least 6 characters');return;}
   if(users.find(u=>u.username===username)){showAlert('userAlert','alert-red','Username already exists');return;}
   // Store a password hash (never plaintext); keep role (legacy compat) and roles (array)
@@ -3576,8 +3576,8 @@ async function addUser(){
   document.getElementById('nu-display').value='';
   document.getElementById('nu-name').value='';
   document.getElementById('nu-pass').value='';
-  // Reset checkboxes to default (staff only)
-  document.querySelectorAll('#nu-roles-grid input[type=checkbox]').forEach(c=>{c.checked=c.value==='staff';});
+  // Reset the role chips
+  const ng=document.getElementById('nu-roles-grid');if(ng)ng.innerHTML=_chipsHTML([]);
   showAlert('userAlert','alert-green','✅ '+displayName+' added (login: '+username+')');
 }
 function removeUser(i){if(_hasRole(users[i],'admin'))return;users.splice(i,1);store('users',users);renderUsers();}

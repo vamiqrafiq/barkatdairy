@@ -1,1 +1,1 @@
-2026-06-14 · v25 (edit users: rename/roles/password)
+2026-06-14 · v26 (multi-role tap chips)
