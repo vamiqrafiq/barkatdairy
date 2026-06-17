@@ -2432,7 +2432,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v26 (multi-role tap chips)';
+var APP_BUILD='2026-06-14 · v27 (user list cloud-authoritative)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -6329,7 +6329,11 @@ function _syncDown(){
     if(!d){_syncUp();return;}
     _syncKeys.forEach(function(k){
       var cloud=d[k],local=load(k,null);
-      if(cloud&&typeof cloud==='object'&&!Array.isArray(cloud)&&cloud.__empty){
+      if(k==='users'&&Array.isArray(cloud)&&cloud.length){
+        // User list is managed centrally by admin — cloud is authoritative so
+        // renames/removals propagate (no merging old usernames back in).
+        _setGlobal('users',cloud);
+      }else if(cloud&&typeof cloud==='object'&&!Array.isArray(cloud)&&cloud.__empty){
         // Cloud was deliberately emptied (delete-all) → clear local too
         _setGlobal(k,[]);
       }else if(cloud!=null&&Array.isArray(cloud)&&Array.isArray(local)){
