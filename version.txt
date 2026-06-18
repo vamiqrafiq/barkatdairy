@@ -1,1 +1,1 @@
-2026-06-14 · v29 (simple CIP, recall details, calc cups, inv edit, AI errors)
+2026-06-14 · v30 (calc finance admin-only, AI quota msg)

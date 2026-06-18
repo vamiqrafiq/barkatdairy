@@ -932,6 +932,12 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <div class="stat"><div class="stat-label">400g Cups</div><div class="stat-val" id="ct-c400" style="font-size:16px">—</div></div>
       <div class="stat" style="background:#fff8e7"><div class="stat-label">Total</div><div class="stat-val" id="ct-ctotal" style="font-size:16px;color:#7a5a00">—</div></div>
     </div>
+
+    <!-- Finance for this test batch — ADMIN ONLY -->
+    <div id="ct-finance" style="display:none;margin-top:12px;border-top:1px solid #eee;padding-top:10px">
+      <div style="font-size:9px;font-weight:700;color:#7a5a00;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">💰 Finance (admin only)</div>
+      <div id="ct-fin-rows"></div>
+    </div>
   </div>
 
   <!-- Rate calculator -->
@@ -2411,7 +2417,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v29 (simple CIP, recall details, calc cups, inv edit, AI errors)';
+var APP_BUILD='2026-06-14 · v30 (calc finance admin-only, AI quota msg)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -4811,7 +4817,11 @@ function sendAIMessage(){
       var msg='⚠️ AI error: '+em;
       if(/API key not valid|API_KEY_INVALID/i.test(em))msg='⚠️ The Gemini API key is invalid. Re-paste a valid key in Admin → Gemini AI Key (get one free at aistudio.google.com).';
       else if(/not found|is not supported|models\//i.test(em))msg='⚠️ AI model unavailable. '+em;
-      else if(/quota|RESOURCE_EXHAUSTED/i.test(em))msg='⚠️ Daily AI limit reached — try again later.';
+      else if(/quota|RESOURCE_EXHAUSTED|rate/i.test(em)){
+        // Free Gemini tier limits requests per-minute AND per-day. Usually it's
+        // the per-minute limit (a few quick messages) — waiting ~60s fixes it.
+        msg='⏳ Gemini free-tier limit hit. This is usually the per-minute cap — wait ~60 seconds and try again. If it keeps happening you\'ve used the day\'s free quota (resets at midnight US-Pacific), or several people share one key — get a separate free key each at aistudio.google.com.';
+      }
       else if(/PERMISSION_DENIED|referer|referrer|blocked/i.test(em))msg='⚠️ This key is restricted. In Google AI Studio, allow it for this app (or remove the website restriction).';
       _appendBubble('bot',msg);
       return;
@@ -5024,6 +5034,34 @@ function calcTest(){
   if(isNaN(sp2))sp2=60;if(isNaN(sp4))sp4=40;if(sp2+sp4<=0){sp2=60;sp4=40;}
   var cc2=Math.floor(fv*1000*(sp2/100)/200),cc4=Math.floor(fv*1000*(sp4/100)/400);
   setT('ct-c200',cc2);setT('ct-c400',cc4);setT('ct-ctotal',cc2+cc4);
+  // Admin-only finance for this test batch
+  var finEl=document.getElementById('ct-finance');
+  if(finEl){
+    if(_hasRole(currentUser,'admin')){
+      finEl.style.display='block';
+      var s=settings;
+      var milkCost=qty*getRateFromTable(fat,snf);
+      var smpCost=smpKg*(s.smp||305);
+      var packCost=cc2*(s.pk200||2.7)+cc4*(s.pk400||4.1);
+      var cultCost=(s.cult||133)*(fv/100);
+      var fix=s.fix||5100;
+      var revenue=cc2*(s.p200||18)+cc4*(s.p400||34);
+      var totalCost=milkCost+smpCost+packCost+cultCost+fix;
+      var net=revenue-totalCost;
+      var R=function(l,v,c){return '<div class="row"><span class="rl">'+l+'</span><span class="rv"'+(c?' style="color:'+c+'"':'')+'>'+v+'</span></div>';};
+      var netCol=net>=0?'var(--green)':'var(--red)';
+      document.getElementById('ct-fin-rows').innerHTML=
+        R('Revenue (all cups)','₹'+revenue.toFixed(0),'var(--green)')+
+        R('Milk cost (est.)','−₹'+milkCost.toFixed(0),'var(--red)')+
+        R('SMP cost','−₹'+smpCost.toFixed(0),'var(--red)')+
+        R('Packaging','−₹'+packCost.toFixed(0),'var(--red)')+
+        R('Culture','−₹'+cultCost.toFixed(0),'var(--red)')+
+        R('Fixed overhead','−₹'+fix.toFixed(0),'var(--red)')+
+        R('Total cost','−₹'+totalCost.toFixed(0),'var(--red)')+
+        '<div style="background:var(--light);border-radius:10px;padding:10px 12px;margin-top:6px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:700">Net Profit / Loss</span><span style="font-size:17px;font-weight:700;color:'+netCol+'">'+(net>=0?'₹':'−₹')+Math.abs(net).toFixed(0)+'</span></div>'+
+        '<div style="font-size:10px;color:var(--gray);margin-top:5px;text-align:right">Cost/cup ₹'+((cc2+cc4)?(totalCost/(cc2+cc4)).toFixed(2):'0')+'</div>';
+    }else{finEl.style.display='none';}
+  }
   const n=document.getElementById('ct-note');
   if(n)n.innerHTML=fatShort
     ? '⚠️ Raw fat '+fat+'% is below target '+tfat+'% — water can\'t raise fat. Lower target fat or add cream.'
