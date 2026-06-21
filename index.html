@@ -2424,7 +2424,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v33 (step-wise editable batches, card delete)';
+var APP_BUILD='2026-06-14 · v34 (remove dangerous delete-all marker)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -6422,8 +6422,8 @@ function _syncDown(){
         // renames/removals propagate (no merging old usernames back in).
         _setGlobal('users',cloud);
       }else if(cloud&&typeof cloud==='object'&&!Array.isArray(cloud)&&cloud.__empty){
-        // Cloud was deliberately emptied (delete-all) → clear local too
-        _setGlobal(k,[]);
+        // Legacy empty-marker — IGNORE it (never wipe). If we have local data, push it up.
+        if(Array.isArray(local)&&local.length){try{_fb.ref('bd/'+k).set(local);}catch(e){}}
       }else if(cloud!=null&&Array.isArray(cloud)&&Array.isArray(local)){
         // Both sides have a list → merge by natural key, push any local-only items up
         var _rid=function(x){return x&&(x.id||x.batchId||x.username||x.lotId);};
@@ -6459,6 +6459,7 @@ function _listen(){
   _syncKeys.forEach(function(k){
     _fb.ref('bd/'+k).on('value',function(snap){
       var v=snap.val();
+      if(v&&typeof v==='object'&&!Array.isArray(v)&&v.__empty)return; // ignore legacy wipe marker
       if(v!=null){
         _setGlobal(k,v);
         clearTimeout(window._fbTimer);
@@ -6489,11 +6490,9 @@ store = function(k,v){
   // device's stale copy. After sync, local is already merged with cloud, so a
   // full-array write is safe and propagates adds + deletes correctly.
   if(_fbReady&&_fbAuthed&&_syncReady){
-    // Firebase stores an empty array as null, which other devices can't tell
-    // apart from "never created" — so an empty list is written as an explicit
-    // {__empty:true} marker so delete-all propagates everywhere.
-    var out=(Array.isArray(v)&&v.length===0)?{__empty:true}:v;
-    try{_fb.ref('bd/'+k).set(out);}catch(e){}
+    // Write the value as-is. (We deliberately do NOT use an empty-list "delete-all"
+    // marker — it could wipe other devices' data. Individual deletes still sync.)
+    try{_fb.ref('bd/'+k).set(v);}catch(e){}
   }
 };
 
