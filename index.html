@@ -471,9 +471,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <h3>🔐 Staff Login</h3>
     <div class="field"><label>Username</label><input type="text" id="loginUser" placeholder="Enter username" autocomplete="username"/></div>
     <div class="field"><label>Password</label><input type="password" id="loginPass" placeholder="Enter password" autocomplete="current-password"/></div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-      <input type="checkbox" id="rememberMe" style="width:16px;height:16px;accent-color:#1a3a8f;flex-shrink:0"/>
-      <label for="rememberMe" style="font-size:12px;color:#64748b;cursor:pointer">Remember me on this device</label>
+    <div id="rememberMe" data-on="1" onclick="toggleRemember()" style="display:flex;align-items:center;gap:9px;margin-bottom:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none">
+      <span id="rememberBox" style="width:22px;height:22px;border-radius:6px;border:2px solid #1a3a8f;background:#1a3a8f;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0">✓</span>
+      <span style="font-size:13px;color:#475569;font-weight:600">Remember me on this device</span>
     </div>
     <button class="login-btn" onclick="doLogin()">Login →</button>
     <div class="login-err" id="loginErr"></div>
@@ -2325,6 +2325,9 @@ const TESTS=[
 // ══════════════════════════════════════════
 // LOGIN / LOGOUT
 // ══════════════════════════════════════════
+function _setRemember(on){var b=document.getElementById('rememberMe');var box=document.getElementById('rememberBox');if(b)b.setAttribute('data-on',on?'1':'0');if(box){box.textContent=on?'✓':'';box.style.background=on?'#1a3a8f':'#fff';}}
+function toggleRemember(){var b=document.getElementById('rememberMe');_setRemember(b&&b.getAttribute('data-on')!=='1');}
+function _rememberOn(){var b=document.getElementById('rememberMe');return!!(b&&b.getAttribute('data-on')==='1');}
 async function doLogin(){
   const u=document.getElementById('loginUser').value.trim();
   const p=document.getElementById('loginPass').value.trim();
@@ -2338,7 +2341,7 @@ async function doLogin(){
     setTimeout(()=>{try{alert('⚠️ Security: "'+user.username+'" is still using its default password.\nPlease change it now in Admin → Staff Accounts (🔑).');}catch(e){}},500);
   }
   // Remember me
-  if(document.getElementById('rememberMe').checked){
+  if(_rememberOn()){
     try{localStorage.setItem('bd_savedCreds',JSON.stringify({u,p}));}catch(e){}
   } else {
     try{localStorage.removeItem('bd_savedCreds');}catch(e){}
@@ -2421,7 +2424,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v31 (manual distribution rates)';
+var APP_BUILD='2026-06-14 · v32 (delete old proc records, tap remember-me)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2446,7 +2449,7 @@ window.addEventListener('DOMContentLoaded',function(){
     if(saved&&saved.u&&saved.p){
       document.getElementById('loginUser').value=saved.u;
       document.getElementById('loginPass').value=saved.p;
-      document.getElementById('rememberMe').checked=true;
+      _setRemember(true);
     }
   }catch(e){}
 });
@@ -2781,8 +2784,8 @@ function renderAllRecords(){
 
   document.getElementById('todayTotal').textContent=todayRecs.length?`${todayMilk}L · ₹${todayCost.toFixed(0)}`:'';
   const listEl=document.getElementById('procList');
-  if(todayRecs.length===0){listEl.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No entries yet today</div></div>';return;}
-  listEl.innerHTML=todayRecs.map(r=>{
+  if(todayRecs.length===0){listEl.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No entries yet today</div></div>';}
+  else listEl.innerHTML=todayRecs.map(r=>{
     const alcBadge=r.alcohol==='pass'?'<span style="background:#dcfce7;color:#15803d;font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px;margin-left:4px">✅ Alc</span>':r.alcohol==='fail'?'<span style="background:#fee2e2;color:#b91c1c;font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px;margin-left:4px">❌ Alc</span>':'';
     const tempBadge=r.temp!=null?`<span style="font-size:9px;color:var(--gray)">🌡️ ${r.temp}°C</span>`:'';
     return`<div class="proc-record">

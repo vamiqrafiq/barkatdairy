@@ -1,1 +1,1 @@
-2026-06-14 · v31 (manual distribution rates)
+2026-06-14 · v32 (delete old proc records, tap remember-me)
