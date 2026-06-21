@@ -2424,7 +2424,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v34 (remove dangerous delete-all marker)';
+var APP_BUILD='2026-06-14 · v35 (direct RawBT print + reprint saved slips)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2799,7 +2799,10 @@ function renderAllRecords(){
         <div class="proc-detail"><div class="proc-detail-label">SNF</div><div class="proc-detail-val">${r.snf}%</div></div>
         <div class="proc-detail"><div class="proc-detail-label">Rate</div><div class="proc-detail-val">₹${r.rate}</div></div>
       </div>
-      <button class="btn btn-sm btn-red" style="margin-top:8px;width:100%" onclick="deleteProcRecord(${r.id})">🗑 Delete</button>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn btn-sm btn-gold" style="flex:1" onclick="printProcRecordRawBT(${r.id})">🖨️ Print</button>
+        <button class="btn btn-sm btn-red" style="flex:1" onclick="deleteProcRecord(${r.id})">🗑 Delete</button>
+      </div>
     </div>`;}).join('');
   const allEl=document.getElementById('allRecords');
   if(records.length===0){allEl.innerHTML='<div class="empty"><div class="empty-icon">📁</div><div class="empty-text">No records saved</div></div>';return;}
@@ -2811,7 +2814,7 @@ function renderAllRecords(){
     const totalCost=recs.reduce((a,r)=>a+r.total,0);
     return`<div style="margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:6px;display:flex;justify-content:space-between"><span>${date}</span><span>${totalMilk}L · ₹${totalCost.toFixed(0)}</span></div>
-      ${recs.map(r=>`<div class="row"><span class="rl">${_esc(r.supplier)} · ${r.qty}L · ${r.fat}%F · ${r.snf}%S</span><span class="rv" style="display:flex;align-items:center;gap:6px">₹${r.rate}/L = ₹${r.total.toFixed(0)} <button class="btn btn-red btn-sm" onclick="deleteProcRecord(${r.id})">🗑</button></span></div>`).join('')}
+      ${recs.map(r=>`<div class="row"><span class="rl">${_esc(r.supplier)} · ${r.qty}L · ${r.fat}%F · ${r.snf}%S</span><span class="rv" style="display:flex;align-items:center;gap:6px">₹${r.rate}/L = ₹${r.total.toFixed(0)} <button class="btn btn-gold btn-sm" onclick="printProcRecordRawBT(${r.id})">🖨️</button><button class="btn btn-red btn-sm" onclick="deleteProcRecord(${r.id})">🗑</button></span></div>`).join('')}
     </div>`;
   }).join('');
 }
@@ -2896,14 +2899,35 @@ function buildThermalText(d){
   ].join('\n');
 }
 
-function printThermal(){
-  const text=buildThermalText(currentSlipData);
+// Send text straight to the RawBT printer app via its URL scheme (no copy-paste).
+function rawbtPrint(text){
   currentThermalText=text;
-  if(navigator.share){
-    navigator.share({title:'Barkat Dairy Slip',text:text}).then(()=>{}).catch(()=>showThermalFallback(text));
-  } else {
-    showThermalFallback(text);
-  }
+  try{
+    // RawBT registers the rawbt: scheme; this hands the text straight to it.
+    window.location.href='rawbt:'+encodeURIComponent(text);
+    // If RawBT opened, this app goes to background (document.hidden). If it stays
+    // visible after a moment, RawBT isn't installed → show the copy fallback.
+    setTimeout(function(){if(!document.hidden)showThermalFallback(text);},1500);
+  }catch(e){showThermalFallback(text);}
+}
+function printThermal(){
+  rawbtPrint(buildThermalText(currentSlipData));
+}
+// Build slip data from a SAVED procurement record and print it directly to RawBT.
+function printProcRecordRawBT(id){
+  const r=records.find(x=>String(x.id)===String(id));if(!r)return;
+  const now=new Date();
+  const d={
+    supplier:r.supplier, qty:r.qty, fat:r.fat, snf:r.snf, clr:(r.clr!=null?r.clr:null),
+    code:r.code||'0000', mtype:r.mtype||'Cow',
+    rate:r.rate, kgRate:(r.kgRate!=null?r.kgRate:getKgRate(r.rate,r.clr)),
+    total:(r.total||0).toFixed(2),
+    ddmmyyyy:(r.date||now.toISOString().split('T')[0]).split('-').reverse().join('/'),
+    shift:(now.getHours()<12?'Morning':now.getHours()<17?'Afternoon':'Evening'),
+    timeStr:now.toLocaleTimeString('en-US',{hour12:true,hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+    slipNo:nextSlipNo()
+  };
+  rawbtPrint(buildThermalText(d));
 }
 function showThermalFallback(text){
   document.getElementById('thermalText').textContent=text;

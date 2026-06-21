@@ -1,1 +1,1 @@
-2026-06-14 · v34 (remove dangerous delete-all marker)
+2026-06-14 · v35 (direct RawBT print + reprint saved slips)
