@@ -1,1 +1,1 @@
-2026-06-14 · v32 (delete old proc records, tap remember-me)
+2026-06-14 · v33 (step-wise editable batches, card delete)
