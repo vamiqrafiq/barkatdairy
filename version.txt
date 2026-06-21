@@ -1,1 +1,1 @@
-2026-06-14 · v30 (calc finance admin-only, AI quota msg)
+2026-06-14 · v31 (manual distribution rates)

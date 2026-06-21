@@ -806,6 +806,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <div><label class="inp-label">400g Cups</label><input type="number" id="d-c400" placeholder="0" min="0" oninput="calcDist()"/></div>
       <div><label class="inp-label">Crates</label><input type="number" id="d-crates" placeholder="0" min="0"/></div>
     </div>
+    <div class="grid2" style="margin-bottom:12px">
+      <div><label class="inp-label">200g rate (₹/cup)</label><input type="number" id="d-rate200" step="0.5" placeholder="default" oninput="calcDist()"/></div>
+      <div><label class="inp-label">400g rate (₹/cup)</label><input type="number" id="d-rate400" step="0.5" placeholder="default" oninput="calcDist()"/></div>
+    </div>
 
     <!-- Which batches these cups came from -->
     <div style="font-size:9px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">②a Batches dispatched (tick one or more)</div>
@@ -2417,7 +2421,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v30 (calc finance admin-only, AI quota msg)';
+var APP_BUILD='2026-06-14 · v31 (manual distribution rates)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2925,8 +2929,10 @@ function calcDist(){
   const c200=parseFloat(document.getElementById('d-c200').value)||0;
   const c400=parseFloat(document.getElementById('d-c400').value)||0;
   const paid=parseFloat(document.getElementById('d-paid').value)||0;
-  const p200=settings.p200||18;
-  const p400=settings.p400||34;
+  // Manual rate per cup if entered, else default selling price
+  const r200el=document.getElementById('d-rate200'),r400el=document.getElementById('d-rate400');
+  const p200=(r200el&&r200el.value!=='')?(parseFloat(r200el.value)||0):(settings.p200||18);
+  const p400=(r400el&&r400el.value!=='')?(parseFloat(r400el.value)||0):(settings.p400||34);
   const amt200=c200*p200;
   const amt400=c400*p400;
   const total=amt200+amt400;
@@ -2957,13 +2963,15 @@ function saveDist(){
   const paid=parseFloat(document.getElementById('d-paid').value)||0;
   const payMode=(document.getElementById('d-pay-mode')||{}).value||'Credit';
   if(!dist||!date){showAlert('distAlert','alert-red','⚠️ Enter distributor name and date');return;}
-  const p200=settings.p200||18;const p400=settings.p400||34;
+  const r200el=document.getElementById('d-rate200'),r400el=document.getElementById('d-rate400');
+  const p200=(r200el&&r200el.value!=='')?(parseFloat(r200el.value)||0):(settings.p200||18);
+  const p400=(r400el&&r400el.value!=='')?(parseFloat(r400el.value)||0):(settings.p400||34);
   const amount=(c200*p200)+(c400*p400);
   // Carry-forward: sum all unpaid balances for this distributor before this moment
   const prevBal=distRecords.filter(r=>r.dist===dist).reduce((s,r)=>s+(r.amount-r.paid),0);
   const batchIds=Array.from(document.querySelectorAll('.d-batch-cb:checked')).map(c=>c.value).join(',');
   const rider=(document.getElementById('d-rider')||{}).value||'';
-  const rec={id:Date.now(),dist,date,c200,c400,crates,amount,paid,payMode,batchIds,rider,prevBalance:prevBal,balance:prevBal+amount-paid,savedBy:currentUser?currentUser.name:'Staff'};
+  const rec={id:Date.now(),dist,date,c200,c400,crates,amount,paid,payMode,batchIds,rider,rate200:p200,rate400:p400,prevBalance:prevBal,balance:prevBal+amount-paid,savedBy:currentUser?currentUser.name:'Staff'};
   distRecords.unshift(rec);
   store('distRecords',distRecords);
   saveDistributorName(dist);
@@ -2974,11 +2982,13 @@ function saveDist(){
     checkLowStockAlerts();
   }
   showAlert('distAlert','alert-green','✅ Distribution entry saved');
-  // Reset cups, crates, paid
+  // Reset cups, crates, paid, rates
   document.getElementById('d-c200').value='';
   document.getElementById('d-c400').value='';
   document.getElementById('d-crates').value='';
   document.getElementById('d-paid').value='';
+  var r2=document.getElementById('d-rate200');if(r2)r2.value='';
+  var r4=document.getElementById('d-rate400');if(r4)r4.value='';
   const dpm=document.getElementById('d-pay-mode');if(dpm)dpm.selectedIndex=0;
   document.querySelectorAll('.d-batch-cb').forEach(c=>c.checked=false);
   calcDist();
@@ -3126,7 +3136,7 @@ function showDistBill(id){
   const r=distRecords.find(x=>x.id===id);
   if(!r)return;
   currentDistBill=r;
-  const p200=settings.p200||18;const p400=settings.p400||34;
+  const p200=(r&&r.rate200!=null)?r.rate200:(settings.p200||18);const p400=(r&&r.rate400!=null)?r.rate400:(settings.p400||34);
   const billNo='DB-'+id.toString().slice(-6);
   const html=`
     <div class="dist-bill-header">
@@ -3169,7 +3179,7 @@ function showDistBill(id){
 function closeDistBill(){document.getElementById('distBillModal').classList.remove('open');}
 
 function buildBillBodyHTML(r){
-  const p200=settings.p200||18;const p400=settings.p400||34;
+  const p200=(r&&r.rate200!=null)?r.rate200:(settings.p200||18);const p400=(r&&r.rate400!=null)?r.rate400:(settings.p400||34);
   const billNo='DB-'+r.id.toString().slice(-6);
   const rows=[
     r.c200>0?'<tr><td>200g Yogurt Cups</td><td style="text-align:center">'+r.c200+'</td><td style="text-align:right">&#8377;'+p200+'</td><td style="text-align:right">&#8377;'+(r.c200*p200).toFixed(0)+'</td></tr>':'',
@@ -3247,7 +3257,7 @@ function doShareBill(){
   if(!currentDistBill)return;
   // Build plain-text summary for sharing
   const r=currentDistBill;
-  const p200=settings.p200||18;const p400=settings.p400||34;
+  const p200=(r&&r.rate200!=null)?r.rate200:(settings.p200||18);const p400=(r&&r.rate400!=null)?r.rate400:(settings.p400||34);
   const text=[
     'BARKAT DAIRY PLANT',
     'Watlar, Ganderbal, Kashmir',
@@ -3749,7 +3759,7 @@ function makePDF(doc){
 }
 
 function buildBillPDF(r){
-  const p200=settings.p200||18, p400=settings.p400||34;
+  const p200=(r&&r.rate200!=null)?r.rate200:(settings.p200||18), p400=(r&&r.rate400!=null)?r.rate400:(settings.p400||34);
   const billNo='DB-'+r.id.toString().slice(-6);
   const W=595, margin=50;
   const textW=W-margin*2;
