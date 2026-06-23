@@ -635,6 +635,23 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <div id="sw-cost" style="font-size:12px;font-weight:700;margin-top:6px"></div>
   </div>
 
+  <!-- Water → SMP calculator (set your own water for more volume / profit) -->
+  <div class="section">
+    <div class="sec-title">💧 Water-First Calculator</div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:10px">Enter how much water <b>you</b> want to add (more water = more volume &amp; cups for circulation/profit). It works out the SMP needed to still hit your Target SNF, then shows the final volume, Fat &amp; SNF. Fat falls as you add water — it warns if it drops below your Target Fat. Uses the milk qty/fat/snf, Target Fat/SNF and flashing from above.</div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><label class="inp-label">Water to add (L)</label><input type="number" id="o-waterwant" step="0.5" min="0" placeholder="e.g. 5" oninput="calcWaterToSmp()"/></div>
+      <div class="auto-box" style="display:flex;flex-direction:column;justify-content:center"><div class="auto-box-label">SMP to add</div><div id="ws-smp" style="font-size:16px;font-weight:700;color:var(--blue);margin-top:2px">—</div></div>
+    </div>
+    <div class="grid3">
+      <div class="stat"><div class="stat-label">Final Vol</div><div class="stat-val" id="ws-vol" style="font-size:15px">—</div><div class="stat-sub">L</div></div>
+      <div class="stat"><div class="stat-label">Final Fat</div><div class="stat-val" id="ws-fat" style="font-size:15px">—</div><div class="stat-sub">%</div></div>
+      <div class="stat"><div class="stat-label">Final SNF</div><div class="stat-val" id="ws-snf" style="font-size:15px">—</div><div class="stat-sub">%</div></div>
+    </div>
+    <div id="ws-note" style="font-size:11px;color:var(--gray);margin-top:8px"></div>
+    <div id="ws-cost" style="font-size:12px;font-weight:700;margin-top:6px"></div>
+  </div>
+
 </div>
 
 <!-- ══ PROCUREMENT TAB ══ -->
@@ -2440,7 +2457,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-23 · v37 (calibrated standardisation — Target Fat/SNF match real meter readings)';
+var APP_BUILD='2026-06-23 · v38 (water-first calculator — set your own water, get SMP + final batch)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2710,6 +2727,7 @@ function calcOps(){
   steps.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 0"><div style="width:26px;height:26px;border-radius:50%;background:var(--gold);color:#1a0000;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${steps.length+1}</div><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--dark)">Fill cups</div><div style="font-size:11px;color:var(--gray)">${c200} × 200g + ${c400} × 400g = ${c200+c400} cups total</div></div></div>`);
   document.getElementById('opsInstructions').innerHTML=steps.join('');
   try{calcSmpToWater();}catch(e){}
+  try{calcWaterToSmp();}catch(e){}
 }
 function syncSplit(which){
   const a=document.getElementById('o-split200'),b=document.getElementById('o-split400');
@@ -2751,6 +2769,47 @@ function calcSmpToWater(){
   if(noteEl)noteEl.textContent='Pour '+manualW+' L water'+(flash>0?' (flashing adds '+flash+' L)':'')+' with '+smpWant+' kg SMP → '+fv.toFixed(1)+' L at '+finalFat.toFixed(2)+'% Fat, '+finalSnf.toFixed(2)+'% SNF (~'+(c200+c400)+' cups).';
   if(costEl){
     if(_hasRole(currentUser,'admin')){costEl.style.color='var(--dark)';costEl.textContent='SMP cost: ₹'+(smpWant*(settings.smp||305)).toFixed(0);}
+    else costEl.textContent='';
+  }
+}
+
+// Inverse of the above: the operator picks the WATER (to push volume up for
+// circulation / profit) and we work out the SMP that still hits Target SNF.
+// Fat can't be raised, so it floats down with dilution — we surface it and warn
+// if it drops below Target Fat.
+function calcWaterToSmp(){
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  const qty=parseFloat(document.getElementById('o-qty').value)||0;
+  const fat=parseFloat(document.getElementById('o-fat').value)||0;
+  const snf=parseFloat(document.getElementById('o-snf').value)||0;
+  const tsnf=parseFloat(document.getElementById('o-tsnf').value)||(settings.tsnf||8.5);
+  const tfat=parseFloat(document.getElementById('o-tfat').value)||0;
+  let flash=parseFloat(document.getElementById('o-flash').value)||0;if(flash<0)flash=0;if(flash>5)flash=5;
+  const waterWant=parseFloat(document.getElementById('o-waterwant').value);
+  const noteEl=document.getElementById('ws-note');const costEl=document.getElementById('ws-cost');
+  if(!qty||!fat||!snf||!tsnf||isNaN(waterWant)){set('ws-smp','—');set('ws-vol','—');set('ws-fat','—');set('ws-snf','—');if(noteEl)noteEl.textContent='';if(costEl)costEl.textContent='';return;}
+  const c=calConst();
+  const manualW=Math.max(0,waterWant);
+  const totalWater=manualW+flash;
+  // finalSnf = (qty*snf + 100*kSmpSnf*S)/(qty + totalWater + kSmpVol*S) = tsnf
+  //   → S = [tsnf*(qty+totalWater) − qty*snf] / (100*kSmpSnf − tsnf*kSmpVol)
+  const denom=100*c.kSmpSnf - tsnf*c.kSmpVol;
+  let smpKg=denom>0 ? (tsnf*(qty+totalWater) - qty*snf)/denom : 0;
+  if(smpKg<0||!isFinite(smpKg))smpKg=0;
+  smpKg=Math.round(smpKg*100)/100;
+  const fv=qty+totalWater+c.kSmpVol*smpKg;
+  const finalFat=fv>0?c.kFat*qty*fat/fv:0;
+  const finalSnf=fv>0?(qty*snf+100*c.kSmpSnf*smpKg)/fv:0;
+  const c200=Math.floor(fv*1000*0.6/200), c400=Math.floor(fv*1000*0.4/400);
+  set('ws-smp',smpKg>0?smpKg.toFixed(2)+' kg':'None');
+  set('ws-vol',fv.toFixed(1));set('ws-fat',finalFat.toFixed(2));set('ws-snf',finalSnf.toFixed(2));
+  if(noteEl){
+    let msg='Add '+manualW+' L water'+(flash>0?' (flashing adds '+flash+' L → '+totalWater+' L total)':'')+' + '+smpKg.toFixed(2)+' kg SMP → '+fv.toFixed(1)+' L at '+finalFat.toFixed(2)+'% Fat, '+finalSnf.toFixed(2)+'% SNF (~'+(c200+c400)+' cups).';
+    if(tfat>0 && finalFat < tfat-0.05) msg+=' ⚠️ Final Fat '+finalFat.toFixed(2)+'% is below your Target Fat '+tfat+'% — that much water over-dilutes the fat. Use less water for richer milk.';
+    noteEl.textContent=msg;
+  }
+  if(costEl){
+    if(_hasRole(currentUser,'admin')){costEl.style.color='var(--dark)';costEl.textContent='SMP cost: ₹'+(smpKg*(settings.smp||305)).toFixed(0);}
     else costEl.textContent='';
   }
 }

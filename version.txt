@@ -1,1 +1,1 @@
-2026-06-23 · v37 (calibrated standardisation — Target Fat/SNF match real meter readings)
+2026-06-23 · v38 (water-first calculator — set your own water, get SMP + final batch)
