@@ -932,6 +932,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <div><label class="inp-label">Target SNF %</label><input type="number" id="ct-tsnf" value="8.5" step="0.1" oninput="calcTest()"/></div>
       <div><label class="inp-label">Flashing (L)</label><input type="number" id="ct-flash" value="0" step="0.5" min="0" max="5" oninput="calcTest()"/></div>
     </div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><label class="inp-label">Water I'll add (L) <span style="font-weight:400;color:var(--gray)">optional</span></label><input type="number" id="ct-water-want" step="0.5" min="0" placeholder="auto" oninput="calcTest()"/></div>
+      <div class="auto-box" style="display:flex;flex-direction:column;justify-content:center"><div class="auto-box-label">Plan mode</div><div id="ct-mode" style="font-size:12px;font-weight:700;color:var(--blue);margin-top:2px">Auto (min water)</div></div>
+    </div>
     <div class="calc-result">
       <div class="calc-grid">
         <div class="calc-item highlight"><div class="calc-item-label">Pour Water</div><div class="calc-item-val" id="ct-water">—</div><div class="calc-item-sub">litres</div></div>
@@ -943,6 +947,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       </div>
     </div>
     <div id="ct-note" style="font-size:11px;color:#7a5a00;background:#fff8e7;border:1px solid #fde68a;border-radius:9px;padding:8px 10px;margin-top:8px"></div>
+    <div id="ct-maxwater" style="font-size:11px;font-weight:600;color:var(--teal);background:#e8f7f4;border-radius:9px;padding:7px 10px;margin-top:8px;display:none"></div>
 
     <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin:12px 0 6px">🫙 Cup fill plan</div>
     <div class="grid2" style="margin-bottom:8px">
@@ -1627,6 +1632,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
         <div><label class="inp-label">Target SNF %</label><input type="number" id="nb-tsnf" value="8.5" step="0.1" oninput="calcBatchStd()"/></div>
         <div><label class="inp-label">Flashing (L)</label><input type="number" id="nb-flash" value="4" step="0.5" min="0" max="5" oninput="calcBatchStd()"/></div>
       </div>
+      <div class="grid2" style="margin-bottom:8px">
+        <div><label class="inp-label">Water I'll add (L) <span style="font-weight:400;color:var(--gray)">optional</span></label><input type="number" id="nb-water-want" step="0.5" min="0" placeholder="auto" oninput="calcBatchStd()"/></div>
+        <div class="auto-box" style="display:flex;flex-direction:column;justify-content:center"><div class="auto-box-label">Plan mode</div><div id="nb-mode" style="font-size:12px;font-weight:700;color:var(--blue);margin-top:2px">Auto (min water)</div></div>
+      </div>
+      <div style="font-size:10px;color:var(--gray);margin:-2px 0 8px">Leave blank for the cheapest auto plan (least water + SMP for your targets). Enter a water amount to push volume up — it then works out the SMP for Target SNF and shows where Fat lands.</div>
       <div class="calc-result" id="nb-plan" style="margin-bottom:8px">
         <div class="calc-grid">
           <div class="calc-item highlight"><div class="calc-item-label">Pour Water</div><div class="calc-item-val" id="nbr-water">—</div><div class="calc-item-sub">litres</div></div>
@@ -1638,6 +1648,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
         </div>
       </div>
       <div id="nbr-opt" style="font-size:11px;color:#7a5a00;background:#fff8e7;border:1px solid #fde68a;border-radius:9px;padding:8px 10px;margin-bottom:10px">💡 Optimal-SMP tip appears here</div>
+      <div id="nb-maxwater" style="font-size:11px;font-weight:600;color:var(--teal);background:#e8f7f4;border-radius:9px;padding:7px 10px;margin-bottom:10px;display:none"></div>
 
       <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">③ Cup fill plan</div>
       <div class="grid2" style="margin-bottom:8px">
@@ -2458,7 +2469,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-23 · v40 (auto-update open tabs — no more stale cached app)';
+var APP_BUILD='2026-06-23 · v41 (water-first mode in Batch + Calc; manual water control)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2632,6 +2643,42 @@ function stdSolve(qty,fat,snf,tfat,tsnf,flash){
   const fSnf=fvFinal>0?(qty*snf+100*c.kSmpSnf*smpKg)/fvFinal:0;
   return {manualW,totalW,smpKg,fv:fvFinal,fFat,fSnf,fatShort};
 }
+// Water-first solve: the operator FIXES the water (to push volume up for
+// circulation/profit) and we find the SMP that still hits Target SNF. Fat can't
+// be raised, so it floats down with dilution. SMP rounded to 0.01 kg.
+function waterFirstSolve(qty,fat,snf,tsnf,manualWater,flash){
+  const c=calConst();
+  flash=Math.max(0,Math.min(5,parseFloat(flash)||0));
+  tsnf=tsnf>0?tsnf:(settings.tsnf||8.5);
+  const manualW=Math.max(0,parseFloat(manualWater)||0);
+  const totalW=manualW+flash;
+  // finalSnf = (qty*snf + 100*kSmpSnf*S)/(qty + totalW + kSmpVol*S) = tsnf
+  //   → S = [tsnf*(qty+totalW) − qty*snf] / (100*kSmpSnf − tsnf*kSmpVol)
+  const denom=100*c.kSmpSnf - tsnf*c.kSmpVol;
+  let smpKg=denom>0 ? (tsnf*(qty+totalW) - qty*snf)/denom : 0;
+  if(smpKg<0||!isFinite(smpKg))smpKg=0;
+  smpKg=Math.round(smpKg*100)/100;
+  const fv=qty+totalW+c.kSmpVol*smpKg;
+  const fFat=fv>0?c.kFat*qty*fat/fv:0;
+  const fSnf=fv>0?(qty*snf+100*c.kSmpSnf*smpKg)/fv:0;
+  return {manualW,totalW,smpKg,fv,fFat,fSnf};
+}
+// Ceiling text: most water you can add and still keep Fat ≥ Target Fat (the point
+// where BOTH Fat and SNF targets are met — the minimum-water plan).
+function maxWaterTip(qty,fat,snf,tfat,tsnf,flash){
+  const c=calConst();
+  const fvMax=(qty&&fat&&tfat>0)?c.kFat*qty*fat/tfat:0;
+  if(qty&&fat&&snf&&tfat>0&&fvMax>qty+0.05){
+    const lim=stdSolve(qty,fat,snf,tfat,tsnf,flash);
+    const maxTotal=Math.round(lim.totalW*2)/2;
+    return 'Max water to keep Fat ≥ '+tfat+'%: '+maxTotal+' L total'
+      +(flash>0?' (flashing gives '+flash+' L → pour ≤ '+lim.manualW+' L)':'')
+      +' → '+lim.fv.toFixed(1)+' L at '+lim.fFat.toFixed(2)+'% Fat, '+lim.fSnf.toFixed(2)+'% SNF, '+lim.smpKg.toFixed(2)+' kg SMP.';
+  } else if(qty&&fat&&tfat>0){
+    return 'Raw Fat ('+fat+'%) is already at/below Target Fat '+tfat+'% — any added water lowers Fat further.';
+  }
+  return '';
+}
 function calcOps(){
   const qty=parseFloat(document.getElementById('o-qty').value)||0;
   const fat=parseFloat(document.getElementById('o-fat').value)||0;
@@ -2794,36 +2841,16 @@ function calcWaterToSmp(){
   let flash=parseFloat(document.getElementById('o-flash').value)||0;if(flash<0)flash=0;if(flash>5)flash=5;
   const waterWant=parseFloat(document.getElementById('o-waterwant').value);
   const noteEl=document.getElementById('ws-note');const costEl=document.getElementById('ws-cost');const maxEl=document.getElementById('ws-max');
-  // Ceiling: most water you can add and still keep Fat ≥ Target Fat (this is the
-  // point where BOTH Target Fat and Target SNF are met — the main-plan solution).
+  // Ceiling: most water you can add and still keep Fat ≥ Target Fat.
   if(maxEl){
-    const cc=calConst();
-    const fvMax=(qty&&fat&&tfat>0)?cc.kFat*qty*fat/tfat:0;  // final vol at the fat ceiling
-    if(qty&&fat&&snf&&tfat>0&&fvMax>qty+0.05){
-      const lim=stdSolve(qty,fat,snf,tfat,tsnf,flash);
-      const maxTotal=Math.round(lim.totalW*2)/2;
-      maxEl.style.display='block';
-      maxEl.textContent='🔵 Max water to keep Fat ≥ '+tfat+'%: '+maxTotal+' L total'
-        +(flash>0?' (flashing gives '+flash+' L → pour ≤ '+lim.manualW+' L)':'')
-        +' → '+lim.fv.toFixed(1)+' L at '+lim.fFat.toFixed(2)+'% Fat, '+lim.fSnf.toFixed(2)+'% SNF, '+lim.smpKg.toFixed(2)+' kg SMP. More water than this thins Fat below target.';
-    } else if(qty&&fat&&tfat>0){
-      maxEl.style.display='block';
-      maxEl.textContent='🔵 Raw Fat ('+fat+'%) is already at/below Target Fat '+tfat+'% — any added water lowers Fat further. You can still add water for volume, just expect thinner milk.';
-    } else { maxEl.style.display='none'; maxEl.textContent=''; }
+    const tip=maxWaterTip(qty,fat,snf,tfat,tsnf,flash);
+    if(tip){maxEl.style.display='block';maxEl.textContent='🔵 '+tip;}
+    else{maxEl.style.display='none';maxEl.textContent='';}
   }
   if(!qty||!fat||!snf||!tsnf||isNaN(waterWant)){set('ws-smp','—');set('ws-vol','—');set('ws-fat','—');set('ws-snf','—');if(noteEl)noteEl.textContent='';if(costEl)costEl.textContent='';return;}
-  const c=calConst();
-  const manualW=Math.max(0,waterWant);
-  const totalWater=manualW+flash;
-  // finalSnf = (qty*snf + 100*kSmpSnf*S)/(qty + totalWater + kSmpVol*S) = tsnf
-  //   → S = [tsnf*(qty+totalWater) − qty*snf] / (100*kSmpSnf − tsnf*kSmpVol)
-  const denom=100*c.kSmpSnf - tsnf*c.kSmpVol;
-  let smpKg=denom>0 ? (tsnf*(qty+totalWater) - qty*snf)/denom : 0;
-  if(smpKg<0||!isFinite(smpKg))smpKg=0;
-  smpKg=Math.round(smpKg*100)/100;
-  const fv=qty+totalWater+c.kSmpVol*smpKg;
-  const finalFat=fv>0?c.kFat*qty*fat/fv:0;
-  const finalSnf=fv>0?(qty*snf+100*c.kSmpSnf*smpKg)/fv:0;
+  const r=waterFirstSolve(qty,fat,snf,tsnf,waterWant,flash);
+  const manualW=r.manualW,smpKg=r.smpKg,fv=r.fv,finalFat=r.fFat,finalSnf=r.fSnf;
+  const totalWater=r.totalW;
   const c200=Math.floor(fv*1000*0.6/200), c400=Math.floor(fv*1000*0.4/400);
   set('ws-smp',smpKg>0?smpKg.toFixed(2)+' kg':'None');
   set('ws-vol',fv.toFixed(1));set('ws-fat',finalFat.toFixed(2));set('ws-snf',finalSnf.toFixed(2));
@@ -5236,8 +5263,11 @@ function calcTest(){
   if(!qty||!fat||!snf){['ct-water','ct-smp','ct-vol','ct-ffat','ct-fsnf','ct-qual'].forEach(id=>setT(id,'—'));const n=document.getElementById('ct-note');if(n)n.textContent='Enter milk qty, fat and SNF.';return;}
   const tfat=g('ct-tfat')||fat, tsnf=g('ct-tsnf')||(settings.tsnf||8.5);
   let flash=g('ct-flash');if(flash<0)flash=0;if(flash>5)flash=5;
-  const _r=stdSolve(qty,fat,snf,tfat,tsnf,flash);
-  const totalW=_r.totalW,manualW=_r.manualW,smpKg=_r.smpKg,fv=_r.fv,fFat=_r.fFat,fSnf=_r.fSnf,fatShort=_r.fatShort;
+  const wantW=parseFloat((document.getElementById('ct-water-want')||{}).value);
+  const waterMode=!isNaN(wantW)&&wantW>0;
+  const _r=waterMode?waterFirstSolve(qty,fat,snf,tsnf,wantW,flash):stdSolve(qty,fat,snf,tfat,tsnf,flash);
+  const totalW=_r.totalW,manualW=_r.manualW,smpKg=_r.smpKg,fv=_r.fv,fFat=_r.fFat,fSnf=_r.fSnf,fatShort=waterMode?false:_r.fatShort;
+  const modeEl=document.getElementById('ct-mode');if(modeEl)modeEl.textContent=waterMode?'Water-first':'Auto (min water)';
   const qual=fFat>=3.5&&fSnf>=8.5?'🟢 Excellent':fFat>=3.2&&fSnf>=8.3?'🟢 Good':fFat>=3.0&&fSnf>=8.0?'🟡 Standard':'🔴 Thin';
   setT('ct-water',manualW>0?manualW:'None');setT('ct-smp',smpKg>0?smpKg.toFixed(2):'None');
   setT('ct-vol',fv.toFixed(1));setT('ct-ffat',fFat.toFixed(2)+'%');setT('ct-fsnf',fSnf.toFixed(2)+'%');setT('ct-qual',qual);
@@ -5275,9 +5305,19 @@ function calcTest(){
     }else{finEl.style.display='none';}
   }
   const n=document.getElementById('ct-note');
-  if(n)n.innerHTML=fatShort
-    ? '⚠️ Raw fat '+fat+'% is below target '+tfat+'% — water can\'t raise fat. Lower target fat or add cream.'
-    : '💡 Pour <b>'+manualW+' L</b> water'+(flash>0?' (flashing adds '+flash+' L → '+totalW+' L total)':'')+' + <b>'+smpKg.toFixed(2)+' kg</b> SMP → '+fv.toFixed(1)+' L at '+fFat.toFixed(2)+'% Fat, '+fSnf.toFixed(2)+'% SNF. Least SMP for these targets; more water would need more SMP.';
+  if(n){
+    if(waterMode){
+      let m='💧 Water-first: pour <b>'+manualW+' L</b> water'+(flash>0?' (+'+flash+' L flashing → '+totalW.toFixed(1)+' L total)':'')+' + <b>'+smpKg.toFixed(2)+' kg</b> SMP → '+fv.toFixed(1)+' L at '+fFat.toFixed(2)+'% Fat, '+fSnf.toFixed(2)+'% SNF.';
+      if(tfat>0&&fFat<tfat-0.05) m+=' ⚠️ Fat '+fFat.toFixed(2)+'% is below Target '+tfat+'% — over-diluted. Use less water for richer milk.';
+      n.innerHTML=m;
+    }else{
+      n.innerHTML=fatShort
+        ? '⚠️ Raw fat '+fat+'% is below target '+tfat+'% — water can\'t raise fat. Lower target fat or add cream.'
+        : '💡 Pour <b>'+manualW+' L</b> water'+(flash>0?' (flashing adds '+flash+' L → '+totalW+' L total)':'')+' + <b>'+smpKg.toFixed(2)+' kg</b> SMP → '+fv.toFixed(1)+' L at '+fFat.toFixed(2)+'% Fat, '+fSnf.toFixed(2)+'% SNF. Least SMP for these targets. To make more volume, type a water amount above.';
+    }
+  }
+  const mw=document.getElementById('ct-maxwater');
+  if(mw){const tip=maxWaterTip(qty,fat,snf,tfat,tsnf,flash);if(tip){mw.style.display='block';mw.textContent='🔵 '+tip;}else{mw.style.display='none';mw.textContent='';}}
 }
 // Calc sandbox: rate from the chart
 function calcRate(){
@@ -5297,12 +5337,16 @@ function calcBatchStd(){
   const tfat=parseFloat(document.getElementById('nb-tfat').value)||fat;
   const tsnf=parseFloat(document.getElementById('nb-tsnf').value)||(settings.tsnf||8.5);
   let flash=parseFloat(document.getElementById('nb-flash').value)||0;if(flash<0)flash=0;if(flash>5)flash=5;
-  const _r=stdSolve(qty,fat,snf,tfat,tsnf,flash);
+  // Water-first mode if the operator typed a water amount; else cheapest auto plan.
+  const wantW=parseFloat((document.getElementById('nb-water-want')||{}).value);
+  const waterMode=!isNaN(wantW)&&wantW>0;
+  const _r=waterMode?waterFirstSolve(qty,fat,snf,tsnf,wantW,flash):stdSolve(qty,fat,snf,tfat,tsnf,flash);
   const totalW=_r.totalW,manualW=_r.manualW,smpKg=_r.smpKg,fv=_r.fv,fFat=_r.fFat,fSnf=_r.fSnf;
+  const fatShort=waterMode?false:_r.fatShort;
+  const modeEl=document.getElementById('nb-mode');if(modeEl)modeEl.textContent=waterMode?'Water-first':'Auto (min water)';
   let sp200=parseFloat(document.getElementById('nb-sp200').value);let sp400=parseFloat(document.getElementById('nb-sp400').value);
   if(isNaN(sp200))sp200=60;if(isNaN(sp400))sp400=40;if(sp200+sp400<=0){sp200=60;sp400=40;}
   const c200=Math.floor(fv*1000*(sp200/100)/200),c400=Math.floor(fv*1000*(sp400/100)/400);
-  const fatShort=_r.fatShort;
   const qual=fFat>=3.5&&fSnf>=8.5?'🟢 Excellent':fFat>=3.2&&fSnf>=8.3?'🟢 Good':fFat>=3.0&&fSnf>=8.0?'🟡 Standard':'🔴 Thin';
   setT('nbr-water',manualW>0?manualW:'None');
   setT('nbr-smp',smpKg>0?smpKg.toFixed(2):'None');
@@ -5310,10 +5354,18 @@ function calcBatchStd(){
   setT('nbr-c200',c200);setT('nbr-c400',c400);setT('nbr-ctotal',c200+c400);
   const optEl=document.getElementById('nbr-opt');
   if(optEl){
-    optEl.innerHTML=fatShort
-      ? '⚠️ Raw fat '+fat+'% is below target '+tfat+'% — water can\'t raise fat. Lower target fat or add cream.'
-      : '💡 Cheapest mix: pour <b>'+manualW+' L</b> water + <b>'+smpKg.toFixed(2)+' kg</b> SMP (flashing adds '+flash+' L → '+totalW+' L total). More water needs more SMP (costlier); raise Target Fat a little to use less of both.';
+    if(waterMode){
+      let m='💧 Water-first: pour <b>'+manualW+' L</b> water'+(flash>0?' (+'+flash+' L flashing → '+totalW.toFixed(1)+' L total)':'')+' + <b>'+smpKg.toFixed(2)+' kg</b> SMP → '+fv.toFixed(1)+' L at '+fFat.toFixed(2)+'% Fat, '+fSnf.toFixed(2)+'% SNF.';
+      if(tfat>0&&fFat<tfat-0.05) m+=' ⚠️ Fat '+fFat.toFixed(2)+'% is below Target '+tfat+'% — over-diluted. Use less water for richer milk.';
+      optEl.innerHTML=m;
+    }else{
+      optEl.innerHTML=fatShort
+        ? '⚠️ Raw fat '+fat+'% is below target '+tfat+'% — water can\'t raise fat. Lower target fat or add cream.'
+        : '💡 Cheapest mix: pour <b>'+manualW+' L</b> water + <b>'+smpKg.toFixed(2)+' kg</b> SMP (flashing adds '+flash+' L → '+totalW+' L total). To make more volume, type a water amount in "Water I\'ll add".';
+    }
   }
+  const maxEl=document.getElementById('nb-maxwater');
+  if(maxEl){const tip=maxWaterTip(qty,fat,snf,tfat,tsnf,flash);if(tip){maxEl.style.display='block';maxEl.textContent='🔵 '+tip;}else{maxEl.style.display='none';maxEl.textContent='';}}
   // Auto-fill the editable "actually done" fields with the plan
   fill('nb-water',manualW);fill('nb-smp',smpKg.toFixed(2));fill('nb-fvol',fv.toFixed(1));fill('nb-ffat',fFat.toFixed(2));fill('nb-fsnf',fSnf.toFixed(2));fill('nb-c200',c200);fill('nb-c400',c400);
 }
