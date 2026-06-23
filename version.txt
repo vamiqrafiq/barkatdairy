@@ -1,1 +1,1 @@
-2026-06-23 · v39 (water-first: max-water ceiling for Target Fat)
+2026-06-23 · v40 (auto-update open tabs — no more stale cached app)

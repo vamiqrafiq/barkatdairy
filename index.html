@@ -2458,7 +2458,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-23 · v39 (water-first: max-water ceiling for Target Fat)';
+var APP_BUILD='2026-06-23 · v40 (auto-update open tabs — no more stale cached app)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2472,6 +2472,12 @@ function _checkForUpdate(){
     }).catch(function(){});
   }catch(e){}
 }
+// Re-check for a newer build while the app stays open: every 2 min, and
+// whenever the tab regains focus — so an already-open device picks up a deploy
+// without the user knowing to hard-refresh.
+setInterval(_checkForUpdate,120000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)_checkForUpdate();});
+window.addEventListener('focus',_checkForUpdate);
 window.addEventListener('DOMContentLoaded',function(){
   migratePasswords();
   _checkForUpdate();
