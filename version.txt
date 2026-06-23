@@ -1,1 +1,1 @@
-2026-06-23 · v38 (water-first calculator — set your own water, get SMP + final batch)
+2026-06-23 · v39 (water-first: max-water ceiling for Target Fat)

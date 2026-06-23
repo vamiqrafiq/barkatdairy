@@ -648,6 +648,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <div class="stat"><div class="stat-label">Final Fat</div><div class="stat-val" id="ws-fat" style="font-size:15px">—</div><div class="stat-sub">%</div></div>
       <div class="stat"><div class="stat-label">Final SNF</div><div class="stat-val" id="ws-snf" style="font-size:15px">—</div><div class="stat-sub">%</div></div>
     </div>
+    <div id="ws-max" style="font-size:11px;font-weight:600;color:var(--teal);margin-top:8px;background:#e8f7f4;border-radius:8px;padding:7px 10px;display:none"></div>
     <div id="ws-note" style="font-size:11px;color:var(--gray);margin-top:8px"></div>
     <div id="ws-cost" style="font-size:12px;font-weight:700;margin-top:6px"></div>
   </div>
@@ -2457,7 +2458,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-23 · v38 (water-first calculator — set your own water, get SMP + final batch)';
+var APP_BUILD='2026-06-23 · v39 (water-first: max-water ceiling for Target Fat)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2786,7 +2787,24 @@ function calcWaterToSmp(){
   const tfat=parseFloat(document.getElementById('o-tfat').value)||0;
   let flash=parseFloat(document.getElementById('o-flash').value)||0;if(flash<0)flash=0;if(flash>5)flash=5;
   const waterWant=parseFloat(document.getElementById('o-waterwant').value);
-  const noteEl=document.getElementById('ws-note');const costEl=document.getElementById('ws-cost');
+  const noteEl=document.getElementById('ws-note');const costEl=document.getElementById('ws-cost');const maxEl=document.getElementById('ws-max');
+  // Ceiling: most water you can add and still keep Fat ≥ Target Fat (this is the
+  // point where BOTH Target Fat and Target SNF are met — the main-plan solution).
+  if(maxEl){
+    const cc=calConst();
+    const fvMax=(qty&&fat&&tfat>0)?cc.kFat*qty*fat/tfat:0;  // final vol at the fat ceiling
+    if(qty&&fat&&snf&&tfat>0&&fvMax>qty+0.05){
+      const lim=stdSolve(qty,fat,snf,tfat,tsnf,flash);
+      const maxTotal=Math.round(lim.totalW*2)/2;
+      maxEl.style.display='block';
+      maxEl.textContent='🔵 Max water to keep Fat ≥ '+tfat+'%: '+maxTotal+' L total'
+        +(flash>0?' (flashing gives '+flash+' L → pour ≤ '+lim.manualW+' L)':'')
+        +' → '+lim.fv.toFixed(1)+' L at '+lim.fFat.toFixed(2)+'% Fat, '+lim.fSnf.toFixed(2)+'% SNF, '+lim.smpKg.toFixed(2)+' kg SMP. More water than this thins Fat below target.';
+    } else if(qty&&fat&&tfat>0){
+      maxEl.style.display='block';
+      maxEl.textContent='🔵 Raw Fat ('+fat+'%) is already at/below Target Fat '+tfat+'% — any added water lowers Fat further. You can still add water for volume, just expect thinner milk.';
+    } else { maxEl.style.display='none'; maxEl.textContent=''; }
+  }
   if(!qty||!fat||!snf||!tsnf||isNaN(waterWant)){set('ws-smp','—');set('ws-vol','—');set('ws-fat','—');set('ws-snf','—');if(noteEl)noteEl.textContent='';if(costEl)costEl.textContent='';return;}
   const c=calConst();
   const manualW=Math.max(0,waterWant);
