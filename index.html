@@ -1180,6 +1180,15 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <label class="inp-label">Target SNF %</label>
       <input type="number" id="a-tsnf" value="8.5" step="0.1" oninput="saveSettings()"/>
     </div>
+
+    <!-- Standardisation calibration -->
+    <div style="font-size:9px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">Standardisation Calibration</div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:8px">Tuned from a real batch so Target Fat / SNF match your meter readings. Re-tune only after comparing a measured batch against the plan.</div>
+    <div class="grid2" style="margin-bottom:6px">
+      <div><label class="inp-label">Fat retention (kFat)</label><input type="number" id="a-kFat" value="0.9016" step="0.001" min="0.5" max="1" oninput="saveSettings()"/></div>
+      <div><label class="inp-label">SMP volume (L/kg)</label><input type="number" id="a-kSmpVol" value="1.267" step="0.01" min="0" max="3" oninput="saveSettings()"/></div>
+      <div><label class="inp-label">SMP→SNF yield (kg/kg)</label><input type="number" id="a-kSmpSnf" value="0.7273" step="0.001" min="0.3" max="1" oninput="saveSettings()"/></div>
+    </div>
     <div id="settingsAlert" style="margin-top:8px"></div>
   </div>
 
@@ -2292,7 +2301,14 @@ const DEFAULT_USERS=[
 ];
 // Seed credentials shipped in source — warn anyone still using them to change it.
 const DEFAULT_CREDS={admin:'barkat2024',ops1:'ops123',proc1:'proc123',rider1:'rider123'};
-const DEFAULT_SETTINGS={smp:305,cult:133,fix:5100,p200:18,p400:34,r200:0.6,r400:0.4,pk200:2.7,pk400:4.1,tsnf:8.5};
+const DEFAULT_SETTINGS={smp:305,cult:133,fix:5100,p200:18,p400:34,r200:0.6,r400:0.4,pk200:2.7,pk400:4.1,tsnf:8.5,
+  // ── Standardisation calibration (tuned from a real batch) ──────────────
+  // Batch: 31.2 L raw @ 4.01 Fat / 7.05 SNF + 13 L water + 2.21 kg SMP
+  //        → 47 L final @ 2.40 Fat / 8.10 SNF.
+  // kFat    : final Fat = kFat * (qty*rawFat)/finalVol   (fat retained vs ideal)
+  // kSmpVol : litres of final volume added per kg of SMP dissolved
+  // kSmpSnf : kg of SNF actually delivered per kg of SMP added
+  kFat:0.9016, kSmpVol:1.267, kSmpSnf:0.7273};
 
 let users=load('users',DEFAULT_USERS);
 let settings=load('settings',DEFAULT_SETTINGS);
@@ -2424,7 +2440,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-14 · v36 (dist multi-batch tap-select + editable bills)';
+var APP_BUILD='2026-06-23 · v37 (calibrated standardisation — Target Fat/SNF match real meter readings)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2525,17 +2541,18 @@ document.addEventListener('click',e=>{
 // ══════════════════════════════════════════
 function loadSettings(){
   const s=settings;
-  ['smp','cult','fix','p200','p400','r200','r400','pk200','pk400','tsnf'].forEach(k=>{
+  ['smp','cult','fix','p200','p400','r200','r400','pk200','pk400','tsnf','kFat','kSmpVol','kSmpSnf'].forEach(k=>{
     const el=document.getElementById('a-'+k);
     if(el&&s[k]!==undefined)el.value=s[k];
   
   var clEl2=document.getElementById('a-creditLimit');if(clEl2&&settings.creditLimit)clEl2.value=settings.creditLimit;});
 }
 function saveSettings(){
-  ['smp','cult','fix','p200','p400','r200','r400','pk200','pk400','tsnf','creditLimit'].forEach(k=>{
+  ['smp','cult','fix','p200','p400','r200','r400','pk200','pk400','tsnf','creditLimit','kFat','kSmpVol','kSmpSnf'].forEach(k=>{
     const el=document.getElementById('a-'+k);
     if(el)settings[k]=parseFloat(el.value)||DEFAULT_SETTINGS[k]||(k==='creditLimit'?20000:0);
   });
+  calcTest&&calcTest();try{calcBatchStd();}catch(e){}
   store('settings',settings);
   const a=document.getElementById('settingsAlert');
   if(a){a.innerHTML='<div class="alert alert-green">✅ Settings saved</div>';setTimeout(()=>a.innerHTML='',2000);}
@@ -2545,6 +2562,52 @@ function saveSettings(){
 // ══════════════════════════════════════════
 // OPERATIONS CALCULATION
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+// CALIBRATED STANDARDISATION SOLVER
+// One source of truth for every Fat/SNF calc (Operations, SMP→Water,
+// Calc sandbox and Batch). Tuned to real-world meter readings via the
+// kFat / kSmpVol / kSmpSnf constants in settings, so Target Fat & Target
+// SNF land on what the lactometer/Gerber actually shows after processing.
+//   Forward model:
+//     finalVol = qty + water + kSmpVol*smp
+//     finalFat = kFat * (qty*rawFat) / finalVol
+//     finalSnf = (qty*rawSnf + 100*kSmpSnf*smp) / finalVol
+// ══════════════════════════════════════════
+function calConst(){
+  const s=settings||{};
+  const pick=k=>{const v=parseFloat(s[k]);return (isFinite(v)&&v>0)?v:DEFAULT_SETTINGS[k];};
+  return {kFat:pick('kFat'),kSmpVol:pick('kSmpVol'),kSmpSnf:pick('kSmpSnf')};
+}
+// Given raw milk + Target Fat/SNF, return the water + SMP that hit BOTH targets
+// under the calibrated model. Water rounded to 0.5 L, SMP to 0.01 kg; the
+// returned final Vol/Fat/SNF are recomputed forward from those rounded amounts
+// so the displayed result is exactly what the operator will get.
+function stdSolve(qty,fat,snf,tfat,tsnf,flash){
+  const c=calConst();
+  flash=Math.max(0,Math.min(5,parseFloat(flash)||0));
+  tfat=tfat>0?tfat:fat;
+  tsnf=tsnf>0?tsnf:(settings.tsnf||8.5);
+  // Water can only dilute fat. Max achievable fat (no dilution) = kFat*rawFat.
+  const fatShort=tfat>c.kFat*fat+0.05;
+  // 1) Pin final volume from the Fat target.
+  let fv=c.kFat*qty*fat/tfat;
+  if(!isFinite(fv)||fv<qty)fv=qty;            // can't raise fat by removing volume
+  // 2) SMP needed to reach the SNF target at that volume.
+  let smpKg=(tsnf*fv-qty*snf)/(100*c.kSmpSnf);
+  if(smpKg<0||!isFinite(smpKg))smpKg=0;
+  smpKg=Math.round(smpKg*100)/100;
+  // 3) Water = whatever volume is left after milk + dissolved SMP.
+  let totalW=fv-qty-c.kSmpVol*smpKg;
+  if(totalW<0||!isFinite(totalW))totalW=0;
+  totalW=Math.max(totalW,flash);              // flashing water is always in the batch
+  totalW=Math.round(totalW*2)/2;
+  const manualW=Math.max(0,Math.round((totalW-flash)*2)/2);
+  // Forward-recompute the true final figures from the rounded amounts.
+  const fvFinal=qty+totalW+c.kSmpVol*smpKg;
+  const fFat=fvFinal>0?c.kFat*qty*fat/fvFinal:0;
+  const fSnf=fvFinal>0?(qty*snf+100*c.kSmpSnf*smpKg)/fvFinal:0;
+  return {manualW,totalW,smpKg,fv:fvFinal,fFat,fSnf,fatShort};
+}
 function calcOps(){
   const qty=parseFloat(document.getElementById('o-qty').value)||0;
   const fat=parseFloat(document.getElementById('o-fat').value)||0;
@@ -2574,24 +2637,18 @@ function calcOps(){
   const tsnf=parseFloat(document.getElementById('o-tsnf').value)||0;
   const targetFat=tfat>0?tfat:fat;
   const targetSnf=tsnf>0?tsnf:(s.tsnf||8.5);
-  // Flashing water (added automatically during steam pasteurisation, 0–4 L)
+  // Flashing water (added automatically during steam pasteurisation, 0–5 L)
   let flash=parseFloat(document.getElementById('o-flash').value)||0;
-  if(flash<0)flash=0;if(flash>4)flash=4;
-  // Total water needed to bring Fat DOWN to target (water is the cheap lever).
-  let totalW=targetFat<fat?qty*(fat/targetFat-1):0;
-  if(totalW<0||!isFinite(totalW))totalW=0;
-  totalW=Math.max(totalW,flash);           // flashing water is always part of the batch
-  totalW=Math.round(totalW*2)/2;
-  const manualW=Math.max(0,Math.round((totalW-flash)*2)/2); // what the operator pours
-  let w=totalW;                            // total water in the batch
-  const fv=qty+totalW;                     // final volume (incl. flashing)
-  const fFat=qty*fat/fv;                   // final fat after dilution
-  const snfAfterWater=qty*snf/fv;          // SNF after dilution
-  let smpKg=(targetSnf-snfAfterWater)*fv/100; // top up SNF with minimal SMP
-  if(smpKg<0||!isFinite(smpKg))smpKg=0;
-  smpKg=Math.round(smpKg*100)/100;
-  const fSnf=snfAfterWater+smpKg*100/fv;   // final SNF
-  const fatShort=targetFat>fat+0.05;       // cannot raise fat with water/SMP
+  if(flash<0)flash=0;if(flash>5)flash=5;
+  // Calibrated solve: water + SMP that land on BOTH Target Fat and Target SNF.
+  const _r=stdSolve(qty,fat,snf,targetFat,targetSnf,flash);
+  const totalW=_r.totalW;                  // total water in the batch (incl. flashing)
+  const manualW=_r.manualW;                // what the operator pours
+  const smpKg=_r.smpKg;
+  const fv=_r.fv;                          // final volume (milk + water + SMP)
+  const fFat=_r.fFat;                      // final fat (calibrated)
+  const fSnf=_r.fSnf;                      // final SNF (calibrated)
+  const fatShort=_r.fatShort;              // cannot raise fat with water/SMP
 
   // ── Cup split (one batch target, ratio split) ──
   let sp200=parseFloat(document.getElementById('o-split200').value);
@@ -2671,18 +2728,23 @@ function calcSmpToWater(){
   const smpWant=parseFloat(document.getElementById('o-smpwant').value);
   const noteEl=document.getElementById('sw-note');const costEl=document.getElementById('sw-cost');
   if(!qty||!snf||!tsnf||isNaN(smpWant)){set('sw-water','—');set('sw-vol','—');set('sw-fat','—');set('sw-snf','—');if(noteEl)noteEl.textContent='';if(costEl)costEl.textContent='';return;}
-  // finalSnf = (qty*snf + smp*100)/fv = tsnf  →  fv = (qty*snf + smp*100)/tsnf
-  const fv=(qty*snf + smpWant*100)/tsnf;
-  const totalWater=fv-qty;
+  // Calibrated: finalSnf = (qty*snf + 100*kSmpSnf*smp)/fv = tsnf
+  //   → fv = (qty*snf + 100*kSmpSnf*smp)/tsnf ; water = fv − qty − kSmpVol*smp
+  const c=calConst();
+  const fv=(qty*snf + 100*c.kSmpSnf*smpWant)/tsnf;
+  const totalWater=fv-qty-c.kSmpVol*smpWant;
   if(totalWater<-0.05){
-    set('sw-water','0');set('sw-vol',qty.toFixed(1));set('sw-fat',(snf? (qty*fat/qty).toFixed(2):'—'));set('sw-snf',((qty*snf+smpWant*100)/qty).toFixed(2));
+    const fvNoWater=qty+c.kSmpVol*smpWant;
+    set('sw-water','0');set('sw-vol',fvNoWater.toFixed(1));
+    set('sw-fat',(c.kFat*qty*fat/fvNoWater).toFixed(2));
+    set('sw-snf',((qty*snf+100*c.kSmpSnf*smpWant)/fvNoWater).toFixed(2));
     if(noteEl)noteEl.textContent='⚠️ That much SMP already pushes SNF above target with no water. Use less SMP, or accept higher SNF.';
     if(costEl)costEl.textContent='';
     return;
   }
   const manualW=Math.max(0,Math.round((totalWater-flash)*2)/2);
-  const finalFat=qty*fat/fv;
-  const finalSnf=(qty*snf+smpWant*100)/fv;
+  const finalFat=c.kFat*qty*fat/fv;
+  const finalSnf=(qty*snf+100*c.kSmpSnf*smpWant)/fv;
   const c200=Math.floor(fv*1000*0.6/200), c400=Math.floor(fv*1000*0.4/400);
   set('sw-water',manualW+' L'+(flash>0?' (+'+flash+'L flash)':''));
   set('sw-vol',fv.toFixed(1));set('sw-fat',finalFat.toFixed(2));set('sw-snf',finalSnf.toFixed(2));
@@ -5091,15 +5153,8 @@ function calcTest(){
   if(!qty||!fat||!snf){['ct-water','ct-smp','ct-vol','ct-ffat','ct-fsnf','ct-qual'].forEach(id=>setT(id,'—'));const n=document.getElementById('ct-note');if(n)n.textContent='Enter milk qty, fat and SNF.';return;}
   const tfat=g('ct-tfat')||fat, tsnf=g('ct-tsnf')||(settings.tsnf||8.5);
   let flash=g('ct-flash');if(flash<0)flash=0;if(flash>5)flash=5;
-  let totalW=tfat<fat?qty*(fat/tfat-1):0;if(totalW<0||!isFinite(totalW))totalW=0;
-  totalW=Math.max(totalW,flash);totalW=Math.round(totalW*2)/2;
-  const manualW=Math.max(0,Math.round((totalW-flash)*2)/2);
-  const fv=qty+totalW;
-  const fFat=qty*fat/fv;
-  const snfAfter=qty*snf/fv;
-  let smpKg=(tsnf-snfAfter)*fv/100;if(smpKg<0||!isFinite(smpKg))smpKg=0;smpKg=Math.round(smpKg*100)/100;
-  const fSnf=snfAfter+smpKg*100/fv;
-  const fatShort=tfat>fat+0.05;
+  const _r=stdSolve(qty,fat,snf,tfat,tsnf,flash);
+  const totalW=_r.totalW,manualW=_r.manualW,smpKg=_r.smpKg,fv=_r.fv,fFat=_r.fFat,fSnf=_r.fSnf,fatShort=_r.fatShort;
   const qual=fFat>=3.5&&fSnf>=8.5?'🟢 Excellent':fFat>=3.2&&fSnf>=8.3?'🟢 Good':fFat>=3.0&&fSnf>=8.0?'🟡 Standard':'🔴 Thin';
   setT('ct-water',manualW>0?manualW:'None');setT('ct-smp',smpKg>0?smpKg.toFixed(2):'None');
   setT('ct-vol',fv.toFixed(1));setT('ct-ffat',fFat.toFixed(2)+'%');setT('ct-fsnf',fSnf.toFixed(2)+'%');setT('ct-qual',qual);
@@ -5159,18 +5214,12 @@ function calcBatchStd(){
   const tfat=parseFloat(document.getElementById('nb-tfat').value)||fat;
   const tsnf=parseFloat(document.getElementById('nb-tsnf').value)||(settings.tsnf||8.5);
   let flash=parseFloat(document.getElementById('nb-flash').value)||0;if(flash<0)flash=0;if(flash>5)flash=5;
-  let totalW=tfat<fat?qty*(fat/tfat-1):0;if(totalW<0||!isFinite(totalW))totalW=0;
-  totalW=Math.max(totalW,flash);totalW=Math.round(totalW*2)/2;
-  const manualW=Math.max(0,Math.round((totalW-flash)*2)/2);
-  const fv=qty+totalW;
-  const fFat=qty*fat/fv;
-  const snfAfter=qty*snf/fv;
-  let smpKg=(tsnf-snfAfter)*fv/100;if(smpKg<0||!isFinite(smpKg))smpKg=0;smpKg=Math.round(smpKg*100)/100;
-  const fSnf=snfAfter+smpKg*100/fv;
+  const _r=stdSolve(qty,fat,snf,tfat,tsnf,flash);
+  const totalW=_r.totalW,manualW=_r.manualW,smpKg=_r.smpKg,fv=_r.fv,fFat=_r.fFat,fSnf=_r.fSnf;
   let sp200=parseFloat(document.getElementById('nb-sp200').value);let sp400=parseFloat(document.getElementById('nb-sp400').value);
   if(isNaN(sp200))sp200=60;if(isNaN(sp400))sp400=40;if(sp200+sp400<=0){sp200=60;sp400=40;}
   const c200=Math.floor(fv*1000*(sp200/100)/200),c400=Math.floor(fv*1000*(sp400/100)/400);
-  const fatShort=tfat>fat+0.05;
+  const fatShort=_r.fatShort;
   const qual=fFat>=3.5&&fSnf>=8.5?'🟢 Excellent':fFat>=3.2&&fSnf>=8.3?'🟢 Good':fFat>=3.0&&fSnf>=8.0?'🟡 Standard':'🔴 Thin';
   setT('nbr-water',manualW>0?manualW:'None');
   setT('nbr-smp',smpKg>0?smpKg.toFixed(2):'None');

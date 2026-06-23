@@ -1,1 +1,1 @@
-2026-06-14 · v36 (dist multi-batch tap-select + editable bills)
+2026-06-23 · v37 (calibrated standardisation — Target Fat/SNF match real meter readings)
