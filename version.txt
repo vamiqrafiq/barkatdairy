@@ -1,1 +1,1 @@
-2026-06-23 · v44 (printed bill frozen as record; live account balance banner on-screen)
+2026-06-23 · v45 (bills: live unpaid carry-forward — Previous + Current = Total to be paid)

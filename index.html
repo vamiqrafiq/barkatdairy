@@ -2489,7 +2489,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-23 · v44 (printed bill frozen as record; live account balance banner on-screen)';
+var APP_BUILD='2026-06-23 · v45 (bills: live unpaid carry-forward — Previous + Current = Total to be paid)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3397,23 +3397,31 @@ function deleteDistRecord(id){
 }
 function clearDistFilter(){renderDistRecords();}
 
+// Live bill maths. Previous balance carries forward ONLY what is still unpaid:
+// payments in the Payments tab clear it (oldest bills first), and any payment
+// beyond the previous balance is credited against this bill. Returns the four
+// figures a bill shows: previous + current − paid/credit = total to be paid.
+function billNumbers(r){
+  let billedBefore=0,paidBefore=0;
+  (Array.isArray(distRecords)?distRecords:[]).forEach(function(x){
+    if(x&&x.dist===r.dist&&x.id<r.id){billedBefore+=(x.amount||0);paidBefore+=(x.paid||0);}
+  });
+  const pay=(Array.isArray(paymentsLog)?paymentsLog:[]).reduce(function(s,p){return s+((p&&p.dist===r.dist)?(p.amount||0):0);},0);
+  const prevNet=billedBefore-paidBefore;            // owed from earlier bills (before payments)
+  const prev=Math.max(0,prevNet-pay);               // still-unpaid previous balance
+  const credit=Math.max(0,pay-prevNet);             // payments beyond previous → applied here
+  const current=r.amount||0, paidThis=r.paid||0;
+  const total=Math.max(0,prev+current-paidThis-credit);
+  return {prev,current,paidThis,credit,total};
+}
 function showDistBill(id){
   const r=distRecords.find(x=>x.id===id);
   if(!r)return;
   currentDistBill=r;
   const p200=(r&&r.rate200!=null)?r.rate200:(settings.p200||18);const p400=(r&&r.rate400!=null)?r.rate400:(settings.p400||34);
   const billNo='DB-'+id.toString().slice(-6);
-  // The bill itself is the FROZEN original record (r.prevBalance / r.amount /
-  // r.paid / r.balance as captured when it was made). The live current account
-  // balance is shown only in an on-screen banner above it (never printed).
-  const liveNow=(typeof getDistBalance==='function')?getDistBalance(r.dist):(r.balance||0);
-  const liveBanner=`<div style="background:${liveNow>0.5?'#fff7ed':'#f0fdf4'};border:1px solid ${liveNow>0.5?'#fed7aa':'#bbf7d0'};border-radius:10px;padding:9px 13px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:11px;font-weight:700;color:${liveNow>0.5?'#9a3412':'#15803d'}">📊 ${_esc(r.dist)} · Current Account Balance</span>
-      <span style="font-size:16px;font-weight:700;color:${liveNow>0.5?'#b91c1c':'#15803d'}">${liveNow>0.5?'₹'+liveNow.toFixed(0):'✅ Cleared'}</span>
-    </div>
-    <div style="font-size:9px;color:#94a3b8;margin-bottom:12px;text-align:center">Live balance after all recorded payments — the bill below is the original record</div>`;
+  const B=billNumbers(r);  // live previous/current/total (payments already applied)
   const html=`
-    ${liveBanner}
     <div class="dist-bill-header">
       <div class="dist-bill-brand">BARKAT DAIRY PLANT</div>
       <div class="dist-bill-urdu">برکت ڈیری پلانٹ</div>
@@ -3427,18 +3435,19 @@ function showDistBill(id){
     <table class="dist-bill-table">
       <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Amount</th></tr></thead>
       <tbody>
-        ${r.prevBalance>0?`<tr style="background:#fff8e7"><td colspan="3"><b>Previous Balance Carried Forward</b></td><td>₹${r.prevBalance.toFixed(0)}</td></tr>`:''}
+        ${B.prev>0.5?`<tr style="background:#fff8e7"><td colspan="3"><b>Previous Balance (unpaid, carried forward)</b></td><td>₹${B.prev.toFixed(0)}</td></tr>`:''}
         ${r.c200>0?`<tr><td>200g Cups</td><td>${r.c200} cups</td><td>₹${p200}</td><td>₹${(r.c200*p200).toFixed(0)}</td></tr>`:''}
         ${r.c400>0?`<tr><td>400g Cups</td><td>${r.c400} cups</td><td>₹${p400}</td><td>₹${(r.c400*p400).toFixed(0)}</td></tr>`:''}
         ${r.crates>0?`<tr><td>Crates Given</td><td>${r.crates}</td><td>—</td><td>—</td></tr>`:''}
       </tbody>
     </table>
-    <div class="dist-bill-total-row"><span class="dist-bill-total-label">This Bill Amount</span><span class="dist-bill-total-val">₹${(r.amount||0).toFixed(0)}</span></div>
-    ${r.prevBalance>0?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--red)"><span>+ Previous Balance</span><span>₹${r.prevBalance.toFixed(0)}</span></div>`:''}
-    ${r.paid>0?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--green)"><span>− Payment Received</span><span>₹${r.paid.toFixed(0)}</span></div>`:''}
-    <div style="display:flex;justify-content:space-between;padding:10px 12px;background:${(r.balance||0)>0.5?'#fff1f2':'#f0fdf4'};border-radius:10px;margin-top:6px">
-      <span style="font-weight:700;font-size:13px;color:${(r.balance||0)>0.5?'var(--red)':'var(--green)'}">Total Balance Due <span style="font-weight:400;font-size:10px">(as billed)</span></span>
-      <span style="font-weight:700;font-size:16px;color:${(r.balance||0)>0.5?'var(--red)':'var(--green)'}">₹${(r.balance||0).toFixed(0)}</span>
+    ${B.prev>0.5?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--red)"><span>Previous Balance</span><span>₹${B.prev.toFixed(0)}</span></div>`:''}
+    <div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--dark)"><span>Current Bill Amount</span><span>₹${B.current.toFixed(0)}</span></div>
+    ${B.paidThis>0?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--green)"><span>− Paid on this bill</span><span>₹${B.paidThis.toFixed(0)}</span></div>`:''}
+    ${B.credit>0.5?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--green)"><span>− Advance / credit</span><span>₹${B.credit.toFixed(0)}</span></div>`:''}
+    <div style="display:flex;justify-content:space-between;padding:10px 12px;background:${B.total>0.5?'#fff1f2':'#f0fdf4'};border-radius:10px;margin-top:6px">
+      <span style="font-weight:700;font-size:13px;color:${B.total>0.5?'var(--red)':'var(--green)'}">Total To Be Paid</span>
+      <span style="font-weight:700;font-size:16px;color:${B.total>0.5?'var(--red)':'var(--green)'}">${B.total>0.5?'₹'+B.total.toFixed(0):'✅ Cleared'}</span>
     </div>
     <div class="dist-bill-sig">
       <div class="dist-bill-sig-box"><div class="dist-bill-sig-line"></div>Distributor Signature</div>
@@ -3456,6 +3465,7 @@ function closeDistBill(){document.getElementById('distBillModal').classList.remo
 function buildBillBodyHTML(r){
   const p200=(r&&r.rate200!=null)?r.rate200:(settings.p200||18);const p400=(r&&r.rate400!=null)?r.rate400:(settings.p400||34);
   const billNo='DB-'+r.id.toString().slice(-6);
+  const B=billNumbers(r);
   const rows=[
     r.c200>0?'<tr><td>200g Yogurt Cups</td><td style="text-align:center">'+r.c200+'</td><td style="text-align:right">&#8377;'+p200+'</td><td style="text-align:right">&#8377;'+(r.c200*p200).toFixed(0)+'</td></tr>':'',
     r.c400>0?'<tr><td>400g Yogurt Cups</td><td style="text-align:center">'+r.c400+'</td><td style="text-align:right">&#8377;'+p400+'</td><td style="text-align:right">&#8377;'+(r.c400*p400).toFixed(0)+'</td></tr>':'',
@@ -3493,14 +3503,13 @@ function buildBillBodyHTML(r){
       </thead>
       <tbody>${rows}</tbody>
     </table>
-    <div style="background:#e8eef8;border-radius:10px;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <span style="font-size:14px;font-weight:700;color:#0d1b4b">Total Bill Amount</span>
-      <span style="font-size:22px;font-weight:700;color:#1a3a8f">&#8377;${r.amount.toFixed(0)}</span>
-    </div>
-    ${r.paid>0?`<div style="display:flex;justify-content:space-between;padding:7px 16px;font-size:13px;color:#15803d"><span>Payment Received</span><span>&minus; &#8377;${r.paid.toFixed(0)}</span></div>`:''}
-    <div style="background:${r.balance>0?'#fff1f2':'#f0fdf4'};border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-      <span style="font-weight:700;font-size:14px;color:${r.balance>0?'#b91c1c':'#15803d'}">${r.balance>0?'Balance Due':'Fully Paid'}</span>
-      <span style="font-weight:700;font-size:20px;color:${r.balance>0?'#b91c1c':'#15803d'}">&#8377;${r.balance.toFixed(0)}</span>
+    ${B.prev>0.5?`<div style="display:flex;justify-content:space-between;padding:7px 16px;font-size:13px;color:#b91c1c"><span>Previous Balance (unpaid)</span><span>&#8377;${B.prev.toFixed(0)}</span></div>`:''}
+    <div style="display:flex;justify-content:space-between;padding:7px 16px;font-size:13px;color:#0d1b4b"><span>Current Bill Amount</span><span>&#8377;${B.current.toFixed(0)}</span></div>
+    ${B.paidThis>0?`<div style="display:flex;justify-content:space-between;padding:7px 16px;font-size:13px;color:#15803d"><span>Paid on this bill</span><span>&minus; &#8377;${B.paidThis.toFixed(0)}</span></div>`:''}
+    ${B.credit>0.5?`<div style="display:flex;justify-content:space-between;padding:7px 16px;font-size:13px;color:#15803d"><span>Advance / credit</span><span>&minus; &#8377;${B.credit.toFixed(0)}</span></div>`:''}
+    <div style="background:${B.total>0.5?'#fff1f2':'#f0fdf4'};border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+      <span style="font-weight:700;font-size:14px;color:${B.total>0.5?'#b91c1c':'#15803d'}">${B.total>0.5?'Total To Be Paid':'Fully Paid'}</span>
+      <span style="font-weight:700;font-size:20px;color:${B.total>0.5?'#b91c1c':'#15803d'}">&#8377;${B.total.toFixed(0)}</span>
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:50px;padding-top:14px;border-top:1px solid #e2e8f0">
       <div style="text-align:center;font-size:11px;color:#6b7280;flex:1">
@@ -3545,9 +3554,13 @@ function doShareBill(){
     r.c400>0?'400g Cups: '+r.c400+' x Rs.'+p400+' = Rs.'+(r.c400*p400).toFixed(0):'',
     r.crates>0?'Crates Given: '+r.crates:'',
     '========================',
-    'Total Bill: Rs.'+r.amount.toFixed(0),
-    r.paid>0?'Payment Received: Rs.'+r.paid.toFixed(0):'',
-    'Balance Due: Rs.'+r.balance.toFixed(0),
+    (_bn=>[
+      _bn.prev>0.5?'Previous Balance (unpaid): Rs.'+_bn.prev.toFixed(0):'',
+      'Current Bill Amount: Rs.'+_bn.current.toFixed(0),
+      _bn.paidThis>0?'Paid on this bill: -Rs.'+_bn.paidThis.toFixed(0):'',
+      _bn.credit>0.5?'Advance/credit: -Rs.'+_bn.credit.toFixed(0):'',
+      'TOTAL TO BE PAID: Rs.'+_bn.total.toFixed(0)
+    ].filter(Boolean).join('\n'))(billNumbers(r)),
     '------------------------',
     'Barkat Dairy Plant',
   ].filter(Boolean).join('\n');
@@ -4100,23 +4113,31 @@ function buildBillPDF(r){
   y+=4;
   hline('#cccccc');
 
-  // Total
-  ops.push({t:'rect',x:margin,y,w:textW,h:26,fill:'#e8eef8'});
-  ops.push({t:'text',x:margin+8,y:y+8,txt:'TOTAL BILL AMOUNT',s:11,b:true,color:'#0d1b4b'});
-  ops.push({t:'text',x:margin+370,y:y+8,txt:'Rs.'+r.amount.toFixed(0),s:13,b:true,color:'#1a3a8f'});
-  y+=30;
-
-  if(r.paid>0){
-    ops.push({t:'text',x:margin+8,y:y+4,txt:'Payment Received',s:10,color:'#15803d'});
-    ops.push({t:'text',x:margin+370,y:y+4,txt:'- Rs.'+r.paid.toFixed(0),s:10,color:'#15803d'});
+  // Totals (live: previous unpaid balance + current − paid/credit = total to pay)
+  const B=billNumbers(r);
+  if(B.prev>0.5){
+    ops.push({t:'text',x:margin+8,y:y+4,txt:'Previous Balance (unpaid)',s:10,color:'#b91c1c'});
+    ops.push({t:'text',x:margin+370,y:y+4,txt:'Rs.'+B.prev.toFixed(0),s:10,color:'#b91c1c'});
     y+=18;
   }
-
-  const balFill=r.balance>0?'#fff1f2':'#f0fdf4';
-  const balColor=r.balance>0?'#b91c1c':'#15803d';
+  ops.push({t:'text',x:margin+8,y:y+4,txt:'Current Bill Amount',s:10,color:'#0d1b4b'});
+  ops.push({t:'text',x:margin+370,y:y+4,txt:'Rs.'+B.current.toFixed(0),s:10,color:'#0d1b4b'});
+  y+=18;
+  if(B.paidThis>0){
+    ops.push({t:'text',x:margin+8,y:y+4,txt:'Paid on this bill',s:10,color:'#15803d'});
+    ops.push({t:'text',x:margin+370,y:y+4,txt:'- Rs.'+B.paidThis.toFixed(0),s:10,color:'#15803d'});
+    y+=18;
+  }
+  if(B.credit>0.5){
+    ops.push({t:'text',x:margin+8,y:y+4,txt:'Advance / credit',s:10,color:'#15803d'});
+    ops.push({t:'text',x:margin+370,y:y+4,txt:'- Rs.'+B.credit.toFixed(0),s:10,color:'#15803d'});
+    y+=18;
+  }
+  const balFill=B.total>0.5?'#fff1f2':'#f0fdf4';
+  const balColor=B.total>0.5?'#b91c1c':'#15803d';
   ops.push({t:'rect',x:margin,y,w:textW,h:24,fill:balFill});
-  ops.push({t:'text',x:margin+8,y:y+7,txt:r.balance>0?'Balance Due':'Fully Paid',s:11,b:true,color:balColor});
-  ops.push({t:'text',x:margin+370,y:y+7,txt:'Rs.'+r.balance.toFixed(0),s:13,b:true,color:balColor});
+  ops.push({t:'text',x:margin+8,y:y+7,txt:B.total>0.5?'TOTAL TO BE PAID':'Fully Paid',s:11,b:true,color:balColor});
+  ops.push({t:'text',x:margin+370,y:y+7,txt:'Rs.'+B.total.toFixed(0),s:13,b:true,color:balColor});
   y+=34;
 
   // Signatures
