@@ -2489,7 +2489,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-23 · v43 (bills show live balance after payments; fix uneditable duplicate-id bills)';
+var APP_BUILD='2026-06-23 · v44 (printed bill frozen as record; live account balance banner on-screen)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3403,11 +3403,17 @@ function showDistBill(id){
   currentDistBill=r;
   const p200=(r&&r.rate200!=null)?r.rate200:(settings.p200||18);const p400=(r&&r.rate400!=null)?r.rate400:(settings.p400||34);
   const billNo='DB-'+id.toString().slice(-6);
-  // Live figures so payments recorded later actually reduce the balance shown.
-  const prevGross=distRecords.filter(x=>x&&x.dist===r.dist&&x.id<r.id).reduce((s,x)=>s+((x.amount||0)-(x.paid||0)),0);
-  const sepPay=(Array.isArray(paymentsLog)?paymentsLog:[]).filter(p=>p&&p.dist===r.dist).reduce((s,p)=>s+(p.amount||0),0);
-  const totalDue=prevGross+(r.amount||0)-(r.paid||0)-sepPay;
+  // The bill itself is the FROZEN original record (r.prevBalance / r.amount /
+  // r.paid / r.balance as captured when it was made). The live current account
+  // balance is shown only in an on-screen banner above it (never printed).
+  const liveNow=(typeof getDistBalance==='function')?getDistBalance(r.dist):(r.balance||0);
+  const liveBanner=`<div style="background:${liveNow>0.5?'#fff7ed':'#f0fdf4'};border:1px solid ${liveNow>0.5?'#fed7aa':'#bbf7d0'};border-radius:10px;padding:9px 13px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:11px;font-weight:700;color:${liveNow>0.5?'#9a3412':'#15803d'}">📊 ${_esc(r.dist)} · Current Account Balance</span>
+      <span style="font-size:16px;font-weight:700;color:${liveNow>0.5?'#b91c1c':'#15803d'}">${liveNow>0.5?'₹'+liveNow.toFixed(0):'✅ Cleared'}</span>
+    </div>
+    <div style="font-size:9px;color:#94a3b8;margin-bottom:12px;text-align:center">Live balance after all recorded payments — the bill below is the original record</div>`;
   const html=`
+    ${liveBanner}
     <div class="dist-bill-header">
       <div class="dist-bill-brand">BARKAT DAIRY PLANT</div>
       <div class="dist-bill-urdu">برکت ڈیری پلانٹ</div>
@@ -3421,19 +3427,18 @@ function showDistBill(id){
     <table class="dist-bill-table">
       <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Amount</th></tr></thead>
       <tbody>
-        ${prevGross>0?`<tr style="background:#fff8e7"><td colspan="3"><b>Previous Balance Carried Forward</b></td><td>₹${prevGross.toFixed(0)}</td></tr>`:''}
+        ${r.prevBalance>0?`<tr style="background:#fff8e7"><td colspan="3"><b>Previous Balance Carried Forward</b></td><td>₹${r.prevBalance.toFixed(0)}</td></tr>`:''}
         ${r.c200>0?`<tr><td>200g Cups</td><td>${r.c200} cups</td><td>₹${p200}</td><td>₹${(r.c200*p200).toFixed(0)}</td></tr>`:''}
         ${r.c400>0?`<tr><td>400g Cups</td><td>${r.c400} cups</td><td>₹${p400}</td><td>₹${(r.c400*p400).toFixed(0)}</td></tr>`:''}
         ${r.crates>0?`<tr><td>Crates Given</td><td>${r.crates}</td><td>—</td><td>—</td></tr>`:''}
       </tbody>
     </table>
     <div class="dist-bill-total-row"><span class="dist-bill-total-label">This Bill Amount</span><span class="dist-bill-total-val">₹${(r.amount||0).toFixed(0)}</span></div>
-    ${prevGross>0?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--red)"><span>+ Previous Balance</span><span>₹${prevGross.toFixed(0)}</span></div>`:''}
-    ${r.paid>0?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--green)"><span>− Paid on this bill</span><span>₹${r.paid.toFixed(0)}</span></div>`:''}
-    ${sepPay>0?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--green)"><span>− Payments recorded</span><span>₹${sepPay.toFixed(0)}</span></div>`:''}
-    <div style="display:flex;justify-content:space-between;padding:10px 12px;background:${totalDue>0.5?'#fff1f2':'#f0fdf4'};border-radius:10px;margin-top:6px">
-      <span style="font-weight:700;font-size:13px;color:${totalDue>0.5?'var(--red)':'var(--green)'}">Balance Due (after payments)</span>
-      <span style="font-weight:700;font-size:16px;color:${totalDue>0.5?'var(--red)':'var(--green)'}">₹${totalDue.toFixed(0)}</span>
+    ${r.prevBalance>0?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--red)"><span>+ Previous Balance</span><span>₹${r.prevBalance.toFixed(0)}</span></div>`:''}
+    ${r.paid>0?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--green)"><span>− Payment Received</span><span>₹${r.paid.toFixed(0)}</span></div>`:''}
+    <div style="display:flex;justify-content:space-between;padding:10px 12px;background:${(r.balance||0)>0.5?'#fff1f2':'#f0fdf4'};border-radius:10px;margin-top:6px">
+      <span style="font-weight:700;font-size:13px;color:${(r.balance||0)>0.5?'var(--red)':'var(--green)'}">Total Balance Due <span style="font-weight:400;font-size:10px">(as billed)</span></span>
+      <span style="font-weight:700;font-size:16px;color:${(r.balance||0)>0.5?'var(--red)':'var(--green)'}">₹${(r.balance||0).toFixed(0)}</span>
     </div>
     <div class="dist-bill-sig">
       <div class="dist-bill-sig-box"><div class="dist-bill-sig-line"></div>Distributor Signature</div>

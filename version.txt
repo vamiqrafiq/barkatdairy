@@ -1,1 +1,1 @@
-2026-06-23 · v43 (bills show live balance after payments; fix uneditable duplicate-id bills)
+2026-06-23 · v44 (printed bill frozen as record; live account balance banner on-screen)
