@@ -2347,6 +2347,10 @@ let testRecords=load('testRecords',[]);
 let savedSuppliers=load('savedSuppliers',[]);
 let savedDistributors=load('savedDistributors',[]);
 let attRecords=load('attRecords',[]);
+// Deletion tombstones: { syncKey: { recordId: timestamp } }. A deleted id is
+// remembered and filtered out of any synced copy so it can never be merged back
+// in by another device/tab that still holds it. This is what makes deletes stick.
+let deletedIds=load('deletedIds',{});
 let attSavedName=load('attSavedName','');
 let currentUser=null;
 let currentThermalText='';
@@ -2469,7 +2473,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-23 · v41 (water-first mode in Batch + Calc; manual water control)';
+var APP_BUILD='2026-06-23 · v42 (deletes stick via tombstones; bill carry-forward subtracts payments)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2936,6 +2940,7 @@ function deleteProcRecord(id){
   const r=records.find(x=>String(x.id)===String(id));if(!r)return;
   if(!confirm('Delete procurement entry for '+(r.supplier||'')+' ('+(r.qty||0)+'L)? This cannot be undone.'))return;
   records=records.filter(x=>String(x.id)!==String(id));
+  _markDeleted('records',id);
   store('records',records);
   renderAllRecords();
 }
@@ -3166,8 +3171,12 @@ function saveDist(){
   const p200=(r200el&&r200el.value!=='')?(parseFloat(r200el.value)||0):(settings.p200||18);
   const p400=(r400el&&r400el.value!=='')?(parseFloat(r400el.value)||0):(settings.p400||34);
   const amount=(c200*p200)+(c400*p400);
-  // Carry-forward: sum all unpaid balances for this distributor before this moment
-  const prevBal=distRecords.filter(r=>r.dist===dist).reduce((s,r)=>s+(r.amount-r.paid),0);
+  // Carry-forward: this distributor's outstanding so far = sum of (bill − paid-at-billing)
+  // across their distribution records MINUS any payments logged separately in the
+  // Payments tab. Without subtracting paymentsLog, a cleared balance kept reappearing.
+  const distOutstanding=distRecords.filter(r=>r.dist===dist).reduce((s,r)=>s+((r.amount||0)-(r.paid||0)),0);
+  const sepPayments=(typeof paymentsLog!=='undefined'?paymentsLog:[]).filter(p=>p.dist===dist).reduce((s,p)=>s+(p.amount||0),0);
+  const prevBal=distOutstanding-sepPayments;
   const batchIds=Object.keys(_distBatchSel).join(',');
   const rider=(document.getElementById('d-rider')||{}).value||'';
   const rec={id:Date.now(),dist,date,c200,c400,crates,amount,paid,payMode,batchIds,rider,rate200:p200,rate400:p400,prevBalance:prevBal,balance:prevBal+amount-paid,savedBy:currentUser?currentUser.name:'Staff'};
@@ -3363,6 +3372,7 @@ function deleteDistRecord(id){
   const r=distRecords.find(x=>x.id===id);if(!r)return;
   if(!confirm('Delete this distribution entry for '+r.dist+' (₹'+(r.amount||0).toFixed(0)+')? This cannot be undone.'))return;
   distRecords=distRecords.filter(x=>x.id!==id);
+  _markDeleted('distRecords',id);
   store('distRecords',distRecords);
   renderDistRecords();
 }
@@ -3866,9 +3876,9 @@ ${rowsHtml}</body></html>`;
   const a=document.createElement('a');a.href=url;a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url),20000);
 }
-function clearAllRecords(){if(confirm('Delete ALL procurement records?')){records=[];store('records',records);renderAllRecords();}}
-function clearDistRecords(){if(confirm('Delete ALL distribution records?')){distRecords=[];store('distRecords',distRecords);renderDistRecords();}}
-function clearTestRecords(){if(confirm('Delete ALL test records?')){testRecords=[];store('testRecords',testRecords);renderTestHistory();}}
+function clearAllRecords(){if(confirm('Delete ALL procurement records?')){_markDeleted('records',records.map(_rid));records=[];store('records',records);renderAllRecords();}}
+function clearDistRecords(){if(confirm('Delete ALL distribution records?')){_markDeleted('distRecords',distRecords.map(_rid));distRecords=[];store('distRecords',distRecords);renderDistRecords();}}
+function clearTestRecords(){if(confirm('Delete ALL test records?')){_markDeleted('testRecords',testRecords.map(_rid));testRecords=[];store('testRecords',testRecords);renderTestHistory();}}
 function updateRates(){
   const raw=document.getElementById('rateJson').value.trim();
   if(!raw){
@@ -4402,6 +4412,7 @@ function deleteInvEntry(id){
   const e=invEntries.find(x=>x.id===id);if(!e)return;
   if(!confirm('Delete this stock entry? Stock levels will recalculate.'))return;
   invEntries=invEntries.filter(x=>x.id!==id);
+  _markDeleted('invEntries',id);
   store('invEntries',invEntries);
   renderStockDashboard();renderInvLog();checkLowStockAlerts();
 }
@@ -4452,7 +4463,7 @@ function loadOpeningStockFields(){
 }
 function clearInvRecords(){
   if(confirm('Clear all inventory log entries? Opening stock will remain.')){
-    invEntries=[];store('invEntries',invEntries);renderStockDashboard();renderInvLog();
+    _markDeleted('invEntries',invEntries.map(_rid));invEntries=[];store('invEntries',invEntries);renderStockDashboard();renderInvLog();
   }
 }
 
@@ -5122,6 +5133,7 @@ function updateApiKeyStatus(){
 
 function clearAttRecords(){
   if(confirm('Delete ALL attendance records? This cannot be undone.')){
+    _markDeleted('attRecords',attRecords.map(_rid));
     attRecords=[];
     store('attRecords',attRecords);
     renderAttToday();
@@ -5153,6 +5165,7 @@ function renderDeleteAttList(){
 
 function deleteAttRecord(id){
   attRecords=attRecords.filter(r=>r.id!==id);
+  _markDeleted('attRecords',id);
   store('attRecords',attRecords);
   renderAttToday();
   renderAttHistory();
@@ -5468,6 +5481,7 @@ function batchCardHTML(b){
 function deleteBatchById(id){
   if(!confirm('Permanently delete batch '+id+'? This cannot be undone.'))return;
   productionBatches=productionBatches.filter(b=>b&&b.batchId!==id);
+  _markDeleted('productionBatches',id);
   store('productionBatches',productionBatches);
   renderBatchList();renderColdStore();
 }
@@ -5907,6 +5921,7 @@ function deleteBatch(){
   const b=productionBatches.find(x=>x.batchId===currentBatchId);if(!b)return;
   if(!confirm('Delete batch '+b.batchId+'? This cannot be undone.'))return;
   productionBatches=productionBatches.filter(x=>x.batchId!==currentBatchId);
+  _markDeleted('productionBatches',currentBatchId);
   store('productionBatches',productionBatches);
   document.getElementById('batchModal').classList.remove('open');
   clearInterval(window._incubTimer);
@@ -6305,6 +6320,7 @@ function saveCIPSimple(status){
 function deleteCIP(id){
   if(!confirm('Delete this CIP log?'))return;
   cipLogs=cipLogs.filter(x=>x.id!==id);
+  _markDeleted('cipLogs',id);
   store('cipLogs',cipLogs);
   renderCIPList();
 }
@@ -6568,14 +6584,61 @@ td{padding:7px 10px;border-bottom:1px solid #e5e7eb}
 }
 
 // Init helpers called from tab buttons
-function clearBatchRecords(){if(confirm('Delete ALL batch records?')){productionBatches=[];store('productionBatches',productionBatches);renderBatchList();}}
-function clearCipRecords(){if(confirm('Delete ALL CIP records?')){cipLogs=[];store('cipLogs',cipLogs);renderCIPList();renderCIPCalendar();}}
+function clearBatchRecords(){if(confirm('Delete ALL batch records?')){_markDeleted('productionBatches',productionBatches.map(_rid));productionBatches=[];store('productionBatches',productionBatches);renderBatchList();}}
+function clearCipRecords(){if(confirm('Delete ALL CIP records?')){_markDeleted('cipLogs',cipLogs.map(_rid));cipLogs=[];store('cipLogs',cipLogs);renderCIPList();renderCIPCalendar();}}
 
 // ═══ FIREBASE CLOUD SYNC ═══
 var _fb=null,_fbReady=false,_fbListening=false,_fbAuthed=false,_syncReady=false;
 var _syncKeys=['records','distRecords','testRecords','productionBatches','cipLogs',
   'users','settings','savedSuppliers','savedDistributors','attRecords',
-  'invEntries','invOpening','returnsLog','paymentsLog','auditLog','rateOverride'];
+  'invEntries','invOpening','returnsLog','paymentsLog','auditLog','rateOverride','deletedIds'];
+
+// ── Deletion tombstones ───────────────────────────────────────────────────
+// Natural key for a record (matches the merge logic in _syncDown).
+function _rid(x){return x&&(x.id!=null?x.id:(x.batchId||x.username||x.lotId));}
+function _isDeleted(key,id){return !!(id!=null&&deletedIds[key]&&deletedIds[key][String(id)]);}
+// Remove every tombstoned record from an array.
+function _pruneDeleted(key,arr){
+  if(!Array.isArray(arr)||!deletedIds[key])return arr;
+  return arr.filter(function(x){return !_isDeleted(key,_rid(x));});
+}
+// Record one or more ids as deleted, persist + sync the tombstones.
+function _markDeleted(key,ids){
+  if(!Array.isArray(ids))ids=[ids];
+  if(!deletedIds[key])deletedIds[key]={};
+  var now=Date.now(),changed=false;
+  ids.forEach(function(id){if(id!=null&&!deletedIds[key][String(id)]){deletedIds[key][String(id)]=now;changed=true;}});
+  if(changed)store('deletedIds',deletedIds); // overridden store() also pushes to cloud
+}
+// Union remote tombstones into local (tombstones only ever grow).
+function _mergeDeleted(cloud){
+  if(!cloud||typeof cloud!=='object')return false;
+  var changed=false;
+  Object.keys(cloud).forEach(function(key){
+    if(!cloud[key]||typeof cloud[key]!=='object')return;
+    if(!deletedIds[key])deletedIds[key]={};
+    Object.keys(cloud[key]).forEach(function(id){
+      if(!deletedIds[key][id]){deletedIds[key][id]=cloud[key][id];changed=true;}
+    });
+  });
+  if(changed){try{localStorage.setItem('bd_deletedIds',JSON.stringify(deletedIds));}catch(e){}}
+  return changed;
+}
+// Re-apply all tombstones to local arrays; push cleaned copies up if anything
+// still contained a deleted id (so the deletion propagates to every device).
+function _applyTombstones(){
+  _syncKeys.forEach(function(k){
+    if(k==='deletedIds'||!deletedIds[k])return;
+    var arr=load(k,null);
+    if(!Array.isArray(arr)||!arr.length)return;
+    var cleaned=_pruneDeleted(k,arr);
+    if(cleaned.length!==arr.length){
+      _setGlobal(k,cleaned);
+      if(_fbReady&&_fbAuthed&&_syncReady){try{_fb.ref('bd/'+k).set(cleaned);}catch(e){}}
+    }
+  });
+  _refreshUI();
+}
 
 function _initFB(){
   try{
@@ -6652,6 +6715,7 @@ function _setGlobal(k,v){
     case 'paymentsLog':paymentsLog=v;break;
     case 'auditLog':auditLog=v;break;
     case 'rateOverride':rateOverride=v;break;
+    case 'deletedIds':deletedIds=v;break;
     default: try{window[k]=v;}catch(e){}
   }
 }
@@ -6660,7 +6724,10 @@ function _syncDown(){
   _fb.ref('bd').once('value').then(function(snap){
     var d=snap.val();
     if(!d){_syncUp();return;}
+    // Merge cloud tombstones first so the list merge below can honour them.
+    _mergeDeleted(d.deletedIds);
     _syncKeys.forEach(function(k){
+      if(k==='deletedIds')return; // handled via _mergeDeleted above
       var cloud=d[k],local=load(k,null);
       if(k==='users'&&Array.isArray(cloud)&&cloud.length){
         // User list is managed centrally by admin — cloud is authoritative so
@@ -6670,23 +6737,31 @@ function _syncDown(){
         // Legacy empty-marker — IGNORE it (never wipe). If we have local data, push it up.
         if(Array.isArray(local)&&local.length){try{_fb.ref('bd/'+k).set(local);}catch(e){}}
       }else if(cloud!=null&&Array.isArray(cloud)&&Array.isArray(local)){
-        // Both sides have a list → merge by natural key, push any local-only items up
-        var _rid=function(x){return x&&(x.id||x.batchId||x.username||x.lotId);};
+        // Both sides have a list → merge by natural key, drop tombstoned ids,
+        // push the result up if we added local-only items OR cleaned out deletes.
         var ids={};cloud.forEach(function(x){var r=_rid(x);if(r)ids[r]=1;});
         var extra=local.filter(function(x){var r=_rid(x);return r&&!ids[r];});
-        var merged=cloud.concat(extra);
+        var merged=cloud.concat(extra).filter(function(x){return !_isDeleted(k,_rid(x));});
         _setGlobal(k,merged);
-        if(extra.length)try{_fb.ref('bd/'+k).set(merged);}catch(e){}
+        if(extra.length||merged.length!==cloud.length)try{_fb.ref('bd/'+k).set(merged);}catch(e){}
+      }else if(cloud!=null&&Array.isArray(cloud)){
+        // Cloud list, no local → still honour tombstones before taking it.
+        var c2=_pruneDeleted(k,cloud);
+        _setGlobal(k,c2);
+        if(c2.length!==cloud.length)try{_fb.ref('bd/'+k).set(c2);}catch(e){}
       }else if(cloud!=null){
         // Cloud has this key (non-list, e.g. settings) → take it
         _setGlobal(k,cloud);
       }else if(local!=null&&!(Array.isArray(local)&&local.length===0)){
         // Cloud is MISSING this key but we have local data → upload it
-        try{_fb.ref('bd/'+k).set(local);}catch(e){}
+        try{_fb.ref('bd/'+k).set(_pruneDeleted(k,local));}catch(e){}
       }
     });
     if(!_fbListening)_listen();
     _syncReady=true; // safe to push local changes now (local is merged with cloud)
+    // Push any local-only tombstones (e.g. a delete done before this first sync)
+    // up to the cloud so other devices learn about the deletion too.
+    if(deletedIds&&Object.keys(deletedIds).length)try{_fb.ref('bd/deletedIds').set(deletedIds);}catch(e){}
     migratePasswords();
     _refreshUI();
   }).catch(function(e){console.warn('Sync error:',e);});
@@ -6704,8 +6779,14 @@ function _listen(){
   _syncKeys.forEach(function(k){
     _fb.ref('bd/'+k).on('value',function(snap){
       var v=snap.val();
+      if(k==='deletedIds'){
+        // A device deleted something → learn the tombstones and scrub local lists.
+        if(_mergeDeleted(v)){clearTimeout(window._fbTimer);window._fbTimer=setTimeout(_applyTombstones,300);}
+        return;
+      }
       if(v&&typeof v==='object'&&!Array.isArray(v)&&v.__empty)return; // ignore legacy wipe marker
       if(v!=null){
+        if(Array.isArray(v))v=_pruneDeleted(k,v); // never re-show a deleted record
         _setGlobal(k,v);
         clearTimeout(window._fbTimer);
         window._fbTimer=setTimeout(function(){_refreshUI();},1200);
