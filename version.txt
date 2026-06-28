@@ -1,1 +1,1 @@
-2026-06-23 · v42 (deletes stick via tombstones; bill carry-forward subtracts payments)
+2026-06-23 · v43 (bills show live balance after payments; fix uneditable duplicate-id bills)

@@ -2316,6 +2316,22 @@ function getRateFromTable(fat,snf){
 // ══════════════════════════════════════════
 function store(key,val){try{localStorage.setItem('bd_'+key,JSON.stringify(val));}catch(e){}}
 function load(key,def){try{const v=localStorage.getItem('bd_'+key);return v?JSON.parse(v):def;}catch(e){return def;}}
+// Monotonic unique id. Date.now() alone collides when two records are saved in
+// the same millisecond, producing duplicate DOM ids that break Edit/Delete.
+let _lastUid=0;
+function _uid(){let t=Date.now();if(t<=_lastUid)t=_lastUid+1;_lastUid=t;return t;}
+// Repair any existing duplicate ids in a record array (legacy data created before
+// _uid). Returns true if it changed something so the caller can persist.
+function _dedupeIds(arr){
+  if(!Array.isArray(arr))return false;
+  const seen={};let changed=false;
+  arr.forEach(function(x){
+    if(!x||x.id==null)return;
+    if(seen[x.id]){x.id=_uid();changed=true;}
+    seen[x.id]=1;
+  });
+  return changed;
+}
 
 
 // ═══════════════════════════════
@@ -2473,7 +2489,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-06-23 · v42 (deletes stick via tombstones; bill carry-forward subtracts payments)';
+var APP_BUILD='2026-06-23 · v43 (bills show live balance after payments; fix uneditable duplicate-id bills)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2916,7 +2932,7 @@ function saveProc(){
   const clrEl=document.getElementById('p-clr');const clr=clrEl&&clrEl.value!==''?parseFloat(clrEl.value):null;
   const codeEl=document.getElementById('p-code');const code=codeEl?codeEl.value.trim():'';
   const mtypeEl=document.getElementById('p-mtype');const mtype=mtypeEl?mtypeEl.value:'Cow';
-  const rec={id:Date.now(),lotId,supplier,qty,fat,snf,rate,total,date,temp,clr,code,mtype,
+  const rec={id:_uid(),lotId,supplier,qty,fat,snf,rate,total,date,temp,clr,code,mtype,
     kgRate:getKgRate(rate,clr),
     alcohol:window._alcoholResult||'not-tested',
     status:'in-storage',
@@ -2945,6 +2961,7 @@ function deleteProcRecord(id){
   renderAllRecords();
 }
 function renderAllRecords(){
+  if(_dedupeIds(records))store('records',records); // repair legacy duplicate ids
   const today=new Date().toISOString().split('T')[0];
   const todayRecs=records.filter(r=>r.date===today);
   const todayMilk=todayRecs.reduce((a,r)=>a+r.qty,0);
@@ -3171,15 +3188,13 @@ function saveDist(){
   const p200=(r200el&&r200el.value!=='')?(parseFloat(r200el.value)||0):(settings.p200||18);
   const p400=(r400el&&r400el.value!=='')?(parseFloat(r400el.value)||0):(settings.p400||34);
   const amount=(c200*p200)+(c400*p400);
-  // Carry-forward: this distributor's outstanding so far = sum of (bill − paid-at-billing)
-  // across their distribution records MINUS any payments logged separately in the
-  // Payments tab. Without subtracting paymentsLog, a cleared balance kept reappearing.
-  const distOutstanding=distRecords.filter(r=>r.dist===dist).reduce((s,r)=>s+((r.amount||0)-(r.paid||0)),0);
-  const sepPayments=(typeof paymentsLog!=='undefined'?paymentsLog:[]).filter(p=>p.dist===dist).reduce((s,p)=>s+(p.amount||0),0);
-  const prevBal=distOutstanding-sepPayments;
+  // Carry-forward = this distributor's current outstanding (billed − paid-at-billing
+  // − payments logged in the Payments tab). Using getDistBalance keeps it identical
+  // to the live preview and stops cleared balances reappearing.
+  const prevBal=(typeof getDistBalance==='function')?getDistBalance(dist):0;
   const batchIds=Object.keys(_distBatchSel).join(',');
   const rider=(document.getElementById('d-rider')||{}).value||'';
-  const rec={id:Date.now(),dist,date,c200,c400,crates,amount,paid,payMode,batchIds,rider,rate200:p200,rate400:p400,prevBalance:prevBal,balance:prevBal+amount-paid,savedBy:currentUser?currentUser.name:'Staff'};
+  const rec={id:_uid(),dist,date,c200,c400,crates,amount,paid,payMode,batchIds,rider,rate200:p200,rate400:p400,prevBalance:prevBal,balance:prevBal+amount-paid,savedBy:currentUser?currentUser.name:'Staff'};
   distRecords.unshift(rec);
   store('distRecords',distRecords);
   saveDistributorName(dist);
@@ -3239,6 +3254,7 @@ function toggleDistBatch(id){
   });
 }
 function renderDistRecords(){
+  if(_dedupeIds(distRecords))store('distRecords',distRecords); // repair legacy duplicate ids
   const today=new Date().toISOString().split('T')[0];
   renderDistBatchPicker();
 
@@ -3302,7 +3318,10 @@ function renderDistRecords(){
 }
 function distRecordHTML(r){
   const paid=r.paid||0;
-  const balColor=r.balance>0?'var(--red)':'var(--green)';
+  // Live current balance (billed − paid − logged payments) so a cleared account
+  // actually reads as cleared; the stored r.balance is a stale snapshot.
+  const liveBal=getDistBalance(r.dist);
+  const balColor=liveBal>0.5?'var(--red)':'var(--green)';
   return`<div class="dist-record">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
       <div>
@@ -3317,9 +3336,9 @@ function distRecordHTML(r){
     <div class="proc-details" style="margin-bottom:8px">
       <div class="proc-detail"><div class="proc-detail-label">200g</div><div class="proc-detail-val">${r.c200}</div></div>
       <div class="proc-detail"><div class="proc-detail-label">400g</div><div class="proc-detail-val">${r.c400}</div></div>
-      <div class="proc-detail" style="${r.balance>0?'background:#fff1f2':'background:#f0fdf4'}">
-        <div class="proc-detail-label">Balance</div>
-        <div class="proc-detail-val" style="color:${balColor}">${r.balance>0?'₹'+r.balance.toFixed(0):'✅'}</div>
+      <div class="proc-detail" style="${liveBal>0.5?'background:#fff1f2':'background:#f0fdf4'}">
+        <div class="proc-detail-label">Acct Balance</div>
+        <div class="proc-detail-val" style="color:${balColor}">${liveBal>0.5?'₹'+liveBal.toFixed(0):'✅ Clear'}</div>
       </div>
     </div>
     ${r.batchIds?`<div style="font-size:10px;color:var(--gray);margin-bottom:6px">🧫 Batches: ${_esc(r.batchIds)}</div>`:''}
@@ -3384,6 +3403,10 @@ function showDistBill(id){
   currentDistBill=r;
   const p200=(r&&r.rate200!=null)?r.rate200:(settings.p200||18);const p400=(r&&r.rate400!=null)?r.rate400:(settings.p400||34);
   const billNo='DB-'+id.toString().slice(-6);
+  // Live figures so payments recorded later actually reduce the balance shown.
+  const prevGross=distRecords.filter(x=>x&&x.dist===r.dist&&x.id<r.id).reduce((s,x)=>s+((x.amount||0)-(x.paid||0)),0);
+  const sepPay=(Array.isArray(paymentsLog)?paymentsLog:[]).filter(p=>p&&p.dist===r.dist).reduce((s,p)=>s+(p.amount||0),0);
+  const totalDue=prevGross+(r.amount||0)-(r.paid||0)-sepPay;
   const html=`
     <div class="dist-bill-header">
       <div class="dist-bill-brand">BARKAT DAIRY PLANT</div>
@@ -3398,18 +3421,19 @@ function showDistBill(id){
     <table class="dist-bill-table">
       <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Amount</th></tr></thead>
       <tbody>
-        ${r.prevBalance>0?`<tr style="background:#fff8e7"><td colspan="3"><b>Previous Balance Carried Forward</b></td><td>₹${r.prevBalance.toFixed(0)}</td></tr>`:''}
+        ${prevGross>0?`<tr style="background:#fff8e7"><td colspan="3"><b>Previous Balance Carried Forward</b></td><td>₹${prevGross.toFixed(0)}</td></tr>`:''}
         ${r.c200>0?`<tr><td>200g Cups</td><td>${r.c200} cups</td><td>₹${p200}</td><td>₹${(r.c200*p200).toFixed(0)}</td></tr>`:''}
         ${r.c400>0?`<tr><td>400g Cups</td><td>${r.c400} cups</td><td>₹${p400}</td><td>₹${(r.c400*p400).toFixed(0)}</td></tr>`:''}
         ${r.crates>0?`<tr><td>Crates Given</td><td>${r.crates}</td><td>—</td><td>—</td></tr>`:''}
       </tbody>
     </table>
-    <div class="dist-bill-total-row"><span class="dist-bill-total-label">This Bill Amount</span><span class="dist-bill-total-val">₹${r.amount.toFixed(0)}</span></div>
-    ${r.prevBalance>0?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--red)"><span>+ Previous Balance</span><span>₹${r.prevBalance.toFixed(0)}</span></div>`:''}
-    ${r.paid>0?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--green)"><span>− Payment Received</span><span>₹${r.paid.toFixed(0)}</span></div>`:''}
-    <div style="display:flex;justify-content:space-between;padding:10px 12px;background:${r.balance>0?'#fff1f2':'#f0fdf4'};border-radius:10px;margin-top:6px">
-      <span style="font-weight:700;font-size:13px;color:${r.balance>0?'var(--red)':'var(--green)'}">Total Balance Due</span>
-      <span style="font-weight:700;font-size:16px;color:${r.balance>0?'var(--red)':'var(--green)'}">₹${r.balance.toFixed(0)}</span>
+    <div class="dist-bill-total-row"><span class="dist-bill-total-label">This Bill Amount</span><span class="dist-bill-total-val">₹${(r.amount||0).toFixed(0)}</span></div>
+    ${prevGross>0?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--red)"><span>+ Previous Balance</span><span>₹${prevGross.toFixed(0)}</span></div>`:''}
+    ${r.paid>0?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--green)"><span>− Paid on this bill</span><span>₹${r.paid.toFixed(0)}</span></div>`:''}
+    ${sepPay>0?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--green)"><span>− Payments recorded</span><span>₹${sepPay.toFixed(0)}</span></div>`:''}
+    <div style="display:flex;justify-content:space-between;padding:10px 12px;background:${totalDue>0.5?'#fff1f2':'#f0fdf4'};border-radius:10px;margin-top:6px">
+      <span style="font-weight:700;font-size:13px;color:${totalDue>0.5?'var(--red)':'var(--green)'}">Balance Due (after payments)</span>
+      <span style="font-weight:700;font-size:16px;color:${totalDue>0.5?'var(--red)':'var(--green)'}">₹${totalDue.toFixed(0)}</span>
     </div>
     <div class="dist-bill-sig">
       <div class="dist-bill-sig-box"><div class="dist-bill-sig-line"></div>Distributor Signature</div>
