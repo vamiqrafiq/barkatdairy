@@ -2501,7 +2501,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-03 · v46 (distribution by crates + returns; direct WhatsApp bill send)';
+var APP_BUILD='2026-07-03 · v47 (WhatsApp sends the bill as a PDF via the share sheet)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3482,13 +3482,25 @@ function buildBillText(r){
   L.push('------------------------','Thank you! - Barkat Dairy Plant');
   return L.join('\n');
 }
-// Open WhatsApp with the bill pre-filled. Uses the saved number if present.
-function whatsappBill(id){
+// Send the bill to WhatsApp as a PDF. On phones the native share sheet attaches
+// the PDF and lets you pick WhatsApp (wa.me links can only carry text, not files).
+// On desktop / unsupported browsers we download the PDF and open the WhatsApp chat.
+async function whatsappBill(id){
   const r=distRecords.find(x=>String(x.id)===String(id));if(!r)return;
+  let file=null;
+  try{ file=_billPDFFile(r); }catch(e){ file=null; }
+  const text=buildBillText(r);
+  if(file && navigator.canShare && navigator.canShare({files:[file]})){
+    try{
+      await navigator.share({files:[file], title:'Bill — '+r.dist, text:text});
+      return;                                   // shared (user picked WhatsApp) or cancelled
+    }catch(e){ if(e && e.name==='AbortError') return; /* else fall through */ }
+  }
+  // Fallback: download the PDF, then open the WhatsApp chat so it can be attached.
+  if(file) _downloadFile(file);
   let phone=(r.phone||'').replace(/[^0-9]/g,'');
-  if(phone.length===10) phone='91'+phone;              // default India country code
-  const url='https://wa.me/'+phone+'?text='+encodeURIComponent(buildBillText(r));
-  window.open(url,'_blank');
+  if(phone.length===10) phone='91'+phone;       // default India country code
+  window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(text+'\n\n(PDF bill downloaded — attach it in this chat)'),'_blank');
 }
 function showDistBill(id){
   const r=distRecords.find(x=>x.id===id);
@@ -4209,23 +4221,25 @@ function buildBillPDF(r){
   return makePDF({pages:[ops]});
 }
 
+// Build the bill PDF as a File object (shared by download + WhatsApp share).
+function _billPDFFile(r){
+  const pdfStr=buildBillPDF(r);
+  const bytes=new Uint8Array(pdfStr.length);
+  for(let i=0;i<pdfStr.length;i++) bytes[i]=pdfStr.charCodeAt(i)&0xff;
+  const name='BarkatDairy_Bill_'+String(r.dist||'').replace(/\s+/g,'_')+'_'+r.date+'.pdf';
+  return new File([bytes],name,{type:'application/pdf'});
+}
+function _downloadFile(file){
+  const url=URL.createObjectURL(file);
+  const a=document.createElement('a');a.href=url;a.download=file.name;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),15000);
+}
 function downloadDistBillPDF(r){
   if(!r) r=currentDistBill;
   if(!r) return;
   try{
-    const pdfStr=buildBillPDF(r);
-    // Convert string to Uint8Array
-    const bytes=new Uint8Array(pdfStr.length);
-    for(let i=0;i<pdfStr.length;i++) bytes[i]=pdfStr.charCodeAt(i)&0xff;
-    const blob=new Blob([bytes],{type:'application/pdf'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;
-    a.download='BarkatDairy_Bill_'+r.dist.replace(/\s+/g,'_')+'_'+r.date+'.pdf';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(url),15000);
+    _downloadFile(_billPDFFile(r));
     showAlert('distAlert','alert-green','✅ PDF downloaded! Open from your Downloads folder to print with Epson.');
     closeDistBill();
   }catch(e){

@@ -1,1 +1,1 @@
-2026-07-03 · v46 (distribution by crates + returns; direct WhatsApp bill send)
+2026-07-03 · v47 (WhatsApp sends the bill as a PDF via the share sheet)
