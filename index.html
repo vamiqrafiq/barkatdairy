@@ -2501,7 +2501,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-03 · v47 (WhatsApp sends the bill as a PDF via the share sheet)';
+var APP_BUILD='2026-07-03 · v48 (bill spells out crates & cups clearly for distributors)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3173,10 +3173,10 @@ function calcDist(){
   const amt400=net400*p400;
   const total=amt200+amt400;
   // Live cup readouts under the crate inputs
-  const d2=document.getElementById('d-cups200-disp');if(d2)d2.textContent=del200+' cups'+(ret200?(' − '+ret200+' ret = '+net200):'');
-  const d4=document.getElementById('d-cups400-disp');if(d4)d4.textContent=del400+' cups'+(ret400?(' − '+ret400+' ret = '+net400):'');
-  const l2=document.getElementById('d-lbl200');if(l2)l2.textContent='200g · '+net200+' cups @ ₹'+p200;
-  const l4=document.getElementById('d-lbl400');if(l4)l4.textContent='400g · '+net400+' cups @ ₹'+p400;
+  const d2=document.getElementById('d-cups200-disp');if(d2)d2.textContent=del200+' cups'+(ret200?(' − '+ret200+' returned = '+net200+' cups'):'');
+  const d4=document.getElementById('d-cups400-disp');if(d4)d4.textContent=del400+' cups'+(ret400?(' − '+ret400+' returned = '+net400+' cups'):'');
+  const l2=document.getElementById('d-lbl200');if(l2)l2.textContent='200g · '+net200+' cups @ ₹'+p200+'/cup';
+  const l4=document.getElementById('d-lbl400');if(l4)l4.textContent='400g · '+net400+' cups @ ₹'+p400+'/cup';
   const distName=document.getElementById('d-dist').value.trim();
   // Use getDistBalance for accuracy (includes Payments tab entries)
   const prevBal=distName?(typeof getDistBalance==='function'?getDistBalance(distName):0):0;
@@ -3460,9 +3460,15 @@ function billLines(r){
   const net2=r.c200||0, net4=r.c400||0, ret2=r.ret200||0, ret4=r.ret400||0;
   const cr2=(r.crates200!=null)?r.crates200:(CPC200?Math.round((net2+ret2)/CPC200*100)/100:0);
   const cr4=(r.crates400!=null)?r.crates400:(CPC400?Math.round((net4+ret4)/CPC400*100)/100:0);
-  if(net2>0||ret2>0||cr2>0) out.push(mk('200g Yogurt',CPC200,cr2,ret2,net2,p200));
-  if(net4>0||ret4>0||cr4>0) out.push(mk('400g Yogurt',CPC400,cr4,ret4,net4,p400));
+  if(net2>0||ret2>0||cr2>0) out.push(mk('200g Yogurt Cups',CPC200,cr2,ret2,net2,p200));
+  if(net4>0||ret4>0||cr4>0) out.push(mk('400g Yogurt Cups',CPC400,cr4,ret4,net4,p400));
   return out;
+}
+// Fully spelled-out quantity description a distributor can read at a glance.
+function billQtyText(x){
+  let s=x.crates+' '+(x.crates===1?'crate':'crates')+' × '+x.perCrate+' cups = '+x.delivered+' cups';
+  if(x.ret) s+=' − '+x.ret+' returned = '+x.net+' cups';
+  return s;
 }
 // Plain-text bill for sharing / WhatsApp.
 function buildBillText(r){
@@ -3471,7 +3477,9 @@ function buildBillText(r){
   const L=['*BARKAT DAIRY PLANT*','Watlar, Ganderbal, Kashmir','------------------------',
     'Bill To: '+r.dist,'Date: '+r.date,'Bill No: DB-'+String(r.id).slice(-6),'------------------------'];
   lines.forEach(function(x){
-    L.push(x.label+': '+x.crates+' crate'+(x.crates===1?'':'s')+' ('+x.delivered+' cups)'+(x.ret?(' − '+x.ret+' returned = '+x.net):'')+' @ Rs.'+x.rate+' = Rs.'+x.amount.toFixed(0));
+    L.push(x.label+':');
+    L.push('  '+billQtyText(x));
+    L.push('  '+x.net+' cups × Rs.'+x.rate+' = Rs.'+x.amount.toFixed(0));
   });
   L.push('------------------------');
   if(B.prev>0.5) L.push('Previous Balance (unpaid): Rs.'+B.prev.toFixed(0));
@@ -3510,8 +3518,7 @@ function showDistBill(id){
   const billNo='DB-'+id.toString().slice(-6);
   const B=billNumbers(r);  // live previous/current/total (payments already applied)
   const itemRows=billLines(r).map(function(x){
-    const qty=x.crates+' cr = '+x.delivered+' cups'+(x.ret?(' − '+x.ret+' ret = '+x.net):'');
-    return `<tr><td>${x.label}</td><td style="font-size:11px">${qty}</td><td>₹${x.rate}</td><td>₹${x.amount.toFixed(0)}</td></tr>`;
+    return `<tr><td>${x.label}</td><td style="font-size:11px">${billQtyText(x)}</td><td>₹${x.rate}/cup</td><td>₹${x.amount.toFixed(0)}</td></tr>`;
   }).join('');
   const html=`
     <div class="dist-bill-header">
@@ -3557,8 +3564,7 @@ function buildBillBodyHTML(r){
   const billNo='DB-'+r.id.toString().slice(-6);
   const B=billNumbers(r);
   const rows=billLines(r).map(function(x){
-    const qty=x.crates+' cr = '+x.delivered+' cups'+(x.ret?(' &minus; '+x.ret+' ret = '+x.net):'');
-    return '<tr><td>'+x.label+'</td><td style="text-align:center;font-size:11px">'+qty+'</td><td style="text-align:right">&#8377;'+x.rate+'</td><td style="text-align:right">&#8377;'+x.amount.toFixed(0)+'</td></tr>';
+    return '<tr><td>'+x.label+'</td><td style="text-align:center;font-size:11px">'+billQtyText(x)+'</td><td style="text-align:right">&#8377;'+x.rate+'/cup</td><td style="text-align:right">&#8377;'+x.amount.toFixed(0)+'</td></tr>';
   }).join('');
   return `
     <div style="text-align:center;border-bottom:3px solid #0d1b4b;padding-bottom:14px;margin-bottom:18px">
@@ -4173,8 +4179,15 @@ function buildBillPDF(r){
 
   let rowIdx=0;
   billLines(r).forEach(function(x){
-    const qty=x.crates+'cr='+x.net+'c'+(x.ret?('('+x.ret+'r)'):'');
-    tableRow(x.label,qty,x.rate,x.amount.toFixed(0),rowIdx++%2===0);
+    const shade=rowIdx++%2===0;
+    if(shade) ops.push({t:'rect',x:margin,y,w:textW,h:32,fill:'#f8faff'});
+    ops.push({t:'text',x:margin+4,y:y+5,txt:x.label,s:9,b:true,color:'#1e293b'});
+    const sub=x.crates+' crates x '+x.perCrate+' cups = '+x.delivered+' cups'+(x.ret?(' - '+x.ret+' returned = '+x.net+' cups'):'');
+    ops.push({t:'text',x:margin+4,y:y+18,txt:sub,s:7,color:'#64748b'});
+    ops.push({t:'text',x:margin+230,y:y+5,txt:x.net+' cups',s:9,color:'#1e293b'});
+    ops.push({t:'text',x:margin+290,y:y+5,txt:'Rs.'+x.rate+'/cup',s:8,color:'#1e293b'});
+    ops.push({t:'text',x:margin+370,y:y+5,txt:'Rs.'+x.amount.toFixed(0),s:9,color:'#1e293b'});
+    y+=34;
   });
 
   y+=4;
