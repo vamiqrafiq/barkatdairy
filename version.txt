@@ -1,1 +1,1 @@
-2026-07-03 · v48 (bill spells out crates & cups clearly for distributors)
+2026-07-03 · v49 (bill: crates & cups columns, returns line, company logo on bill + PDF)

@@ -2501,7 +2501,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-03 · v48 (bill spells out crates & cups clearly for distributors)';
+var APP_BUILD='2026-07-03 · v49 (bill: crates & cups columns, returns line, company logo on bill + PDF)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3447,40 +3447,70 @@ function billNumbers(r){
   const total=Math.max(0,prev+current-paidThis-credit);
   return {prev,current,paidThis,credit,total};
 }
-// Per-size bill lines (crates → delivered cups − returned = net billed). Works for
-// new records (crates200/ret200 stored) and old ones (only c200/c400 cups).
-function billLines(r){
+// Barkat Dairy badge logo (vector recreation) — used on the bill header.
+const BARKAT_LOGO_SVG='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">'
+  +'<defs><path id="bkTop" d="M32,100 a68,68 0 0,1 136,0" fill="none"/>'
+  +'<path id="bkBot" d="M30,100 a70,70 0 0,0 140,0" fill="none"/></defs>'
+  +'<rect x="2" y="2" width="196" height="196" rx="34" fill="#141414"/>'
+  +'<circle cx="100" cy="100" r="95" fill="#141414" stroke="#fff" stroke-width="1.5"/>'
+  +'<circle cx="100" cy="100" r="89" fill="none" stroke="#fff" stroke-width="3"/>'
+  +'<circle cx="100" cy="100" r="61" fill="#c8912d"/>'
+  +'<circle cx="30" cy="100" r="3" fill="#fff"/><circle cx="170" cy="100" r="3" fill="#fff"/>'
+  +'<text font-family="Arial,Helvetica,sans-serif" font-weight="700" fill="#fff" font-size="19" letter-spacing="2"><textPath href="#bkTop" startOffset="50%" text-anchor="middle">BARKAT DAIRY</textPath></text>'
+  +'<text font-family="Arial,Helvetica,sans-serif" font-weight="700" fill="#fff" font-size="11.5" letter-spacing="1.2"><textPath href="#bkBot" startOffset="50%" text-anchor="middle">PURE GOODNESS, BLESSED BY QUALITY</textPath></text>'
+  +'<text x="100" y="122" text-anchor="middle" font-size="58">🐄</text></svg>';
+function barkatLogoHTML(px){return '<div style="width:'+px+'px;height:'+px+'px;margin:0 auto">'+BARKAT_LOGO_SVG+'</div>';}
+// Rasterise the logo once (SVG → JPEG binary) so it can be embedded in the PDF.
+let _logoImg=null; // { data:binaryString, w, h }
+function _prepLogo(){
+  try{
+    const size=220;
+    const img=new Image();
+    img.onload=function(){
+      try{
+        const cv=document.createElement('canvas');cv.width=size;cv.height=size;
+        const ctx=cv.getContext('2d');
+        ctx.fillStyle='#ffffff';ctx.fillRect(0,0,size,size); // JPEG has no transparency
+        ctx.drawImage(img,0,0,size,size);
+        const b64=cv.toDataURL('image/jpeg',0.9).split(',')[1];
+        _logoImg={data:atob(b64),w:size,h:size};
+      }catch(e){_logoImg=null;}
+    };
+    img.onerror=function(){_logoImg=null;};
+    img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(BARKAT_LOGO_SVG);
+  }catch(e){_logoImg=null;}
+}
+try{_prepLogo();}catch(e){}
+// Bill broken into item lines (crates → delivered cups, charged gross) and a
+// separate returns list (deducted before the total). Works for new records
+// (crates200/ret200 stored) and legacy cup-only records.
+function billParts(r){
   const p200=(r&&r.rate200!=null)?r.rate200:(settings.p200||18);
   const p400=(r&&r.rate400!=null)?r.rate400:(settings.p400||34);
-  const out=[];
-  const mk=(label,perCrate,crates,ret,net,rate)=>{
-    const delivered=(net||0)+(ret||0);
-    return {label,perCrate,crates:(crates||0),delivered,ret:(ret||0),net:(net||0),rate,amount:(net||0)*rate};
-  };
   const net2=r.c200||0, net4=r.c400||0, ret2=r.ret200||0, ret4=r.ret400||0;
-  const cr2=(r.crates200!=null)?r.crates200:(CPC200?Math.round((net2+ret2)/CPC200*100)/100:0);
-  const cr4=(r.crates400!=null)?r.crates400:(CPC400?Math.round((net4+ret4)/CPC400*100)/100:0);
-  if(net2>0||ret2>0||cr2>0) out.push(mk('200g Yogurt Cups',CPC200,cr2,ret2,net2,p200));
-  if(net4>0||ret4>0||cr4>0) out.push(mk('400g Yogurt Cups',CPC400,cr4,ret4,net4,p400));
-  return out;
-}
-// Fully spelled-out quantity description a distributor can read at a glance.
-function billQtyText(x){
-  let s=x.crates+' '+(x.crates===1?'crate':'crates')+' × '+x.perCrate+' cups = '+x.delivered+' cups';
-  if(x.ret) s+=' − '+x.ret+' returned = '+x.net+' cups';
-  return s;
+  const del2=net2+ret2, del4=net4+ret4;                 // delivered = net + returned
+  const cr2=(r.crates200!=null)?r.crates200:(CPC200?Math.round(del2/CPC200*100)/100:0);
+  const cr4=(r.crates400!=null)?r.crates400:(CPC400?Math.round(del4/CPC400*100)/100:0);
+  const items=[], returns=[];
+  if(del2>0||cr2>0) items.push({label:'200g Yogurt Cups',crates:cr2,cups:del2,rate:p200,amount:del2*p200});
+  if(del4>0||cr4>0) items.push({label:'400g Yogurt Cups',crates:cr4,cups:del4,rate:p400,amount:del4*p400});
+  if(ret2>0) returns.push({label:'200g Returned',cups:ret2,rate:p200,amount:ret2*p200});
+  if(ret4>0) returns.push({label:'400g Returned',cups:ret4,rate:p400,amount:ret4*p400});
+  return {items,returns};
 }
 // Plain-text bill for sharing / WhatsApp.
 function buildBillText(r){
   const B=billNumbers(r);
-  const lines=billLines(r);
-  const L=['*BARKAT DAIRY PLANT*','Watlar, Ganderbal, Kashmir','------------------------',
+  const P=billParts(r);
+  const L=['*BARKAT DAIRY PLANT*','Watlar, Ganderbal, Kashmir','_Pure Goodness, Blessed by Quality_','------------------------',
     'Bill To: '+r.dist,'Date: '+r.date,'Bill No: DB-'+String(r.id).slice(-6),'------------------------'];
-  lines.forEach(function(x){
-    L.push(x.label+':');
-    L.push('  '+billQtyText(x));
-    L.push('  '+x.net+' cups × Rs.'+x.rate+' = Rs.'+x.amount.toFixed(0));
+  P.items.forEach(function(x){
+    L.push(x.label+': '+x.crates+' '+(x.crates===1?'crate':'crates')+' = '+x.cups+' cups × Rs.'+x.rate+'/cup = Rs.'+x.amount.toFixed(0));
   });
+  if(P.returns.length){
+    L.push('Returns:');
+    P.returns.forEach(function(x){ L.push('  '+x.label+': '+x.cups+' cups × Rs.'+x.rate+' = -Rs.'+x.amount.toFixed(0)); });
+  }
   L.push('------------------------');
   if(B.prev>0.5) L.push('Previous Balance (unpaid): Rs.'+B.prev.toFixed(0));
   L.push('Current Bill Amount: Rs.'+B.current.toFixed(0));
@@ -3517,12 +3547,17 @@ function showDistBill(id){
   const p200=(r&&r.rate200!=null)?r.rate200:(settings.p200||18);const p400=(r&&r.rate400!=null)?r.rate400:(settings.p400||34);
   const billNo='DB-'+id.toString().slice(-6);
   const B=billNumbers(r);  // live previous/current/total (payments already applied)
-  const itemRows=billLines(r).map(function(x){
-    return `<tr><td>${x.label}</td><td style="font-size:11px">${billQtyText(x)}</td><td>₹${x.rate}/cup</td><td>₹${x.amount.toFixed(0)}</td></tr>`;
+  const P=billParts(r);
+  const itemRows=P.items.map(function(x){
+    return `<tr><td>${x.label}</td><td style="text-align:center">${x.crates}</td><td style="text-align:center">${x.cups}</td><td style="text-align:right">₹${x.rate}/cup</td><td style="text-align:right">₹${x.amount.toFixed(0)}</td></tr>`;
+  }).join('');
+  const returnRows=P.returns.map(function(x){
+    return `<tr style="color:var(--red)"><td>Less: ${x.label}</td><td style="text-align:center">—</td><td style="text-align:center">${x.cups}</td><td style="text-align:right">₹${x.rate}/cup</td><td style="text-align:right">−₹${x.amount.toFixed(0)}</td></tr>`;
   }).join('');
   const html=`
-    <div class="dist-bill-header">
-      <div class="dist-bill-brand">BARKAT DAIRY PLANT</div>
+    <div class="dist-bill-header" style="text-align:center">
+      ${barkatLogoHTML(84)}
+      <div class="dist-bill-brand" style="margin-top:6px">BARKAT DAIRY PLANT</div>
       <div class="dist-bill-urdu">برکت ڈیری پلانٹ</div>
       <div class="dist-bill-sub">Watlar, Ganderbal, Kashmir · Pure Goodness, Blessed by Quality</div>
     </div>
@@ -3532,10 +3567,11 @@ function showDistBill(id){
       <div><b>Date:</b> ${r.date}<br/><b>Bill No:</b> ${billNo}</div>
     </div>
     <table class="dist-bill-table">
-      <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Amount</th></tr></thead>
+      <thead><tr><th>Item</th><th style="text-align:center">Crates</th><th style="text-align:center">Cups</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
       <tbody>
-        ${B.prev>0.5?`<tr style="background:#fff8e7"><td colspan="3"><b>Previous Balance (unpaid, carried forward)</b></td><td>₹${B.prev.toFixed(0)}</td></tr>`:''}
+        ${B.prev>0.5?`<tr style="background:#fff8e7"><td colspan="4"><b>Previous Balance (unpaid, carried forward)</b></td><td style="text-align:right">₹${B.prev.toFixed(0)}</td></tr>`:''}
         ${itemRows}
+        ${returnRows}
       </tbody>
     </table>
     ${B.prev>0.5?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--red)"><span>Previous Balance</span><span>₹${B.prev.toFixed(0)}</span></div>`:''}
@@ -3563,12 +3599,17 @@ function buildBillBodyHTML(r){
   const p200=(r&&r.rate200!=null)?r.rate200:(settings.p200||18);const p400=(r&&r.rate400!=null)?r.rate400:(settings.p400||34);
   const billNo='DB-'+r.id.toString().slice(-6);
   const B=billNumbers(r);
-  const rows=billLines(r).map(function(x){
-    return '<tr><td>'+x.label+'</td><td style="text-align:center;font-size:11px">'+billQtyText(x)+'</td><td style="text-align:right">&#8377;'+x.rate+'/cup</td><td style="text-align:right">&#8377;'+x.amount.toFixed(0)+'</td></tr>';
+  const P=billParts(r);
+  const rows=P.items.map(function(x){
+    return '<tr><td style="padding:8px 12px">'+x.label+'</td><td style="padding:8px 12px;text-align:center">'+x.crates+'</td><td style="padding:8px 12px;text-align:center">'+x.cups+'</td><td style="padding:8px 12px;text-align:right">&#8377;'+x.rate+'/cup</td><td style="padding:8px 12px;text-align:right">&#8377;'+x.amount.toFixed(0)+'</td></tr>';
+  }).join('')
+  + P.returns.map(function(x){
+    return '<tr style="color:#b91c1c"><td style="padding:8px 12px">Less: '+x.label+'</td><td style="padding:8px 12px;text-align:center">&mdash;</td><td style="padding:8px 12px;text-align:center">'+x.cups+'</td><td style="padding:8px 12px;text-align:right">&#8377;'+x.rate+'/cup</td><td style="padding:8px 12px;text-align:right">&minus;&#8377;'+x.amount.toFixed(0)+'</td></tr>';
   }).join('');
   return `
     <div style="text-align:center;border-bottom:3px solid #0d1b4b;padding-bottom:14px;margin-bottom:18px">
-      <div style="font-size:24px;font-weight:700;color:#0d1b4b;letter-spacing:1px">BARKAT DAIRY PLANT</div>
+      ${barkatLogoHTML(96)}
+      <div style="font-size:24px;font-weight:700;color:#0d1b4b;letter-spacing:1px;margin-top:6px">BARKAT DAIRY PLANT</div>
       <div style="font-size:15px;color:#1a3a8f;margin:4px 0">&#1576;&#1585;&#1705;&#1578; &#1688;&#1740;&#1585;&#1740; &#1662;&#1604;&#1575;&#1606;&#1657;</div>
       <div style="font-size:11px;color:#6b7280">Watlar, Ganderbal, Kashmir &bull; Pure Goodness, Blessed by Quality</div>
     </div>
@@ -3591,8 +3632,9 @@ function buildBillBodyHTML(r){
       <thead>
         <tr style="background:#0d1b4b;color:#fff">
           <th style="padding:10px 12px;text-align:left;font-size:11px">Item</th>
-          <th style="padding:10px 12px;text-align:center;font-size:11px">Qty</th>
-          <th style="padding:10px 12px;text-align:right;font-size:11px">Unit Price</th>
+          <th style="padding:10px 12px;text-align:center;font-size:11px">Crates</th>
+          <th style="padding:10px 12px;text-align:center;font-size:11px">Cups</th>
+          <th style="padding:10px 12px;text-align:right;font-size:11px">Rate</th>
           <th style="padding:10px 12px;text-align:right;font-size:11px">Amount</th>
         </tr>
       </thead>
@@ -4067,6 +4109,9 @@ function makePDF(doc){
         stream+=rgb+' rg\n';
         stream+='BT\n'+fName+' '+sz+' Tf\n'+op.x+' '+(H-op.y)+' Td\n('+escStr(String(op.txt||''))+') Tj\nET\n';
         stream+='0 0 0 rg\n';
+      } else if(op.t==='image'){
+        const dw=op.dw, dh=op.dh;
+        stream+='q '+dw+' 0 0 '+dh+' '+op.x+' '+(H-op.y-dh)+' cm /Im'+(op.idx||0)+' Do Q\n';
       }
     });
     streams.push(stream);
@@ -4088,6 +4133,12 @@ function makePDF(doc){
   const f1=addObj('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
   const fb=addObj('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
 
+  // Image XObjects (embedded JPEGs, referenced as /Im0, /Im1, …)
+  const imgIds=(doc.images||[]).map(im=>addObj(
+    '<< /Type /XObject /Subtype /Image /Width '+im.w+' /Height '+im.h+
+    ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+im.data.length+' >>\nstream\n'+im.data+'\nendstream'));
+  const xobjRes = imgIds.length ? ' /XObject << '+imgIds.map((id,i)=>'/Im'+i+' '+id+' 0 R').join(' ')+' >>' : '';
+
   // Page content streams
   const contentIds=streams.map(s=>{
     const enc=new TextEncoder().encode(s);
@@ -4096,7 +4147,7 @@ function makePDF(doc){
 
   // Page objects
   const pageIds=contentIds.map(cid=>{
-    return addObj('<< /Type /Page /Parent 0 /MediaBox [0 0 '+W+' '+H+'] /Contents '+cid+' 0 R /Resources << /Font << /F1 '+f1+' 0 R /FB '+fb+' 0 R >> >> >>');
+    return addObj('<< /Type /Page /Parent 0 /MediaBox [0 0 '+W+' '+H+'] /Contents '+cid+' 0 R /Resources << /Font << /F1 '+f1+' 0 R /FB '+fb+' 0 R >>'+xobjRes+' >> >>');
   });
 
   // Pages dict (patch parent refs)
@@ -4146,11 +4197,14 @@ function buildBillPDF(r){
     y+=(sz||10)+5;
   }
 
-  // Header box
+  // Header box + logo (logo embedded only if it has finished rasterising)
   ops.push({t:'rect',x:0,y:0,w:W,h:90,fill:'#0d1b4b'});
-  ops.push({t:'text',x:margin,y:22,txt:'BARKAT DAIRY PLANT',s:20,b:true,color:'#c49a2a'});
-  ops.push({t:'text',x:margin,y:46,txt:'Distribution Bill',s:13,b:false,color:'#ffffff'});
-  ops.push({t:'text',x:margin,y:62,txt:'Watlar, Ganderbal, Kashmir  |  Pure Goodness, Blessed by Quality',s:9,color:'#aabbdd'});
+  const hasLogo=_logoImg&&_logoImg.data;
+  if(hasLogo) ops.push({t:'image',idx:0,x:margin,y:14,dw:62,dh:62});
+  const tx=hasLogo?margin+74:margin;
+  ops.push({t:'text',x:tx,y:26,txt:'BARKAT DAIRY PLANT',s:20,b:true,color:'#c49a2a'});
+  ops.push({t:'text',x:tx,y:48,txt:'Distribution Bill',s:13,b:false,color:'#ffffff'});
+  ops.push({t:'text',x:tx,y:64,txt:'Watlar, Ganderbal, Kashmir  |  Pure Goodness, Blessed by Quality',s:9,color:'#aabbdd'});
   y=105;
 
   // Bill info
@@ -4160,34 +4214,35 @@ function buildBillPDF(r){
   hline('#0d1b4b', 1);
   y+=2;
 
-  // Table header
+  // Table header — Item | Crates | Cups | Rate | Amount
+  const cX={item:margin+4, crates:margin+215, cups:margin+275, rate:margin+335, amt:margin+425};
   ops.push({t:'rect',x:margin,y,w:textW,h:20,fill:'#e8eef8'});
-  ops.push({t:'text',x:margin+4,y:y+5,txt:'Item',s:9,b:true,color:'#0d1b4b'});
-  ops.push({t:'text',x:margin+230,y:y+5,txt:'Qty',s:9,b:true,color:'#0d1b4b'});
-  ops.push({t:'text',x:margin+290,y:y+5,txt:'Unit Price',s:9,b:true,color:'#0d1b4b'});
-  ops.push({t:'text',x:margin+370,y:y+5,txt:'Amount',s:9,b:true,color:'#0d1b4b'});
+  ops.push({t:'text',x:cX.item,y:y+5,txt:'Item',s:9,b:true,color:'#0d1b4b'});
+  ops.push({t:'text',x:cX.crates,y:y+5,txt:'Crates',s:9,b:true,color:'#0d1b4b'});
+  ops.push({t:'text',x:cX.cups,y:y+5,txt:'Cups',s:9,b:true,color:'#0d1b4b'});
+  ops.push({t:'text',x:cX.rate,y:y+5,txt:'Rate',s:9,b:true,color:'#0d1b4b'});
+  ops.push({t:'text',x:cX.amt,y:y+5,txt:'Amount',s:9,b:true,color:'#0d1b4b'});
   y+=24;
 
-  function tableRow(item,qty,price,amount,shade){
-    if(shade) ops.push({t:'rect',x:margin,y,w:textW,h:18,fill:'#f8faff'});
-    ops.push({t:'text',x:margin+4,y:y+4,txt:item,s:9,color:'#1e293b'});
-    ops.push({t:'text',x:margin+230,y:y+4,txt:String(qty),s:9,color:'#1e293b'});
-    ops.push({t:'text',x:margin+290,y:y+4,txt:'Rs.'+price,s:9,color:'#1e293b'});
-    ops.push({t:'text',x:margin+370,y:y+4,txt:'Rs.'+amount,s:9,color:'#1e293b'});
-    y+=22;
-  }
-
+  const P=billParts(r);
   let rowIdx=0;
-  billLines(r).forEach(function(x){
-    const shade=rowIdx++%2===0;
-    if(shade) ops.push({t:'rect',x:margin,y,w:textW,h:32,fill:'#f8faff'});
-    ops.push({t:'text',x:margin+4,y:y+5,txt:x.label,s:9,b:true,color:'#1e293b'});
-    const sub=x.crates+' crates x '+x.perCrate+' cups = '+x.delivered+' cups'+(x.ret?(' - '+x.ret+' returned = '+x.net+' cups'):'');
-    ops.push({t:'text',x:margin+4,y:y+18,txt:sub,s:7,color:'#64748b'});
-    ops.push({t:'text',x:margin+230,y:y+5,txt:x.net+' cups',s:9,color:'#1e293b'});
-    ops.push({t:'text',x:margin+290,y:y+5,txt:'Rs.'+x.rate+'/cup',s:8,color:'#1e293b'});
-    ops.push({t:'text',x:margin+370,y:y+5,txt:'Rs.'+x.amount.toFixed(0),s:9,color:'#1e293b'});
-    y+=34;
+  P.items.forEach(function(x){
+    if(rowIdx++%2===0) ops.push({t:'rect',x:margin,y,w:textW,h:18,fill:'#f8faff'});
+    ops.push({t:'text',x:cX.item,y:y+4,txt:x.label,s:9,color:'#1e293b'});
+    ops.push({t:'text',x:cX.crates,y:y+4,txt:String(x.crates),s:9,color:'#1e293b'});
+    ops.push({t:'text',x:cX.cups,y:y+4,txt:String(x.cups),s:9,color:'#1e293b'});
+    ops.push({t:'text',x:cX.rate,y:y+4,txt:'Rs.'+x.rate,s:8,color:'#1e293b'});
+    ops.push({t:'text',x:cX.amt,y:y+4,txt:'Rs.'+x.amount.toFixed(0),s:9,color:'#1e293b'});
+    y+=22;
+  });
+  P.returns.forEach(function(x){
+    if(rowIdx++%2===0) ops.push({t:'rect',x:margin,y,w:textW,h:18,fill:'#f8faff'});
+    ops.push({t:'text',x:cX.item,y:y+4,txt:'Less: '+x.label,s:9,color:'#b91c1c'});
+    ops.push({t:'text',x:cX.crates,y:y+4,txt:'-',s:9,color:'#b91c1c'});
+    ops.push({t:'text',x:cX.cups,y:y+4,txt:String(x.cups),s:9,color:'#b91c1c'});
+    ops.push({t:'text',x:cX.rate,y:y+4,txt:'Rs.'+x.rate,s:8,color:'#b91c1c'});
+    ops.push({t:'text',x:cX.amt,y:y+4,txt:'- Rs.'+x.amount.toFixed(0),s:9,color:'#b91c1c'});
+    y+=22;
   });
 
   y+=4;
@@ -4231,7 +4286,7 @@ function buildBillPDF(r){
   hline('#eeeeee');
   ops.push({t:'text',x:margin,y,txt:'Barkat Dairy Plant, Watlar Ganderbal  |  Computer-generated bill  |  '+new Date().toLocaleString(),s:8,color:'#aaaaaa'});
 
-  return makePDF({pages:[ops]});
+  return makePDF({pages:[ops], images:(_logoImg&&_logoImg.data)?[_logoImg]:[]});
 }
 
 // Build the bill PDF as a File object (shared by download + WhatsApp share).
