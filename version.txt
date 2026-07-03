@@ -1,1 +1,1 @@
-2026-06-23 · v45 (bills: live unpaid carry-forward — Previous + Current = Total to be paid)
+2026-07-03 · v46 (distribution by crates + returns; direct WhatsApp bill send)
