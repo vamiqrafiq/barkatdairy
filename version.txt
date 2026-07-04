@@ -1,1 +1,1 @@
-2026-07-03 · v51 (fix: bill total now equals the real account balance)
+2026-07-03 · v52 (unified distributor ledger — deliveries + payments + balance in one place)

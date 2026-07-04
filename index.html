@@ -2189,6 +2189,15 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
   </div>
 </div>
 
+<!-- ══ DISTRIBUTOR LEDGER MODAL (one account, deliveries + payments) ══ -->
+<div class="modal-overlay" id="distLedgerModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="distLedgerContent"></div>
+    <div style="margin-top:12px"><button class="btn btn-outline btn-full" onclick="closeDistLedger()">Close</button></div>
+  </div>
+</div>
+
 <!-- ══ FULL-SCREEN BILL PRINT OVERLAY ══ -->
 <div id="billPrintScreen">
   <div class="bill-print-toolbar">
@@ -2501,7 +2510,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-03 · v51 (fix: bill total now equals the real account balance)';
+var APP_BUILD='2026-07-03 · v52 (unified distributor ledger — deliveries + payments + balance in one place)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3310,14 +3319,14 @@ function renderDistRecords(){
     balEl.innerHTML=sorted.map(d=>{
       const cleared=d.bal<=0.5;
       const entries=distRecords.filter(r=>r.dist===d.name).length;
-      return`<div class="dist-balance-card" style="${cleared?'background:linear-gradient(135deg,#15803d,#16a34a)':''}">
+      return`<div class="dist-balance-card" onclick="openDistLedger('${_esc(d.name).replace(/'/g,"\\'")}')" style="cursor:pointer;${cleared?'background:linear-gradient(135deg,#15803d,#16a34a)':''}">
         <div>
           <div class="dist-balance-name">${_esc(d.name)}</div>
-          <div class="dist-balance-sub">${entries} entr${entries===1?'y':'ies'}${cleared?' · Cleared':''}</div>
+          <div class="dist-balance-sub">${entries} entr${entries===1?'y':'ies'}${cleared?' · Cleared':''} · tap to open account</div>
         </div>
         <div style="text-align:right">
           <div class="dist-balance-amt">${cleared?'✅':'₹'+d.bal.toFixed(0)}</div>
-          ${!cleared?`<button onclick="showDistBill(${distRecords.find(r=>r.dist===d.name)?.id})" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;padding:3px 8px;border-radius:7px;font-size:9px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px">Bill</button>`:''}
+          <div style="font-size:9px;font-weight:700;margin-top:4px;opacity:.85">📒 Account ›</div>
         </div>
       </div>`;
     }).join('');
@@ -3369,6 +3378,7 @@ function distRecordHTML(r){
     ${_hasRole(currentUser,'admin')?`<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><span style="font-size:10px;color:var(--gray)">🛵 Rider:</span><select onchange="assignRiderDist(${r.id},this.value)" style="flex:1;font-size:11px;padding:5px">${_riderOpts(r.rider)}</select></div>`:(r.rider?`<div style="font-size:10px;color:var(--teal);margin-bottom:8px">🛵 Assigned to ${_esc(_riderName(r.rider))}</div>`:'')}
     <div style="display:flex;gap:6px">
       <button class="btn btn-sm btn-teal" style="flex:1" onclick="showDistBill(${r.id})">📄 Bill</button>
+      <button class="btn btn-sm" style="flex-shrink:0;background:#0f766e;color:#fff;border:none" onclick="openDistLedger('${_esc(r.dist).replace(/'/g,"\\'")}')">📒</button>
       <button class="btn btn-sm" style="flex-shrink:0;background:#25D366;color:#fff;border:none" onclick="whatsappBill(${r.id})">📲</button>
       <button class="btn btn-sm btn-outline" style="flex-shrink:0" onclick="toggleDistEdit(${r.id})">✏️</button>
       <button class="btn btn-sm btn-red" style="flex-shrink:0" onclick="deleteDistRecord(${r.id})">🗑</button>
@@ -3407,6 +3417,131 @@ function saveDistEdit(id){
   store('distRecords',distRecords);
   renderDistRecords();
   showAlert('distAlert','alert-green','✅ Bill updated');
+}
+
+// ══════════════════════════════════════════════════════════
+// DISTRIBUTOR LEDGER — one place: deliveries + payments + balance
+// ══════════════════════════════════════════════════════════
+let _ledgerDist=null;
+function openDistLedger(dist){ _ledgerDist=dist; renderDistLedger(); document.getElementById('distLedgerModal').classList.add('open'); }
+function closeDistLedger(){ document.getElementById('distLedgerModal').classList.remove('open'); }
+function _ledgerTx(dist){
+  const tx=[];
+  (Array.isArray(distRecords)?distRecords:[]).forEach(r=>{if(r&&r.dist===dist)tx.push({kind:'delivery',id:r.id,date:r.date||'',amount:(r.amount||0),paid:(r.paid||0),rec:r});});
+  (Array.isArray(paymentsLog)?paymentsLog:[]).forEach(p=>{if(p&&p.dist===dist)tx.push({kind:'payment',id:p.id,date:p.date||'',amount:(p.amount||0),rec:p});});
+  tx.sort((a,b)=> a.date<b.date?-1 : a.date>b.date?1 : (a.id-b.id));
+  let run=0;
+  tx.forEach(t=>{ run += (t.kind==='delivery') ? (t.amount-(t.paid||0)) : (-t.amount); t.run=run; });
+  return tx;
+}
+function renderDistLedger(){
+  const dist=_ledgerDist; const el=document.getElementById('distLedgerContent'); if(!dist||!el)return;
+  const bal=getDistBalance(dist);
+  const balColor=bal>0.5?'var(--red)':'var(--green)';
+  const tx=_ledgerTx(dist);
+  const rows=tx.slice().reverse().map(t=>{
+    if(t.kind==='delivery'){
+      const r=t.rec, cups=(r.c200||0)+(r.c400||0);
+      return `<div style="border-bottom:1px solid #eef2f6;padding:9px 0">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div><div style="font-size:10px;color:var(--gray)">${t.date}</div><div style="font-size:12px;font-weight:600;color:var(--dark)">🚚 Delivery · ${cups} cups${r.paid?` · paid ₹${(r.paid).toFixed(0)}`:''}</div></div>
+          <div style="text-align:right"><div style="font-weight:700;color:var(--teal)">+₹${(t.amount).toFixed(0)}</div><div style="font-size:10px;color:var(--gray)">balance ₹${t.run.toFixed(0)}</div></div>
+        </div>
+        <div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-teal" onclick="showDistBill(${r.id})">📄 Bill</button>
+          <button class="btn btn-sm" style="background:#25D366;color:#fff;border:none" onclick="whatsappBill(${r.id})">📲</button>
+          <button class="btn btn-sm btn-outline" onclick="toggleLedgerDe(${r.id})">✏️ Edit</button>
+          <button class="btn btn-sm btn-red" onclick="deleteDistRecord(${r.id});renderDistLedger()">🗑</button>
+        </div>
+        <div id="ledDe-${r.id}" style="display:none;margin-top:6px;background:var(--light);padding:8px;border-radius:8px">
+          <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g crates</label><input type="number" id="lde-cr200-${r.id}" value="${r.crates200!=null?r.crates200:''}" placeholder="0"/></div><div><label class="inp-label">400g crates</label><input type="number" id="lde-cr400-${r.id}" value="${r.crates400!=null?r.crates400:''}" placeholder="0"/></div></div>
+          <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g returned</label><input type="number" id="lde-ret200-${r.id}" value="${r.ret200||0}"/></div><div><label class="inp-label">400g returned</label><input type="number" id="lde-ret400-${r.id}" value="${r.ret400||0}"/></div></div>
+          <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g rate</label><input type="number" id="lde-r200-${r.id}" step="0.5" value="${r.rate200!=null?r.rate200:(settings.p200||18)}"/></div><div><label class="inp-label">400g rate</label><input type="number" id="lde-r400-${r.id}" step="0.5" value="${r.rate400!=null?r.rate400:(settings.p400||34)}"/></div></div>
+          <div style="margin-bottom:5px"><label class="inp-label">Paid at delivery ₹</label><input type="number" id="lde-paid-${r.id}" value="${r.paid||0}"/></div>
+          <button class="btn btn-primary btn-sm btn-full" onclick="saveLedgerDe(${r.id})">💾 Save delivery</button>
+        </div>
+      </div>`;
+    }
+    const p=t.rec;
+    return `<div style="border-bottom:1px solid #eef2f6;padding:9px 0">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div><div style="font-size:10px;color:var(--gray)">${t.date}</div><div style="font-size:12px;font-weight:600;color:var(--green)">💵 Payment${p.mode?' · '+_esc(p.mode):''}</div></div>
+        <div style="text-align:right"><div style="font-weight:700;color:var(--green)">−₹${(t.amount).toFixed(0)}</div><div style="font-size:10px;color:var(--gray)">balance ₹${t.run.toFixed(0)}</div></div>
+      </div>
+      <div style="display:flex;gap:5px;margin-top:6px">
+        <button class="btn btn-sm btn-outline" onclick="togglePayEdit(${p.id})">✏️ Edit</button>
+        <button class="btn btn-sm btn-red" onclick="deletePayment(${p.id})">🗑 Delete</button>
+      </div>
+      <div id="payEdit-${p.id}" style="display:none;margin-top:6px;background:var(--light);padding:8px;border-radius:8px">
+        <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">Amount ₹</label><input type="number" id="pe-amt-${p.id}" value="${p.amount||0}"/></div><div><label class="inp-label">Date</label><input type="date" id="pe-date-${p.id}" value="${p.date||''}"/></div></div>
+        <button class="btn btn-primary btn-sm btn-full" onclick="savePaymentEdit(${p.id})">💾 Save payment</button>
+      </div>
+    </div>`;
+  }).join('');
+  el.innerHTML=`
+    <div style="text-align:center;margin-bottom:10px">
+      <div style="font-size:17px;font-weight:800;color:var(--dark)">${_esc(dist)}</div>
+      <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">Account balance</div>
+      <div style="font-size:26px;font-weight:800;color:${balColor}">${bal>0.5?'₹'+bal.toFixed(0):'✅ Cleared'}</div>
+    </div>
+    <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:10px;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;color:#047857;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">＋ Record payment received</div>
+      <div class="grid3" style="margin-bottom:6px">
+        <div><label class="inp-label">Amount ₹</label><input type="number" id="ld-pay-amt" placeholder="0" min="0"/></div>
+        <div><label class="inp-label">Date</label><input type="date" id="ld-pay-date"/></div>
+        <div><label class="inp-label">Mode</label><select id="ld-pay-mode"><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select></div>
+      </div>
+      <button class="btn btn-primary btn-sm btn-full" onclick="savePaymentFor()">💾 Save payment</button>
+      <div id="ld-pay-alert" style="margin-top:6px"></div>
+    </div>
+    <div style="font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Ledger · newest first</div>
+    ${rows||'<div style="font-size:12px;color:var(--gray);padding:8px 0">No transactions yet.</div>'}`;
+  const dEl=document.getElementById('ld-pay-date'); if(dEl&&!dEl.value)dEl.value=new Date().toISOString().split('T')[0];
+}
+function _reRenderDistAll(){ renderDistLedger(); try{renderDistRecords();}catch(e){} try{if(typeof renderPayments==='function')renderPayments();}catch(e){} }
+function savePaymentFor(){
+  const dist=_ledgerDist; if(!dist)return;
+  const amt=parseFloat((document.getElementById('ld-pay-amt')||{}).value)||0;
+  const date=(document.getElementById('ld-pay-date')||{}).value||new Date().toISOString().split('T')[0];
+  const mode=(document.getElementById('ld-pay-mode')||{}).value||'Cash';
+  const a=document.getElementById('ld-pay-alert');
+  if(!amt){if(a)a.innerHTML='<div class="alert alert-red">Enter an amount</div>';return;}
+  const rec={id:_uid(),dist:dist,amount:amt,date:date,mode:mode,by:'',savedBy:currentUser?currentUser.name:'Staff'};
+  paymentsLog.unshift(rec);
+  store('paymentsLog',paymentsLog);
+  try{_audit('payments','add',rec.id,'','₹'+amt+' from '+dist,'Payment (ledger)');}catch(e){}
+  _reRenderDistAll();
+}
+function togglePayEdit(id){const f=document.getElementById('payEdit-'+id);if(f)f.style.display=f.style.display==='none'?'block':'none';}
+function savePaymentEdit(id){
+  const p=paymentsLog.find(x=>String(x.id)===String(id));if(!p)return;
+  p.amount=parseFloat((document.getElementById('pe-amt-'+id)||{}).value)||0;
+  p.date=(document.getElementById('pe-date-'+id)||{}).value||p.date;
+  store('paymentsLog',paymentsLog);
+  _reRenderDistAll();
+}
+function deletePayment(id){
+  const p=paymentsLog.find(x=>String(x.id)===String(id));if(!p)return;
+  if(!confirm('Delete payment of ₹'+(p.amount||0).toFixed(0)+'? This cannot be undone.'))return;
+  paymentsLog=paymentsLog.filter(x=>String(x.id)!==String(id));
+  _markDeleted('paymentsLog',id);
+  store('paymentsLog',paymentsLog);
+  _reRenderDistAll();
+}
+function toggleLedgerDe(id){const f=document.getElementById('ledDe-'+id);if(f)f.style.display=f.style.display==='none'?'block':'none';}
+function saveLedgerDe(id){
+  const r=distRecords.find(x=>String(x.id)===String(id));if(!r)return;
+  const num=eid=>{const e=document.getElementById(eid);return e?(parseFloat(e.value)||0):0;};
+  r.crates200=num('lde-cr200-'+id);r.crates400=num('lde-cr400-'+id);
+  r.ret200=num('lde-ret200-'+id);r.ret400=num('lde-ret400-'+id);
+  r.rate200=num('lde-r200-'+id);r.rate400=num('lde-r400-'+id);
+  r.paid=num('lde-paid-'+id);
+  r.c200=Math.max(0,r.crates200*CPC200-r.ret200);
+  r.c400=Math.max(0,r.crates400*CPC400-r.ret400);
+  r.crates=r.crates200+r.crates400;
+  r.amount=r.c200*r.rate200+r.c400*r.rate400;
+  store('distRecords',distRecords);
+  _reRenderDistAll();
 }
 function _riderName(username){const u=(Array.isArray(users)?users:[]).find(x=>x&&x.username===username);return u?(u.name||u.username):username;}
 function _riderOpts(sel){
