@@ -2501,7 +2501,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-03 · v50 (real Barkat Dairy logo embedded on bill + PDF)';
+var APP_BUILD='2026-07-03 · v51 (fix: bill total now equals the real account balance)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3430,21 +3430,17 @@ function deleteDistRecord(id){
 }
 function clearDistFilter(){renderDistRecords();}
 
-// Live bill maths. Previous balance carries forward ONLY what is still unpaid:
-// payments in the Payments tab clear it (oldest bills first), and any payment
-// beyond the previous balance is credited against this bill. Returns the four
-// figures a bill shows: previous + current − paid/credit = total to be paid.
+// Bill maths — single source of truth. The Total To Be Paid is exactly the
+// distributor's live account balance (all deliveries − all payments, via
+// getDistBalance), so the bill always matches the balance shown everywhere else.
+// Previous = that balance minus this delivery's own net charge.
 function billNumbers(r){
-  let billedBefore=0,paidBefore=0;
-  (Array.isArray(distRecords)?distRecords:[]).forEach(function(x){
-    if(x&&x.dist===r.dist&&x.id<r.id){billedBefore+=(x.amount||0);paidBefore+=(x.paid||0);}
-  });
-  const pay=(Array.isArray(paymentsLog)?paymentsLog:[]).reduce(function(s,p){return s+((p&&p.dist===r.dist)?(p.amount||0):0);},0);
-  const prevNet=billedBefore-paidBefore;            // owed from earlier bills (before payments)
-  const prev=Math.max(0,prevNet-pay);               // still-unpaid previous balance
-  const credit=Math.max(0,pay-prevNet);             // payments beyond previous → applied here
+  const acct=(typeof getDistBalance==='function')?getDistBalance(r.dist):((r.prevBalance||0)+(r.amount||0)-(r.paid||0));
   const current=r.amount||0, paidThis=r.paid||0;
-  const total=Math.max(0,prev+current-paidThis-credit);
+  const before=acct-(current-paidThis);   // account carried in before this delivery
+  const prev=Math.max(0,before);
+  const credit=Math.max(0,-before);       // distributor is in advance/credit
+  const total=Math.max(0,acct);
   return {prev,current,paidThis,credit,total};
 }
 // Barkat Dairy logo (embedded raster) — used on the bill header + PDF.

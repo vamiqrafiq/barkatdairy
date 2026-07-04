@@ -1,1 +1,1 @@
-2026-07-03 · v50 (real Barkat Dairy logo embedded on bill + PDF)
+2026-07-03 · v51 (fix: bill total now equals the real account balance)
