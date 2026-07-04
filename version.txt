@@ -1,1 +1,1 @@
-2026-07-03 · v52 (unified distributor ledger — deliveries + payments + balance in one place)
+2026-07-04 · v53 (fix: dates use local time, not UTC — no more day-early bills)

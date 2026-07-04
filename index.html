@@ -2335,6 +2335,9 @@ function getRateFromTable(fat,snf){
 // ══════════════════════════════════════════
 function store(key,val){try{localStorage.setItem('bd_'+key,JSON.stringify(val));}catch(e){}}
 function load(key,def){try{const v=localStorage.getItem('bd_'+key);return v?JSON.parse(v):def;}catch(e){return def;}}
+// Local calendar date (YYYY-MM-DD). Using toISOString() directly gives UTC, which
+// rolls a day early for IST (+5:30) users late night / early morning.
+function _today(){var d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
 // Monotonic unique id. Date.now() alone collides when two records are saved in
 // the same millisecond, producing duplicate DOM ids that break Edit/Delete.
 let _lastUid=0;
@@ -2510,7 +2513,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-03 · v52 (unified distributor ledger — deliveries + payments + balance in one place)';
+var APP_BUILD='2026-07-04 · v53 (fix: dates use local time, not UTC — no more day-early bills)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2965,7 +2968,7 @@ function saveProc(){
   showAlert('procAlert','alert-green','✅ Saved · Lot ID: '+lotId);
   // Reset form
   ['p-supplier','p-qty','p-fat','p-snf','p-temp','p-clr','p-code'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('p-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('p-date').value=_today();
   // Reset camera state (scan is optional)
   camVerified=false;
   const vs=document.getElementById('camVerifyStatus');
@@ -2983,7 +2986,7 @@ function deleteProcRecord(id){
 }
 function renderAllRecords(){
   if(_dedupeIds(records))store('records',records); // repair legacy duplicate ids
-  const today=new Date().toISOString().split('T')[0];
+  const today=_today();
   const todayRecs=records.filter(r=>r.date===today);
   const todayMilk=todayRecs.reduce((a,r)=>a+r.qty,0);
   const todayCost=todayRecs.reduce((a,r)=>a+r.total,0);
@@ -3050,7 +3053,7 @@ function showSlip(){
   const qty=parseFloat(document.getElementById('p-qty').value)||0;
   const fat=parseFloat(document.getElementById('p-fat').value)||0;
   const snf=parseFloat(document.getElementById('p-snf').value)||0;
-  const date=document.getElementById('p-date').value||new Date().toISOString().split('T')[0];
+  const date=document.getElementById('p-date').value||_today();
   if(!supplier||!qty||!fat||!snf){showAlert('procAlert','alert-red','⚠️ Fill all fields to generate slip');return;}
   const clrEl=document.getElementById('p-clr');const clr=clrEl&&clrEl.value!==''?parseFloat(clrEl.value):null;
   const codeEl=document.getElementById('p-code');const code=(codeEl&&codeEl.value.trim())||'0000';
@@ -3288,7 +3291,7 @@ function toggleDistBatch(id){
 }
 function renderDistRecords(){
   if(_dedupeIds(distRecords))store('distRecords',distRecords); // repair legacy duplicate ids
-  const today=new Date().toISOString().split('T')[0];
+  const today=_today();
   renderDistBatchPicker();
 
   // Hero — total outstanding using accurate getDistBalance
@@ -3496,13 +3499,13 @@ function renderDistLedger(){
     </div>
     <div style="font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Ledger · newest first</div>
     ${rows||'<div style="font-size:12px;color:var(--gray);padding:8px 0">No transactions yet.</div>'}`;
-  const dEl=document.getElementById('ld-pay-date'); if(dEl&&!dEl.value)dEl.value=new Date().toISOString().split('T')[0];
+  const dEl=document.getElementById('ld-pay-date'); if(dEl&&!dEl.value)dEl.value=_today();
 }
 function _reRenderDistAll(){ renderDistLedger(); try{renderDistRecords();}catch(e){} try{if(typeof renderPayments==='function')renderPayments();}catch(e){} }
 function savePaymentFor(){
   const dist=_ledgerDist; if(!dist)return;
   const amt=parseFloat((document.getElementById('ld-pay-amt')||{}).value)||0;
-  const date=(document.getElementById('ld-pay-date')||{}).value||new Date().toISOString().split('T')[0];
+  const date=(document.getElementById('ld-pay-date')||{}).value||_today();
   const mode=(document.getElementById('ld-pay-mode')||{}).value||'Cash';
   const a=document.getElementById('ld-pay-alert');
   if(!amt){if(a)a.innerHTML='<div class="alert alert-red">Enter an amount</div>';return;}
@@ -3913,7 +3916,7 @@ function saveTest(){
   document.getElementById('t-supplier').value='';
   document.getElementById('t-qty').value='';
   document.getElementById('t-notes').value='';
-  document.getElementById('t-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('t-date').value=_today();
   resetTestCards();
   renderTestHistory();
 }
@@ -3921,7 +3924,7 @@ function renderTestHistory(){
   const el=document.getElementById('testHistory');
   const badge=document.getElementById('testSummaryBadge');
   // Update hero
-  const today=new Date().toISOString().split('T')[0];
+  const today=_today();
   const todayRecs=testRecords.filter(r=>r.date===today);
   const todayFail=todayRecs.filter(r=>r.overall==='fail').length;
   const heroTotal=document.getElementById('test-hero-total');
@@ -4088,7 +4091,7 @@ function removeUser(i){if(_hasRole(users[i],'admin'))return;users.splice(i,1);st
 // MISC
 // ══════════════════════════════════════════
 function setToday(){
-  const d=new Date().toISOString().split('T')[0];
+  const d=_today();
   ['p-date','d-date','t-date','inv-date','ret-date','cip-date'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=d;});
 }
 function showAlert(containerId,cls,msg){
@@ -4611,7 +4614,7 @@ function saveInvEntry(){
   document.getElementById('inv-recv').value='';
   document.getElementById('inv-used').value='';
   document.getElementById('inv-note').value='';
-  document.getElementById('inv-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('inv-date').value=_today();
   const invItemEl=document.getElementById('inv-item');if(invItemEl)invItemEl.selectedIndex=0;
   showAlert('invAlert','alert-green','✅ Stock updated');
   renderStockDashboard();
@@ -4624,7 +4627,7 @@ function renderStockDashboard(){
   if(!el)return;
   let okCount=0,lowCount=0,critCount=0;
   // Today's activity summary
-  const today=new Date().toISOString().split('T')[0];
+  const today=_today();
   const todayEntries=invEntries.filter(e=>e.date===today);
   const todayRecv=todayEntries.reduce((s,e)=>s+(e.recv||0),0);
   const todayUsed=todayEntries.reduce((s,e)=>s+(e.used||0),0);
@@ -4770,7 +4773,7 @@ function clearInvRecords(){
 // RIDER VIEW
 // ══════════════════════════════════════════
 function renderRiderView(){
-  const today=new Date().toISOString().split('T')[0];
+  const today=_today();
   const hour=new Date().getHours();
   // Bug fix: was 'hour'<17 (string comparison, always true) — now hour<17
   const greeting=hour<12?'Good Morning':hour<17?'Good Afternoon':'Good Evening';
@@ -5159,7 +5162,7 @@ function markAttendance(type){
 }
 
 function renderAttToday(){
-  const today = new Date().toISOString().split('T')[0];
+  const today = _today();
   const todayRecs = attRecords.filter(r=>r.date===today);
   const arrivals  = todayRecs.filter(r=>r.type==='arrival').length;
   const leavings  = todayRecs.filter(r=>r.type==='leaving').length;
@@ -5205,7 +5208,7 @@ function renderAttHistory(){
     listEl.innerHTML='<div style="text-align:center;padding:16px;color:var(--gray);font-size:12px">🔒 Attendance history is visible to admins only</div>';
     return;
   }
-  const today = new Date().toISOString().split('T')[0];
+  const today = _today();
   const pastRecs = attRecords.filter(r=>r.date!==today);
   if(pastRecs.length===0){
     listEl.innerHTML='<div class="empty"><div class="empty-icon">📁</div><div class="empty-text">No past history</div></div>';
@@ -5290,7 +5293,7 @@ function useAISuggestion(q){
 }
 
 function _buildContext(){
-  const today=new Date().toISOString().split('T')[0];
+  const today=_today();
   const todayP=records.filter(r=>r.date===today);
   const todayB=productionBatches.filter(b=>b.date===today);
   const todayD=distRecords.filter(r=>r.date===today);
@@ -5478,9 +5481,9 @@ let productionBatches = load('productionBatches', []);
 let cipLogs = load('cipLogs', []);
 
 // ID generators
-function todayStr(){ return new Date().toISOString().split('T')[0].replace(/-/g,''); }
+function todayStr(){ return _today().replace(/-/g,''); }
 function genLotId(date){
-  const d=(date||new Date().toISOString().split('T')[0]).replace(/-/g,'');
+  const d=(date||_today()).replace(/-/g,'');
   const n=String(records.filter(r=>r.lotId&&r.lotId.startsWith('RM-'+d)).length+1).padStart(3,'0');
   return 'RM-'+d+'-'+n;
 }
@@ -5502,7 +5505,7 @@ function genCipId(){
 // ── Procurement lot ID helpers ──
 function refreshLotId(){
   const dateEl=document.getElementById('p-date');
-  const date=dateEl?dateEl.value:new Date().toISOString().split('T')[0];
+  const date=dateEl?dateEl.value:_today();
   const d=date.replace(/-/g,'');
   const n=String(records.filter(r=>r.lotId&&r.lotId.startsWith('RM-'+d)).length+1).padStart(3,'0');
   const el=document.getElementById('p-lotid');
@@ -5542,7 +5545,7 @@ function initBatchTab(){
   // Defaults: next BDP number + today's date
   const suf=document.getElementById('nb-idsuffix');
   if(suf&&!suf.value){let max=3;productionBatches.forEach(b=>{const m=b&&b.batchId&&String(b.batchId).match(/BDP-0*(\d+)/);if(m){const n=parseInt(m[1],10);if(n>max)max=n;}});suf.value=String(max+1).padStart(3,'0');}
-  const dt=document.getElementById('nb-date');if(dt&&!dt.value)dt.value=new Date().toISOString().split('T')[0];
+  const dt=document.getElementById('nb-date');if(dt&&!dt.value)dt.value=_today();
   calcBatchStd();
 }
 function toggleNbProc(id){
@@ -6109,7 +6112,7 @@ function saveStage1(){
   b.stages.s1_standardize={vol,rawFat:getVal('s1-rawFat'),rawSnf:getVal('s1-rawSnf'),smpAdded:getVal('s1-smpAdded'),waterAdded:getVal('s1-waterAdded'),finalFat:getVal('s1-finalFat'),finalSnf:getVal('s1-finalSnf'),completedAt:ts(),completedBy:currentUser?currentUser.name:'Staff'};
   // Auto-deduct SMP from inventory
   if(smpQty>0){
-    invEntries.unshift({id:Date.now(),item:'smp',date:new Date().toISOString().split('T')[0],recv:0,used:smpQty,note:'Batch '+b.batchId,savedBy:currentUser?currentUser.name:'Staff'});
+    invEntries.unshift({id:Date.now(),item:'smp',date:_today(),recv:0,used:smpQty,note:'Batch '+b.batchId,savedBy:currentUser?currentUser.name:'Staff'});
     store('invEntries',invEntries);
     checkLowStockAlerts();
   }
@@ -6151,7 +6154,7 @@ function saveStage4(){
   b.stages.s4_inoculate={cultureBrand:getVal('s4-brand'),cultureLot:getVal('s4-lot'),cultureExpiry:expiry,qty:qty,completedAt:ts(),completedBy:currentUser?currentUser.name:'Staff'};
   // Auto-deduct from inventory
   if(qty>0){
-    invEntries.unshift({id:Date.now(),item:'culture',date:new Date().toISOString().split('T')[0],recv:0,used:qty,note:'Batch '+b.batchId,savedBy:currentUser?currentUser.name:'Staff'});
+    invEntries.unshift({id:Date.now(),item:'culture',date:_today(),recv:0,used:qty,note:'Batch '+b.batchId,savedBy:currentUser?currentUser.name:'Staff'});
     store('invEntries',invEntries);
     checkLowStockAlerts();
   }
@@ -6167,7 +6170,7 @@ function saveStage5(){
   // Auto-deduct cups and foil lids from inventory
   const inv200=size==='200g'||size==='Both'?cnt:0;
   const inv400=size==='400g'||size==='Both'?cnt:0;
-  const today0=new Date().toISOString().split('T')[0];
+  const today0=_today();
   if(inv200>0){invEntries.unshift({id:Date.now(),item:'cups200',date:today0,recv:0,used:inv200,note:'Batch '+b.batchId,savedBy:currentUser?currentUser.name:'Staff'});store('invEntries',invEntries);}
   if(inv400>0){invEntries.unshift({id:Date.now()+1,item:'cups400',date:today0,recv:0,used:inv400,note:'Batch '+b.batchId,savedBy:currentUser?currentUser.name:'Staff'});store('invEntries',invEntries);}
   const totalCups=inv200+inv400;
@@ -6551,7 +6554,7 @@ function renderRecallDefault(){
 }
 function recallQuick(type){
   const inp=document.getElementById('recallInput');if(!inp)return;
-  const today=new Date().toISOString().split('T')[0]; // YYYY-MM-DD — matches record date format
+  const today=_today(); // YYYY-MM-DD — matches record date format
   if(type==='batch')      inp.value='b-';
   else if(type==='lots')  inp.value='rm-';
   else if(type==='today') inp.value=today;
@@ -6577,7 +6580,7 @@ function recallQuick(type){
   }
   runRecall();
 }
-function _oldTodayStr(){ return new Date().toISOString().split('T')[0].replace(/-/g,''); }
+function _oldTodayStr(){ return _today().replace(/-/g,''); }
 
 // ════════════════════════════════════════════════════════════
 // CIP LOG
@@ -6598,7 +6601,7 @@ function updateCipStatus(){
   const statusEl=document.getElementById('cip-today-status');
   if(!statusEl||!date)return;
   const already=cipLogs.some(function(r){return r.date===date;});
-  const isToday=date===new Date().toISOString().split('T')[0];
+  const isToday=date===_today();
   if(already){
     statusEl.textContent=(isToday?'✅ CIP already logged for today':'✅ CIP logged for '+date);
     statusEl.style.cssText='margin-bottom:12px;padding:10px 12px;border-radius:10px;font-size:12px;font-weight:600;text-align:center;background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0';
@@ -6608,7 +6611,7 @@ function updateCipStatus(){
   }
 }
 function saveCIPSimple(status){
-  const date=(document.getElementById('cip-date')||{}).value||new Date().toISOString().split('T')[0];
+  const date=(document.getElementById('cip-date')||{}).value||_today();
   const note=((document.getElementById('cip-note2')||{}).value||'').trim();
   cipLogs.unshift({id:Date.now(),cipId:'CIP-'+Date.now(),date,status,note,savedBy:currentUser?currentUser.name:'Staff'});
   store('cipLogs',cipLogs);
@@ -6629,7 +6632,7 @@ function renderCIPList(){
   if(count)count.textContent=cipLogs.length+' logs';
   if(!el)return;
   // Update hero with today's status
-  const today=new Date().toISOString().split('T')[0];
+  const today=_today();
   const todayLog=cipLogs.find(c=>c.date===today);
   const hv=document.getElementById('cipHeroVal');const hs=document.getElementById('cipHeroSub');
   if(hv)hv.textContent=todayLog?(todayLog.status==='notdone'?'❌ Not done today':'✅ Done today'):'⏳ Not logged today';
@@ -6694,7 +6697,7 @@ function renderCIPCalendar(){
 // ════════════════════════════════════════════════════════════
 function renderSummary(){
   const picker=document.getElementById('summaryDatePicker');
-  const today=new Date().toISOString().split('T')[0];
+  const today=_today();
   const date=picker&&picker.value?picker.value:today;
   const isToday=date===today;
   const isAdmin=_hasRole(currentUser,'admin');
@@ -6705,7 +6708,7 @@ function renderSummary(){
   const pdfBtn=document.getElementById('sum-pdf-btn');
   if(pdfBtn)pdfBtn.style.display=isAdmin?'inline-flex':'none';
   const bpSec=document.getElementById('sum-batchprofit');
-  if(bpSec){bpSec.style.display=isAdmin?'block':'none';if(isAdmin){const to=document.getElementById('bp-to'),fr=document.getElementById('bp-from');if(to&&!to.value)to.value=new Date().toISOString().split('T')[0];if(fr&&!fr.value){const d=new Date();d.setDate(1);fr.value=d.toISOString().split('T')[0];}batchProfitRange();}}
+  if(bpSec){bpSec.style.display=isAdmin?'block':'none';if(isAdmin){const to=document.getElementById('bp-to'),fr=document.getElementById('bp-from');if(to&&!to.value)to.value=_today();if(fr&&!fr.value){const d=new Date();d.setDate(1);fr.value=d.toISOString().split('T')[0];}batchProfitRange();}}
 
   const dayB=productionBatches.filter(b=>b.date===date);
   const dayP=records.filter(r=>r.date===date);
@@ -6840,7 +6843,7 @@ function renderSummary(){
 }
 function downloadSummaryPDF(){
   const picker=document.getElementById('summaryDatePicker');
-  const date=picker?picker.value:new Date().toISOString().split('T')[0];
+  const date=picker?picker.value:_today();
   const dayB=productionBatches.filter(b=>b.date===date);
   const dayP=records.filter(r=>r.date===date);
   const dayD=distRecords.filter(r=>r.date===date);
@@ -7198,13 +7201,13 @@ function saveReturn(){
   showAlert('retAlert','alert-green','✅ '+type+' recorded');
   // Reset form fields and set date to today
   ['ret-qty','ret-batch','ret-notes','ret-dist'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
-  var rd=document.getElementById('ret-date');if(rd)rd.value=new Date().toISOString().split('T')[0];
+  var rd=document.getElementById('ret-date');if(rd)rd.value=_today();
   renderReturns();
   if(typeof renderStockDashboard==='function')renderStockDashboard();
 }
 
 function renderReturns(){
-  var d=document.getElementById('ret-date');if(d&&!d.value)d.value=new Date().toISOString().split('T')[0];
+  var d=document.getElementById('ret-date');if(d&&!d.value)d.value=_today();
   retTypeChange();
 
   var icons={'return':'↩️','spillage':'💧','damage':'📦','sample':'🎁'};
@@ -7305,7 +7308,7 @@ function selectPayDist(name){
 }
 
 function renderPayments(){
-  var pd=document.getElementById('pay-date');if(pd&&!pd.value)pd.value=new Date().toISOString().split('T')[0];
+  var pd=document.getElementById('pay-date');if(pd&&!pd.value)pd.value=_today();
   // Auto-fill Collected By from logged-in user
   var byEl=document.getElementById('pay-by');
   if(byEl&&!byEl.value&&currentUser)byEl.value=currentUser.name;
@@ -7477,7 +7480,7 @@ function exportAllData(){
   var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');
-  a.href=url;a.download='BarkatDairy-Backup-'+new Date().toISOString().split('T')[0]+'.json';
+  a.href=url;a.download='BarkatDairy-Backup-'+_today()+'.json';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   setTimeout(function(){URL.revokeObjectURL(url);},10000);
 }
@@ -7536,7 +7539,7 @@ function exportExcel(){
   var blob=new Blob([rows.join('\n')],{type:'text/csv'});
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');
-  a.href=url;a.download='BarkatDairy-Data-'+new Date().toISOString().split('T')[0]+'.csv';
+  a.href=url;a.download='BarkatDairy-Data-'+_today()+'.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   setTimeout(function(){URL.revokeObjectURL(url);},10000);
 }
