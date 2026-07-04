@@ -6,6 +6,9 @@
       ".firebaserc",
       "database.rules.json",
       "README.md",
+      "web.html",
+      "*.png",
+      "logo_b64.txt",
       ".git/**"
     ],
     "headers": [

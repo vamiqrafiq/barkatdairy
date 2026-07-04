@@ -1,2 +1,6 @@
 # Firebase deploy cache (generated)
 .firebase/
+
+# Source logo (embedded as data URI in index.html)
+*.png
+logo_b64.txt
