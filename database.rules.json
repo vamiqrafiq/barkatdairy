@@ -4,7 +4,7 @@
       ".read": "auth != null",
       ".write": "auth != null",
       "$key": {
-        ".validate": "$key.matches(/^(records|distRecords|testRecords|productionBatches|cipLogs|users|settings|savedSuppliers|savedDistributors|attRecords|attSavedName|invEntries|invOpening|returnsLog|paymentsLog|auditLog|rateOverride|liveLocations)$/)"
+        ".validate": "$key.matches(/^(records|distRecords|testRecords|productionBatches|cipLogs|users|settings|savedSuppliers|savedDistributors|attRecords|attSavedName|invEntries|invOpening|returnsLog|paymentsLog|auditLog|rateOverride|liveLocations|deletedIds)$/)"
       }
     }
   }
