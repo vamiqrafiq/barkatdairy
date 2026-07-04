@@ -506,7 +506,6 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <button class="tab" onclick="goTab('calc',this);calcTest();calcRate()">🧮 Calc</button>
     <button class="tab" onclick="goTab('test',this)">🔬 Testing</button>
     <button class="tab" id="summaryTabBtn" onclick="goTab('summary',this);renderSummary()">📊 Summary</button>
-    <button class="tab" id="paymentsTabBtn" onclick="goTab('payments',this);renderPayments()" style="display:none">💰 Payments</button>
     <button class="tab" onclick="goTab('ai',this);initAIChat()">🤖 AI</button>
     <button class="tab" id="riderTabBtn" onclick="goTab('rider',this)" style="display:none">🛵 My Deliveries</button>
     <button class="tab" id="trackerTabBtn" onclick="goTab('tracker',this);initTracker()" style="display:none">🗺️ Tracker</button>
@@ -823,6 +822,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <div class="grid2" style="margin-bottom:6px">
       <div><label class="inp-label">200g Crates</label><input type="number" id="d-crates200" placeholder="0" min="0" step="1" oninput="calcDist()"/><div id="d-cups200-disp" style="font-size:10px;color:var(--teal);font-weight:700;margin-top:3px">0 cups</div></div>
       <div><label class="inp-label">400g Crates</label><input type="number" id="d-crates400" placeholder="0" min="0" step="1" oninput="calcDist()"/><div id="d-cups400-disp" style="font-size:10px;color:var(--teal);font-weight:700;margin-top:3px">0 cups</div></div>
+    </div>
+    <div class="grid2" style="margin-bottom:8px">
+      <div><label class="inp-label">200g extra loose cups <span style="font-weight:400;color:var(--gray)">optional</span></label><input type="number" id="d-extra200" placeholder="0" min="0" step="1" oninput="calcDist()"/></div>
+      <div><label class="inp-label">400g extra loose cups <span style="font-weight:400;color:var(--gray)">optional</span></label><input type="number" id="d-extra400" placeholder="0" min="0" step="1" oninput="calcDist()"/></div>
     </div>
 
     <!-- Returns -->
@@ -2513,7 +2516,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-04 · v54 (opening-balance notes on ledger entries)';
+var APP_BUILD='2026-07-04 · v55 (unified dist: crates+loose cups, meter rates, new bill layout, no separate payments tab)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3170,23 +3173,47 @@ function fallbackCopy(){
 // ══════════════════════════════════════════
 // DISTRIBUTION BILLING
 // ══════════════════════════════════════════
+// Rate "meter": remember each distributor's last-used rates. When you pick a
+// distributor, the rate fields prefill with their previous rates; change only if needed.
+function _lastRates(dist){
+  const def={r200:(settings.p200||18), r400:(settings.p400||34)};
+  if(!dist||!Array.isArray(distRecords))return def;
+  const bills=distRecords.filter(r=>r&&r.dist===dist&&(r.rate200!=null||r.rate400!=null))
+    .sort((a,b)=>(b.id||0)-(a.id||0));
+  if(!bills.length)return def;
+  const b=bills[0];
+  return {r200:(b.rate200!=null?b.rate200:def.r200), r400:(b.rate400!=null?b.rate400:def.r400)};
+}
+// Fill the rate boxes from the distributor's meter (only if the user hasn't typed a rate).
+function _applyRateMeter(){
+  const dist=(document.getElementById('d-dist')||{}).value.trim();
+  if(!dist)return;
+  const lr=_lastRates(dist);
+  const r2=document.getElementById('d-rate200'), r4=document.getElementById('d-rate400');
+  if(r2&&r2.value==='')r2.placeholder='meter ₹'+lr.r200;
+  if(r4&&r4.value==='')r4.placeholder='meter ₹'+lr.r400;
+}
 function calcDist(){
   const g=id=>parseFloat((document.getElementById(id)||{}).value)||0;
+  try{_applyRateMeter();}catch(e){}
   const cr200=g('d-crates200'), cr400=g('d-crates400');
+  const ex200=g('d-extra200'), ex400=g('d-extra400');
   const ret200=g('d-ret200'), ret400=g('d-ret400');
-  const del200=cr200*CPC200, del400=cr400*CPC400;      // cups delivered
+  const del200=cr200*CPC200+ex200, del400=cr400*CPC400+ex400;      // cups delivered (crates + loose)
   const net200=Math.max(0,del200-ret200), net400=Math.max(0,del400-ret400); // cups billed
   const paid=g('d-paid');
-  // Manual rate per cup if entered, else default selling price
+  // Manual rate per cup if entered, else this distributor's remembered rate (meter).
+  const distName0=document.getElementById('d-dist').value.trim();
+  const lr=_lastRates(distName0);
   const r200el=document.getElementById('d-rate200'),r400el=document.getElementById('d-rate400');
-  const p200=(r200el&&r200el.value!=='')?(parseFloat(r200el.value)||0):(settings.p200||18);
-  const p400=(r400el&&r400el.value!=='')?(parseFloat(r400el.value)||0):(settings.p400||34);
+  const p200=(r200el&&r200el.value!=='')?(parseFloat(r200el.value)||0):lr.r200;
+  const p400=(r400el&&r400el.value!=='')?(parseFloat(r400el.value)||0):lr.r400;
   const amt200=net200*p200;
   const amt400=net400*p400;
   const total=amt200+amt400;
   // Live cup readouts under the crate inputs
-  const d2=document.getElementById('d-cups200-disp');if(d2)d2.textContent=del200+' cups'+(ret200?(' − '+ret200+' returned = '+net200+' cups'):'');
-  const d4=document.getElementById('d-cups400-disp');if(d4)d4.textContent=del400+' cups'+(ret400?(' − '+ret400+' returned = '+net400+' cups'):'');
+  const d2=document.getElementById('d-cups200-disp');if(d2)d2.textContent=del200+' cups'+(ex200?(' (incl '+ex200+' loose)'):'')+(ret200?(' − '+ret200+' returned = '+net200):'');
+  const d4=document.getElementById('d-cups400-disp');if(d4)d4.textContent=del400+' cups'+(ex400?(' (incl '+ex400+' loose)'):'')+(ret400?(' − '+ret400+' returned = '+net400):'');
   const l2=document.getElementById('d-lbl200');if(l2)l2.textContent='200g · '+net200+' cups @ ₹'+p200+'/cup';
   const l4=document.getElementById('d-lbl400');if(l4)l4.textContent='400g · '+net400+' cups @ ₹'+p400+'/cup';
   const distName=document.getElementById('d-dist').value.trim();
@@ -3212,17 +3239,19 @@ function saveDist(){
   const dist=document.getElementById('d-dist').value.trim();
   const date=document.getElementById('d-date').value;
   const cr200=g('d-crates200'), cr400=g('d-crates400');
+  const ex200=g('d-extra200'), ex400=g('d-extra400');
   const ret200=g('d-ret200'), ret400=g('d-ret400');
-  const del200=cr200*CPC200, del400=cr400*CPC400;
+  const del200=cr200*CPC200+ex200, del400=cr400*CPC400+ex400;
   const c200=Math.max(0,del200-ret200), c400=Math.max(0,del400-ret400); // net billable cups
   const phone=(document.getElementById('d-phone')||{}).value.replace(/[^0-9]/g,'');
   const paid=g('d-paid');
   const payMode=(document.getElementById('d-pay-mode')||{}).value||'Credit';
   if(!dist||!date){showAlert('distAlert','alert-red','⚠️ Enter distributor name and date');return;}
-  if(!cr200&&!cr400&&!ret200&&!ret400){showAlert('distAlert','alert-red','⚠️ Enter at least one crate quantity');return;}
+  if(!cr200&&!cr400&&!ex200&&!ex400&&!ret200&&!ret400){showAlert('distAlert','alert-red','⚠️ Enter at least one crate or cup quantity');return;}
+  const lr=_lastRates(dist);
   const r200el=document.getElementById('d-rate200'),r400el=document.getElementById('d-rate400');
-  const p200=(r200el&&r200el.value!=='')?(parseFloat(r200el.value)||0):(settings.p200||18);
-  const p400=(r400el&&r400el.value!=='')?(parseFloat(r400el.value)||0):(settings.p400||34);
+  const p200=(r200el&&r200el.value!=='')?(parseFloat(r200el.value)||0):lr.r200;
+  const p400=(r400el&&r400el.value!=='')?(parseFloat(r400el.value)||0):lr.r400;
   const amount=(c200*p200)+(c400*p400);
   const crates=cr200+cr400; // total physical crates (for inventory)
   // Carry-forward = this distributor's current outstanding (billed − paid-at-billing
@@ -3231,7 +3260,7 @@ function saveDist(){
   const prevBal=(typeof getDistBalance==='function')?getDistBalance(dist):0;
   const batchIds=Object.keys(_distBatchSel).join(',');
   const rider=(document.getElementById('d-rider')||{}).value||'';
-  const rec={id:_uid(),dist,date,phone,crates200:cr200,crates400:cr400,ret200,ret400,c200,c400,crates,amount,paid,payMode,batchIds,rider,rate200:p200,rate400:p400,prevBalance:prevBal,balance:prevBal+amount-paid,savedBy:currentUser?currentUser.name:'Staff'};
+  const rec={id:_uid(),dist,date,phone,crates200:cr200,crates400:cr400,extra200:ex200,extra400:ex400,ret200,ret400,c200,c400,crates,amount,paid,payMode,batchIds,rider,rate200:p200,rate400:p400,prevBalance:prevBal,balance:prevBal+amount-paid,savedBy:currentUser?currentUser.name:'Staff'};
   distRecords.unshift(rec);
   store('distRecords',distRecords);
   saveDistributorName(dist);
@@ -3247,7 +3276,7 @@ function saveDist(){
     +'<button class="btn btn-sm" style="background:#25D366;color:#fff;border:none" onclick="whatsappBill('+rec.id+')">📲 Send on WhatsApp</button>'
     +'<button class="btn btn-sm btn-outline" onclick="showDistBill('+rec.id+')">📄 View Bill</button></div>';
   // Reset entry fields
-  ['d-crates200','d-crates400','d-ret200','d-ret400','d-paid','d-rate200','d-rate400','d-phone'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['d-crates200','d-crates400','d-extra200','d-extra400','d-ret200','d-ret400','d-paid','d-rate200','d-rate400','d-phone'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   const dpm=document.getElementById('d-pay-mode');if(dpm)dpm.selectedIndex=0;
   _distBatchSel={};
   calcDist();
@@ -3458,6 +3487,7 @@ function renderDistLedger(){
         </div>
         <div id="ledDe-${r.id}" style="display:none;margin-top:6px;background:var(--light);padding:8px;border-radius:8px">
           <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g crates</label><input type="number" id="lde-cr200-${r.id}" value="${r.crates200!=null?r.crates200:''}" placeholder="0"/></div><div><label class="inp-label">400g crates</label><input type="number" id="lde-cr400-${r.id}" value="${r.crates400!=null?r.crates400:''}" placeholder="0"/></div></div>
+          <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g extra loose cups</label><input type="number" id="lde-ex200-${r.id}" value="${r.extra200||0}"/></div><div><label class="inp-label">400g extra loose cups</label><input type="number" id="lde-ex400-${r.id}" value="${r.extra400||0}"/></div></div>
           <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g returned</label><input type="number" id="lde-ret200-${r.id}" value="${r.ret200||0}"/></div><div><label class="inp-label">400g returned</label><input type="number" id="lde-ret400-${r.id}" value="${r.ret400||0}"/></div></div>
           <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g rate</label><input type="number" id="lde-r200-${r.id}" step="0.5" value="${r.rate200!=null?r.rate200:(settings.p200||18)}"/></div><div><label class="inp-label">400g rate</label><input type="number" id="lde-r400-${r.id}" step="0.5" value="${r.rate400!=null?r.rate400:(settings.p400||34)}"/></div></div>
           <div style="margin-bottom:5px"><label class="inp-label">Paid at delivery ₹</label><input type="number" id="lde-paid-${r.id}" value="${r.paid||0}"/></div>
@@ -3536,11 +3566,12 @@ function saveLedgerDe(id){
   const r=distRecords.find(x=>String(x.id)===String(id));if(!r)return;
   const num=eid=>{const e=document.getElementById(eid);return e?(parseFloat(e.value)||0):0;};
   r.crates200=num('lde-cr200-'+id);r.crates400=num('lde-cr400-'+id);
+  r.extra200=num('lde-ex200-'+id);r.extra400=num('lde-ex400-'+id);
   r.ret200=num('lde-ret200-'+id);r.ret400=num('lde-ret400-'+id);
   r.rate200=num('lde-r200-'+id);r.rate400=num('lde-r400-'+id);
   r.paid=num('lde-paid-'+id);
-  r.c200=Math.max(0,r.crates200*CPC200-r.ret200);
-  r.c400=Math.max(0,r.crates400*CPC400-r.ret400);
+  r.c200=Math.max(0,r.crates200*CPC200+r.extra200-r.ret200);
+  r.c400=Math.max(0,r.crates400*CPC400+r.extra400-r.ret400);
   r.crates=r.crates200+r.crates400;
   r.amount=r.c200*r.rate200+r.c400*r.rate400;
   store('distRecords',distRecords);
@@ -3573,13 +3604,17 @@ function clearDistFilter(){renderDistRecords();}
 // getDistBalance), so the bill always matches the balance shown everywhere else.
 // Previous = that balance minus this delivery's own net charge.
 function billNumbers(r){
+  const P=(typeof billParts==='function')?billParts(r):{gross:(r.amount||0),returnsVal:0,opening:0};
   const acct=(typeof getDistBalance==='function')?getDistBalance(r.dist):((r.prevBalance||0)+(r.amount||0)-(r.paid||0));
-  const current=r.amount||0, paidThis=r.paid||0;
-  const before=acct-(current-paidThis);   // account carried in before this delivery
+  const currentGross=(P.gross||0)+(P.opening||0);  // this bill before returns
+  const returnsVal=P.returnsVal||0;
+  const current=r.amount||0;                        // net this bill (= gross − returns)
+  const paidThis=r.paid||0;
+  const before=acct-(current-paidThis);             // account carried in before this delivery
   const prev=Math.max(0,before);
-  const credit=Math.max(0,-before);       // distributor is in advance/credit
+  const credit=Math.max(0,-before);                 // distributor is in advance/credit
   const total=Math.max(0,acct);
-  return {prev,current,paidThis,credit,total};
+  return {currentGross,returnsVal,current,paidThis,prev,credit,total};
 }
 // Barkat Dairy logo (embedded raster) — used on the bill header + PDF.
 const BARKAT_LOGO_B64='/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAYEBQUFBAYFBQUHBgYHCQ8KCQgICRMNDgsPFhMXFxYTFRUYGyMeGBohGhUVHikfISQlJygnGB0rLismLiMmJyb/2wBDAQYHBwkICRIKChImGRUZJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJib/wAARCAFAAUADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD6ppKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAFpKKKACiiigAooooAKKKKAFopKKAFpKKKAClpKKACiiigAooooAKWkoFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUtJRQAtJRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUCgAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAoorzv43+MG8L+E2tNPcnW9XJtbJE+8CeGcfQHA9yK1pUpVZqEd2ROahFyfQm+Gvi+PxT4h8YxwzCS3sb9IrfB48sJtyPYsjn8a76vHvCHh9fh7458N2O0LDrejfYrh1+615D+8yfqrOB9K9hrbFxgql6fwtK35foRRcnG0twooorkNgooooAKKKKACiiigAooooAKKKKACiiigAooooAKWkoFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFMmlighkmmkWKKNSzu5wqqBkknsKAKmu6tYaFpF1q2pziCztYy8jn09B6kngDuTXgXwzS/+KXxUufHGrwldL0cgWkDcqjc+WnuV5dj/eIrmvin401L4oeK7Twx4ZV5NNS48u1j5H2mTp5reigZIz0GSevH0j4E8MWXg/wxZ6HZYYQrumlxgzSn7zn6n8gAO1ey6f1LD3l/En+CPPUvrFWy+GP4sZ470WfWtCxYFU1SwmS90926CeM5UH2YZU+zGtfSL+LVNLttQhVkWeMP5bjDIe6n0IOQfcVbqG3t4rcymFdolcyMB03HqR9ev1ryue8OV9Du5bSuiaiiisygooooAKKKKACiiigAooooAKKKKACiiigAooooAKWkooAKKWkoAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAAkAZJwB1NfL3x4+KZ12abwv4eucaTC227uYz/x9MP4Qf7gP/fR9uvQftCfE1oDP4L0C42yEbdSuYzyoP8AyxU+v94/h61zH7Pfw7HiDVB4n1eAHSLCT9xE44uZh/NV7+pwOxr6DBYaGHpfW6/yX9fh955WIrSqz9hS+bPRP2fPh2fD2ljxPrFvt1e/jxDG45toTz+DNwT6DA9a9koorxsRXnXqOpPdnoUqcaUFGIUUUVgahRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFAopaAA0lLSUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFcF8Z/G3/CFeEJJ7Zl/tW9JgslP8LY+aT6KOfqQO9d7Xx/8AtB+I2174iXdsjk2ukD7JEvbcOZD/AN9cf8BFelluGWIrpS2WrOPF1vZUm1uzlPBHhy/8aeLLXRoJHMl1IZLi4b5ikYOXkJ7n+ZI9a+3tG0yy0XSbXStOhEFnaRiOJB2A/mT1J7mvIP2X/DC2Hhm68TXEWLnVJDHCxHIgQ44+rZ/75Fev6pqlppn2b7XIE+0zLBH7sf6VrnGMU6rhe0Y/n/WhGX0HGHNbVl2iiivIO8KKKKACiiigDyL4/wDxDvPCen22i6LJ5Wq6ghdrgdbeEHGV/wBonIB7YJ9Ksfs8eMJfEnhB9O1C5afU9JcRu8jbnkibJRiTyT1Un/Z96o/tE+An1/R/+En01WbUtLhIliHPnQAljj/aXJPuMj0ryH9nnWW0n4m2MG/EOpxvaOOxJG5f/HlH519DSw9GtlzcPiWr9V/wDyZ1alPFpS+Fn2DRRRXzx6wUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUtJQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQBFdzrbWk9y/3YY2kP0AzX5/XtzLe3dxeSEtNcSNKxPdmJJ/U1976/G02halEmdz2sqjHqUNfAlsQssJcfKrKT9MivpsjStUfp+p42ZvWK9T7w8J6Z/Y3hDStKtwqPa2UcY3DI3BRkn8cmvMvH8Wvx6oj606yq2RbmEER47hR1B6ZzzXssbK0aMn3SoI+lV7+wtb8QC6iEn2eZZo89mXoa+LzHCvGQa5rO/y+Z9FhKyw8r2ujH8GReIotORdcljZdo8tWB84D/bPT+vrXRVyieLYH+Jkng7eitHpouhnq8hf7o+iYP4+1dXXZCg8PCMG29OpzyqqrJyQUUUVQgooqO4mhtoHnuJUhhjG55JGCqo9ST0oAe6qysrgFSMEHoRXxP4MS3h+L+kRac262TXFWBh3QS8fpXqfxj+M9rPZ3PhzwfOZfOUx3OprwoU8FYvUnpu6emeo4T9njRH1b4l2M/lk2+lo11IewIG1B/wB9MD+Br6bA0J4bDVKtXS62PGxNWNatCENbM+waKKK+ZPZCiiigAooooAKKKKACiiigAooooAKBRS0AJRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAEAjBGQa+D/AB3osmgeL9Z0Z1Ki2unWPPeMnKH/AL5Ir7wr5+/ae8GSTR2/jSwhLGFRb6gFHRM/JJ+BO0/VfSvayfEKlX5JbS/Poedj6TnT5luj1v4aawmveAtD1NXDtJaIkuD0kUbW/wDHlNdNXzf+zB4xjtrq58GXsgVbljc2LMeN+PnT8QNw+jV9IVxY6g6FeUOm69Dpw1VVaSkfJPx+fUdI+L91qNvcTWs7RwT2s8bFWXCBcg/VWFbPhr9oTX7KGOHXtKt9VCjBnifyJD7kYKk/QCvXfi78OLXx7pkTxTLaavZg/ZrhhlWB6xvjnafXsfxB+WfEngXxd4cmdNV0G7jjU4+0RIZYm9w65H54NfQYSeFxlCNOqlzRVvP5HlV416FRzhs9T3eD9ovw4yjz9A1SNu4QxsP/AEIUy4/aL8PgH7P4d1KQ9vMeNP5E18ysQp2k4I6g0gZTwGB/Gun+yMJ2/FmP1+v3/A911v8AaJ1ydWTRtCs7HPSS4kaZh+A2j+deWeKfGfifxU//ABPdZuLuMNkQZ2RKfZFwP61n6ZoetatKItM0i+vXPQQW7P8AqBivSvCnwI8Yas8cusGHQ7U8t5rCSbHsinGfqRWihgsHron+P+ZHNicRpq/yPLdPsrvUb2GxsLaS6u7hwkUMS7mc+gFfYvwb8BJ4G8NmK52SatekSXkichSPuxg+i5P1JJq94B+HfhvwRAf7LtjLeuuJb64w0r+wPRR7DH412FfP5jmX1lezp6R/M9XCYP2PvS3CiiivFPRCiiigAooooAKKKKACiiigAooooAKBRRQAUUGigAooooAKKKKACiiigAooooAKKKKACiiigAqK6t4Lu2ltbqFJoJkKSRuMq6kYII9MVLRQB8k/Fb4Z6v4C1X+3/DxnfRklEsNxESZLFwcgN7A9G/A+/tvwe+Jtj4105LG+kit/EMCfv4OgnA/5aR+3qO30wa9HkRJI2jkVXRwVZWGQQeoIryHxb8D9Hu78az4RvpPDeqRv5iCLJh3+oAOU/wCAnHtXs/W6eKpqnidJLaX+ZwewnRm50tnuv8j2CivNdA174h6EFsfGfhqTWIE+VdW0UrKze7w8N+Kj8K73S9Ts9UhM1m7kLwyyRNG6n0KsAR+VeZUoyp+a7rVHXGal5C3Gl6ZcNuuNOtJmPeSFW/mK4f4g+LvBfw9S1+1aRbTXty4KWtrBGJBHn5pDxwB29TwO+PQZ/NMMggZVl2nYXGVDY4yB1Ga+JPihpnirTfF94fF5abULljILkcxzJ2MZ7KOm3t0rvy3DxxNTlnLRdO5y4us6MLxWp9m+H9X0vXdJg1TR7qO5sphlHj7eoI7EdweRWjXz1+zF4c8TW7z+IJLuWy0G4UqlowyLx+gkAP3Qv94cnp0r6FrlxdGNCs4RldI3oVHUpqUlYKKKK5DcKKKKACiiigAooooAKKKKACiiigAooooAKKKKACig0UAFFFFABRRRQAUUUUAFFFFABRRRQAUUVFd3NvZ2st3dzJBbwoXklkbaqKOpJ7CjcCWivDbP9oDSZPGkllPZmLw4xEUV/g+YGz/rGX+4fTqBz7Dpfiz8VNO8I6THFpM0OoaxfRB7ZUYPHGhHErkdR6Dv9K7XgMQpxg46s5/rNJxcr6I9Nory34Q/Fex8YwR6VqzRWWvouCn3UusfxJ7+q/lkdPUqwrUZ0JuE1ZmlOpGpHmi9AooorE0CsjxN4a0PxRYpY67p8d7AkgkQPkFWB6gjkeh9RxWvRVRk4u8XZiaTVmNijjhiSGGNY4o1CoiDCqBwAB2FOornvFPjPwx4WiL65rFvavjKwbt8rfRBk/pTjCU3aKuxOSirvQ6Gkd1jRpHYIqjJZjgAV88+K/2iPvweFdF9QLrUD+ojU/zb8K8ym1D4kfEy7aJZNT1lN3MMA2W8f1Awg/GvVpZTWkuaq1BeZxTx1NO0FzM+j/Fnxj8D+Hi8K6j/AGrdpkeRYASYPu/3R+da/wAN/EWt+K9Ik13UdJj0mwuWH9nwby8rxjrI54GD2AHQZ5yK8r+HHwENvcxal41lhm8shk02BtyE/wDTRu4/2RwfXtX0CiqiKiKFVRgKowAPSsMUsLSXs6PvPq/8jSi603zVNF2FooorzjrCiiigAooooAKKKKACiiigAoopaAEooooAKKKKACiiigAooooAKKKR2VFLMwVVGSxOABQAtFcBrPxZ8I2N9/ZunzXOv6kTtFppEJnYn03D5f1ra0DV/E+qSRyXfhZdGs25Ju71WnI/65opAP1YVvLD1Ix5pKy89DNVYN2TudLWJ4y8N6f4t8PXOh6mZVt58HdC5VkYHIb3wexyK26KyjJxalHdFtJqzPlGy+Bfid/Gp0a7YR6RH+8bVkHyvFnoo/56HptPTryMZ7n4m/A7T59IivPBUH2a+s4QjWhclbpVHXJ6Se/Q+3WvdaK9KWa4mU4zvt9z9TjjgqKi423PFvgh8Jl0BYfEniWBX1dhutrVxkWg/vH1k/8AQfrXtNFFceIxE8RNzmzopUo0o8sQooornNQqtqd/aaXp1zqN/Otva20bSSyt0VQMk1ZriPjJ4e1jxR4CvdI0N0+1u8b+U77RMqtkpnoM4B544rSlGM6kYydk3uRNuMW0rs8L8b/GbxX4ovn0zwslxpljI22JLZS11MPUkZK59F6epqn4Y+CfjjxDIbvVVXR4pDuaW/YvM/vsHOf94iuDvrHxH4R1iP7Xb3+iajEcxv8ANE31Vh1H0Nep+Bfj3rWmGO08Vwf2vaZAN1EAlwg9SOFf9D7mvsatOpRpf7Elb8f+CeBCcKk/9pb/AEPTfCnwO8F6Lsl1CGTXLped14cR59oxx+ea9Otba3tIEt7SCK3hQYWOJAqqPYDgVm+GPEmi+KNMXUtDv47y3PDbeGjb+6ynlT7Gtevkq9WtUl+9bv5nu04U4r3FoFFFFc5qFFHGcZGR1ooAKKKzvEGtaZ4f0mfVtXu0tbOAZZ3PU9gB3J7AdaaTk7LcTaSuzRorwbwD4+1T4hfGCAp5lnomm2080FmG+8SAgeTHVvn4HQdvWvea6MRh5YeSjPe1/QzpVY1U5R2CiiiuY1CiiigAooooAKKKKACiiigAooooAKKKKAKGu6tYaFpF1q+qXC29naoXkkPp6AdyTwB3Jr5wl1zxZ8b/ABW2h2E76R4bh/eToh+7FnhpMffc9l6D8Ca0v2qvEM5vNJ8LwyFYFjN7cKD99iSqA/TDH8RW5+ymlmvhXWZI8fbGvgJvXYIxs/Dl/wBa96hRWGwjxVrye3l5nmVKntq/sb6LfzPT/Bng7w94O08Weh2CQkj97O3zSzH1Zup+nQdhXQ0UV4c5ynLmk7s9KMVFWQUUUVIwooooAKKK4bxz8UfCXhBJIrq+F7qCjixtCHkz/tHon4n8DWlOlOrLlgrsmU4wV5Ox200sUELzTSJFFGpZ3dgqqB1JJ6CvNdA+Iw8ZfENNB8LsDo+nRPPfXzJn7Rj5VSPPRdzA7up28YHJ+f8A4g/EvxP47klt232ekxgyfYLXJXaP4pG6tjjrgD0rov2Y9csdL8a3enXsiwtqlsI4JGOAZFbITPqQTj3GO9e4srdHDzqVNZW27Hm/XVUqxhHRdz6rooor589Qp6tpem6xZPZarYwX1s/3op4w6/XnofevC/H/AMAIJFlv/BVx5MnLHTrl8o3sjnkfRsj3FfQFFdWHxVbDu9N/LoY1aFOqrSR8M+H9a8S/DzxSZ4EmsL+2fZc2c4KrKvdHHcHsfxFfaPhXXLTxJ4dsNdsciC9iEgU9UPQqfcEEfhXj37VGnaKdB07VXaGPWknEUYBAklhIO4EdSFIBz2z711X7OdvcW/wp04z5xNNNLED2QyHH8ifxr1cfOGJw0cTa0r2OHCxlRrSo3utz0yvNPi/8UbHwTatp9j5d3r8yZjgPKwA9Hkx+i9T7DmvS6+CPFWoTar4m1XUbiQyy3F3K5c9xuOPwAwPwrnyvBwxNRue0fxNcbiJUYLl3Z9f/AAZt7r/hA7LVdRuZLvUtYJv7qeU/M7P90ewCBQAOBiu4rx74B/EHR9R8LWPhq/vYrTVtPj8lI5WCieMfdKE9SBgEdeM17DXHjKc4V5KatqdFCUZU04sK8V/aZ8MS3/hhfEiahc7dLZQ1kWHklWbaXAx9/JHPPHpXtTEKpZiFAGSTXiH7Q3j3Qf8AhE7rwtp1/De6leOglWBg6wIrBiWYcAnAGOvNa5cqn1mDprr+HUjFcvsZKRzX7J9kX17X9S2/LDaxwA+7sW/9kr6Uryr9nDw7JovgBb+5iMdzq8xucHr5WNsf5gFv+BV6rRmVRVMVJrbb7hYODhRimFFFFeedYUUUUAFAoo70AFFFFABRRRQAUUUUAFFFFAHzH+1RpFxB4o0vW9rNbXdr9n3Y4WRGJx+IbP4GvN/h9401bwPrR1PS2WRJFCXFtJ9yZc9D6Edj2/EivszxZ4c0vxVodxousQebbTchlOHjYdHU9iP88V8u+NPgl4v0GeSTS4Dr1hnKSWwxKB/tR9c/7ua+qy/GUKlBYet0012aPExWHqQqe1pnsfhv47eCtUjUanJcaJcY+ZLiMumfZ0B/UCuys/Hngq8UNb+K9JYHs12in8iRXxBeWd5YymK+tJ7SQcFJ4mQj8CKrbkPdT+NaTyXDy1hJr8SI5jVjpJH3ofFXhcLuPiTSQPX7bH/8VWfd/ELwNaf6/wAWaUPZLpXP/jpNfDQMfqtT29vcXLiO1tpZ2P8ADFGWP6Cs1kdJbzZf9pTe0T691P42/DyxBEeqzXzj+G1tnOfxYAfrXC67+0agDJoPhtie0t9Ngf8AfCZ/9CryPSPhx461dlFn4XvwrdJLiPyF/N8V6J4d/Z4165KSa/rFrp0Z+9FbAzSfTJwo/Wk8JluH/iSv8/0Q1XxlX4Vb+vM4TxT8UvG/iRHhvtae2tX629kPIQj0JHzH8Sau/D/4T+KPF7x3JtzpelMcteXSEFh/sJ1b68D3r6M8IfCXwV4YaOeDTft96nIur8iVgfUDG1fwGa76sKubQpx5MLC3n/wP8zWGBlN81aVzhdD+GHhnRPCWo+HbCA51K2eC6vZcNNJkEZJ7AHkKMCvkHxHompeG9budG1SFoLu1fB7Bx2dT3B6g198VzvjHwX4c8YWqwa9pyXDRgiKdSUli/wB1hz+HT2rlwWZSoTbq6qW/c2xODVWKUNGj5W0D4wePtFt0totYF7AnCrfRCYgem7hv1ro4/wBoTxoo+fT9Hf38mQf+z12Go/s5aRJIzad4mvbZD91J4Elx+IK1mn9m+bdx4vTb/wBeB/8Ai69R4jK6nvSSv6P9Dh9ljY6J/ic5P+0D44kB8q10iH3Fu5/m9YWqfGT4iaghjOu/ZEPUWkCRn88E/rXplr+zhZAg3fiy4cdxDaKn6ljXW6D8DfAWlyLLc2tzq0i/8/s2Uz/uqAD+Oah4vLKesYX+X+ZaoYyfxSt8/wDI+fvAfg3xJ8S/EHnSz3UlqHH23VLli+1e6qx+83oB06nAr7J0yxtdL06106xiENraxLFFGP4VUYFPs7W2sraO1s7eK2t4hhIoUCKo9ABwKfPNFbwyTzypDFGpZ5JGCqoHUknoK8bG42WLkla0Vsj0MPh40E9bt9Sj4k1GHR/D+papcOEitLaSViTjopNfFvgLwXq/ji9v7XS2jWW0tWuT5vAdsgKmexYk4J9K7r45/FVPFBbw74flYaLE+Z7jp9rYHjH+wDz7nB7CvWP2e/CL+GvBK3t5F5eo6wRcSBhykeP3an8CW+rV6dHny7CupLScrWRx1OXF11BfDHc+TdSsb3TL2Sx1K0ms7qJsPDOhRlP0P86s2uu63aJstda1CBeyx3TqB+ANfdOs6Ho2twiHWNKs9QQdBcwq+36ZHFecXXh74LQ+L4fDE+kaZHrEqb1h+YLnshOcBiOQvUj8K6KecQqK0qbbXbUxll8oP3Z2R8r3eq6pfELd6ne3RY4Cy3Dvn8Ca9U+E3wc1XX72DVPEtnJp+iRkP5EoKS3XcAL1VPUnqOnqPpHRvCfhjRWEmlaBp9lIOkkVuocf8CxmtuuTEZy5RcKMeXzOill6T5qjuNjRI41jjRUjQBVVRgKB0AFOoor589QKKKKACiiigApaSigBaSiigAooooAKKKKACiiigAooooAjnhhuE2Twxyr/AHXUMP1rOk8N+HZTul0DTHJ7tZxn+latFUpSWzE0nuZUXhzw9CcxaDpsZHQpaRj+laMMMMC7YIY4l9EUAfpUlFDk3uwSS2CiiipGFFFeb+N/i/4c8LapJpSW15q95b4+1LYoGW2Ho7E4z7fnitaVGdWXLBXZE5xgrydj0iimQyCaGOUKyiRQwVxgjIzgj1p9ZFhQenAzWP4v8R6b4U8P3euarIUtrdc7V5aRj91FHck8VMPsniLw9GxMos9Rt1kBilaN9rAEYZSCDz1Bq+R2UnsTzK9upleC/GWleJ7eNIJo49REAmnswSxiBOMbsANg8HHQ9a0tc8R6DoIj/trWLPTvNBKfaZgm4DrjPWvO/hLrngUeIdS8P6PbXun6vas9ukeozvI0sKMf9UXJ2j+IoMHnPOM16le2dnfQNb31rDdQt1jmjDqfwNdFenCnVs00vx/UzpylKF7q55f4n+OvgvSo2XS5J9buR0W3UpHn3dh/IGvAPiF8TPE3jR2ivrgWemA5WwtiVj+rnq5+vHoBX0xqXwg+HeoOZJPDkUDE5JtZXiH5KQP0qxoPwt8B6HcJc2Xh6B7hDlZLlmnKn1G8kA/hXpYfFYHDrmjBuXnb+vwOOrQxNV2ckl5HiXwP+FF1rV7b+JPElq0OkQsJLe3lXDXbDkEg/wDLMdefvfSvqOj6UV52Lxc8VPnl8l2OuhQjRjyxM7xHFq02hX0Wg3ENtqjxEW0067kR+xI//X9D0r4h1DQfE3/CXPol5ZXcviGW4+aJiWkkkJzvDdweu7OMc5r7vqs9hZPqEepPZwNfRRmJLgxgyKhOSobrjI6Vvgce8IpLlvf+vuMsThlXtraxl+B9P1rS/C1hY+IdT/tLUoo8Sz4/Jc/xYHG48nGa3aKK86UnKTk+p1xVlYKKKKkYUUUUAFFFFABS0lFABRSmkoAKKKKACiiigAooooAKKKKAOb1KHxM3iiyks54F04I24FTgDjIYZ5Y8YIx0P47lwLwsPs0kCrjnzUJOfwIqxRWMKKi5O71d9/yNJTvbTYz2XWf4Z7H8YX/+KoVdZ/jnsT9IX/8Aiq0KKr2a7v7xc3kVoRfCQefJbsncIjA/qaTVb2PTdLvNRmBMVpA8zgdwqkn+VWqr6haQ6hYXNhcgtBcxNDIAeqsCD+hrSCSeuxEm3sc94MuNTv8A4fWWpNc/aNU1GzN2GZvlWSUF1UeiruCj2FeSeA/Gmq+CLay8NeJvh5d2aXVwsVxqSqT9olkfBkkJBDkk/wB76elXdN8OfGvwXE2ieGrvTtX0aJiLR7kqGiQnphiCPpkj0rovDngnxZe6tb+JPiNrp1KSwbz7TSLIYgSQdHIAAZh2GOveva5aVNT5pRlF6qzd/LRbfM4Lzly2TTX3HbePbXWb3wbq9p4fuhbapLbMIJO+e4B7EjIB7Eg1494c+P8AFaaJZ2+v+HdQlvY4lRriArsnxxv+bGCcc9ec10Hjrxp4v1uR/Cngrwpq9rdXQ8qXU7+1aBIUPBZSfb+I/gCcV6R4V0K18P8AhrTNDixLHYW6xB2HLEDlvxOT+NYRVOjRtWjdt3SvZr+uxb5qk703a3loeN638Y7Lxho174c0jwTqmpXWowtbrE4XapYYDHGcYPOeOnUV3Wsa0/wu+HGgm5sptTSzW3srryT8yjYQXHbqAOcdap6mPjGt5qQ0uHQI7cahF9kLZy1v/Fn26bs/N97b2r0xQTGBKFLEDcB0z/hRWnSioqMVy3u0pX/4YdOM3dt6+h86674x0j4h+KfDz+GPDOqweILW/hdNSMaqFiDDeJCpOV2569PxIP0ZSKqoMKoUewxS1zV68aijGMbJedzWnTcLuTu38iCcXhcfZ3gVcc+YhJz+BFQldW7TWf4xN/8AFVdoricL9ToUrGcy65/DcWH4wv8A/FUqrrX8U9h+EL//ABVaFFT7Nd394+fyK0C34kHnyWzR9xHGwP6k1iXcPiU+LbeSCaAaWImyCpwBkZDDPLHjBHofx6SilOippK7VnfccanK72QUUUVsZhRRRQAUUUUAFFFFABRRS0ABpKWkoAKKKKACiiigAooooAKKKKACiiigArLutf0e11ePSLi8Ed7Ls2xlGx8+4IC2NoLbWwCcnBxWpXKax4Ni1Lxba+IWvmiaAwHyliBYmJnYYfPAO8gjHI9K0pqDb53Yibkl7pv6vqdho+ny6jqd0lraQ48yV+i5IA/UgVYuJ4ba2luZ5AkMSGR3PRVAyT+VY/izw7B4mtLayvLqeC1in86RIG2tLhSAC3YAnP4CpoNHKeFRoEl7JNizNobllG8jZtDEdM4p2hyp316+gXld6aE2jazpmtQPPpt0J0jYK42MjKSoYZVgCMqwI45BBptvrmk3GpNpkF6kt4rSK0KgkqU27s8cAbl5PXPFU/CXhu28M2tza2k7yxTyLJ+8GWUiNUPzEkkfLkA9M4HAFVtH8I2+k+Jr/AF+0vJRNqUjvdxlRtlBC7B7bCGwR13nPbFNUrys9Ogk52Wnqbeo6pp+nS2UV9dx28l9OLe2VzzLIQSFHvgGjV9TstI0+XUNRlMNrCMySCNn2j1IUE49+1Yfi7wjF4lu7e5n1O6tWtImFssGAElLqwkP97BRePr61t61YDVdEv9LeUxC8tpIGlUZK71KkgfjU2p+7r6jvLXT0JrC7gv7OK8tWZoJl3IWRkJH0YAj8RSaje2um2FxqF9MILW2QySyEEhVHU8VLbx+TBHFu3eWoXJ74GKo+I9LXW9Bv9IeZoFvIWiMqrkpkdcHrULl5tdine3mSaTqlhq9s1zp9wJ40cxv8pVkcdVZWAKnkcEdxS2+qafcand6VBdRvfWSo9xAD80YcEqT9cGqnh3R20pL2S4vWvr2+uPtFzOYxGGbaqAKo6AKijv65rM0jwemm+J5vES6tdzXVy05uI5MGN1cqVUD+HYEQA98H1rTlp3lr6EXnpodEb21GoDTvOH2swmcRYOdgIUt+ZAqnfa/o9jqkOl3d4IrubZsQo2PnYqmWxtG5gQMkZI4p50pD4jTW/Obetm1p5WPlwXDbs+vGKytZ8I2up+JLfX3upI7m3+z+WmMpiJ3YgrnBzv78qVBHNEVTv7z6fiNudtEbl/qNlpwgN9cpbrPJ5cbScKW2lsZ6DhT19KksbqC+s4L21k8y3uI1kjfBG5SMg4PPSqHirRLfxFoVzo9y2yK425baGxtYN0P0rUACgKAABwAO1Q+XlXcet/IWiiioKCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKUUAJRRRigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAoopaAP/2Q==';
@@ -3595,16 +3630,24 @@ try{ _logoImg={data:atob(BARKAT_LOGO_B64), w:BARKAT_LOGO_W, h:BARKAT_LOGO_H}; }c
 function billParts(r){
   const p200=(r&&r.rate200!=null)?r.rate200:(settings.p200||18);
   const p400=(r&&r.rate400!=null)?r.rate400:(settings.p400||34);
-  const net2=r.c200||0, net4=r.c400||0, ret2=r.ret200||0, ret4=r.ret400||0;
-  const del2=net2+ret2, del4=net4+ret4;                 // delivered = net + returned
-  const cr2=(r.crates200!=null)?r.crates200:(CPC200?Math.round(del2/CPC200*100)/100:0);
-  const cr4=(r.crates400!=null)?r.crates400:(CPC400?Math.round(del4/CPC400*100)/100:0);
+  const cr2=r.crates200||0, cr4=r.crates400||0;
+  const ex2=r.extra200||0, ex4=r.extra400||0;
+  const ret2=r.ret200||0, ret4=r.ret400||0;
+  // Delivered cups = crates × cups/crate + loose extra cups.
+  let del2=cr2*CPC200+ex2, del4=cr4*CPC400+ex4;
+  // Legacy records that only stored net cups (no crate/extra breakdown).
+  if(cr2===0&&ex2===0&&(r.c200||0)>0) del2=(r.c200||0)+ret2;
+  if(cr4===0&&ex4===0&&(r.c400||0)>0) del4=(r.c400||0)+ret4;
   const items=[], returns=[];
-  if(del2>0||cr2>0) items.push({label:'200g Yogurt Cups',crates:cr2,cups:del2,rate:p200,amount:del2*p200});
-  if(del4>0||cr4>0) items.push({label:'400g Yogurt Cups',crates:cr4,cups:del4,rate:p400,amount:del4*p400});
+  if(del2>0) items.push({label:'200g Yogurt Cups',crates:cr2,extra:ex2,cups:del2,rate:p200,amount:del2*p200});
+  if(del4>0) items.push({label:'400g Yogurt Cups',crates:cr4,extra:ex4,cups:del4,rate:p400,amount:del4*p400});
   if(ret2>0) returns.push({label:'200g Returned',cups:ret2,rate:p200,amount:ret2*p200});
   if(ret4>0) returns.push({label:'400g Returned',cups:ret4,rate:p400,amount:ret4*p400});
-  return {items,returns};
+  const gross=items.reduce((s,x)=>s+x.amount,0);
+  const returnsVal=returns.reduce((s,x)=>s+x.amount,0);
+  // Opening-balance / adjustment record: an amount with no cups (e.g. brought-forward dues).
+  const opening=(del2+del4===0 && (r.amount||0)>0) ? (r.amount||0) : 0;
+  return {items,returns,gross,returnsVal,opening,note:r.note||''};
 }
 // Plain-text bill for sharing / WhatsApp.
 function buildBillText(r){
@@ -3613,17 +3656,15 @@ function buildBillText(r){
   const L=['*BARKAT DAIRY PLANT*','Watlar, Ganderbal, Kashmir','_Pure Goodness, Blessed by Quality_','------------------------',
     'Bill To: '+r.dist,'Date: '+r.date,'Bill No: DB-'+String(r.id).slice(-6),'------------------------'];
   P.items.forEach(function(x){
-    L.push(x.label+': '+x.crates+' '+(x.crates===1?'crate':'crates')+' = '+x.cups+' cups × Rs.'+x.rate+'/cup = Rs.'+x.amount.toFixed(0));
+    L.push(x.label+': '+(x.crates?x.crates+' '+(x.crates===1?'crate':'crates'):'')+(x.extra?(x.crates?' + ':'')+x.extra+' loose':'')+' = '+x.cups+' cups × Rs.'+x.rate+'/cup = Rs.'+x.amount.toFixed(0));
   });
-  if(P.returns.length){
-    L.push('Returns:');
-    P.returns.forEach(function(x){ L.push('  '+x.label+': '+x.cups+' cups × Rs.'+x.rate+' = -Rs.'+x.amount.toFixed(0)); });
-  }
+  if(P.opening>0) L.push((P.note||'Opening balance')+': Rs.'+P.opening.toFixed(0));
   L.push('------------------------');
-  if(B.prev>0.5) L.push('Previous Balance (unpaid): Rs.'+B.prev.toFixed(0));
-  L.push('Current Bill Amount: Rs.'+B.current.toFixed(0));
-  if(B.paidThis>0) L.push('Paid on this bill: -Rs.'+B.paidThis.toFixed(0));
+  L.push('Current Bill Total: Rs.'+B.currentGross.toFixed(0));
+  P.returns.forEach(function(x){ L.push('Less: '+x.label+' ('+x.cups+' cups × Rs.'+x.rate+') = -Rs.'+x.amount.toFixed(0)); });
+  if(B.paidThis>0) L.push('Payment received: -Rs.'+B.paidThis.toFixed(0));
   if(B.credit>0.5) L.push('Advance/credit: -Rs.'+B.credit.toFixed(0));
+  if(B.prev>0.5) L.push('Previous unpaid balance: +Rs.'+B.prev.toFixed(0));
   L.push('*TOTAL TO BE PAID: Rs.'+B.total.toFixed(0)+'*');
   L.push('------------------------','Thank you! - Barkat Dairy Plant');
   return L.join('\n');
@@ -3657,11 +3698,14 @@ function showDistBill(id){
   const B=billNumbers(r);  // live previous/current/total (payments already applied)
   const P=billParts(r);
   const itemRows=P.items.map(function(x){
-    return `<tr><td>${x.label}</td><td style="text-align:center">${x.crates}</td><td style="text-align:center">${x.cups}</td><td style="text-align:right">₹${x.rate}/cup</td><td style="text-align:right">₹${x.amount.toFixed(0)}</td></tr>`;
+    const cupsCell=x.cups+(x.extra?` <span style="font-size:9px;color:var(--gray)">(incl ${x.extra} loose)</span>`:'');
+    return `<tr><td>${x.label}</td><td style="text-align:center">${x.crates||'—'}</td><td style="text-align:center">${cupsCell}</td><td style="text-align:right">₹${x.rate}/cup</td><td style="text-align:right">₹${x.amount.toFixed(0)}</td></tr>`;
   }).join('');
-  const returnRows=P.returns.map(function(x){
-    return `<tr style="color:var(--red)"><td>Less: ${x.label}</td><td style="text-align:center">—</td><td style="text-align:center">${x.cups}</td><td style="text-align:right">₹${x.rate}/cup</td><td style="text-align:right">−₹${x.amount.toFixed(0)}</td></tr>`;
+  const openingRow=P.opening>0?`<tr><td colspan="4">${_esc(P.note||'Opening balance / brought forward')}</td><td style="text-align:right">₹${P.opening.toFixed(0)}</td></tr>`:'';
+  const returnLines=P.returns.map(function(x){
+    return `<div style="display:flex;justify-content:space-between;padding:5px 12px;font-size:12px;color:var(--red)"><span>Less: ${x.label} (${x.cups} cups × ₹${x.rate})</span><span>−₹${x.amount.toFixed(0)}</span></div>`;
   }).join('');
+  const line=(lbl,val,color,sign)=>`<div style="display:flex;justify-content:space-between;padding:5px 12px;font-size:12px;color:${color}"><span>${lbl}</span><span>${sign}₹${Math.abs(val).toFixed(0)}</span></div>`;
   const html=`
     <div class="dist-bill-header" style="text-align:center">
       ${barkatLogoHTML(84)}
@@ -3676,19 +3720,17 @@ function showDistBill(id){
     </div>
     <table class="dist-bill-table">
       <thead><tr><th>Item</th><th style="text-align:center">Crates</th><th style="text-align:center">Cups</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
-      <tbody>
-        ${B.prev>0.5?`<tr style="background:#fff8e7"><td colspan="4"><b>Previous Balance (unpaid, carried forward)</b></td><td style="text-align:right">₹${B.prev.toFixed(0)}</td></tr>`:''}
-        ${itemRows}
-        ${returnRows}
-      </tbody>
+      <tbody>${itemRows}${openingRow}</tbody>
     </table>
-    ${B.prev>0.5?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--red)"><span>Previous Balance</span><span>₹${B.prev.toFixed(0)}</span></div>`:''}
-    <div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--dark)"><span>Current Bill Amount</span><span>₹${B.current.toFixed(0)}</span></div>
-    ${B.paidThis>0?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--green)"><span>− Paid on this bill</span><span>₹${B.paidThis.toFixed(0)}</span></div>`:''}
-    ${B.credit>0.5?`<div style="display:flex;justify-content:space-between;padding:6px 12px;font-size:12px;color:var(--green)"><span>− Advance / credit</span><span>₹${B.credit.toFixed(0)}</span></div>`:''}
+    <div style="display:flex;justify-content:space-between;padding:8px 12px;font-weight:700;font-size:13px;border-top:2px solid #e5e7eb"><span>Current Bill Total</span><span>₹${B.currentGross.toFixed(0)}</span></div>
+    ${returnLines}
+    ${B.returnsVal>0?line('Total returns deducted',B.returnsVal,'var(--red)','−'):''}
+    ${B.paidThis>0?line('Payment received',B.paidThis,'var(--green)','−'):''}
+    ${B.credit>0.5?line('Advance / credit',B.credit,'var(--green)','−'):''}
+    ${B.prev>0.5?line('Previous unpaid balance',B.prev,'var(--red)','+'):''}
     <div style="display:flex;justify-content:space-between;padding:10px 12px;background:${B.total>0.5?'#fff1f2':'#f0fdf4'};border-radius:10px;margin-top:6px">
       <span style="font-weight:700;font-size:13px;color:${B.total>0.5?'var(--red)':'var(--green)'}">Total To Be Paid</span>
-      <span style="font-weight:700;font-size:16px;color:${B.total>0.5?'var(--red)':'var(--green)'}">${B.total>0.5?'₹'+B.total.toFixed(0):'✅ Cleared'}</span>
+      <span style="font-weight:700;font-size:17px;color:${B.total>0.5?'var(--red)':'var(--green)'}">${B.total>0.5?'₹'+B.total.toFixed(0):'✅ Cleared'}</span>
     </div>
     <div class="dist-bill-sig">
       <div class="dist-bill-sig-box"><div class="dist-bill-sig-line"></div>Distributor Signature</div>
@@ -3709,11 +3751,12 @@ function buildBillBodyHTML(r){
   const B=billNumbers(r);
   const P=billParts(r);
   const rows=P.items.map(function(x){
-    return '<tr><td style="padding:8px 12px">'+x.label+'</td><td style="padding:8px 12px;text-align:center">'+x.crates+'</td><td style="padding:8px 12px;text-align:center">'+x.cups+'</td><td style="padding:8px 12px;text-align:right">&#8377;'+x.rate+'/cup</td><td style="padding:8px 12px;text-align:right">&#8377;'+x.amount.toFixed(0)+'</td></tr>';
+    const cupsCell=x.cups+(x.extra?' <span style="font-size:9px;color:#6b7280">(incl '+x.extra+' loose)</span>':'');
+    return '<tr><td style="padding:8px 12px">'+x.label+'</td><td style="padding:8px 12px;text-align:center">'+(x.crates||'&mdash;')+'</td><td style="padding:8px 12px;text-align:center">'+cupsCell+'</td><td style="padding:8px 12px;text-align:right">&#8377;'+x.rate+'/cup</td><td style="padding:8px 12px;text-align:right">&#8377;'+x.amount.toFixed(0)+'</td></tr>';
   }).join('')
-  + P.returns.map(function(x){
-    return '<tr style="color:#b91c1c"><td style="padding:8px 12px">Less: '+x.label+'</td><td style="padding:8px 12px;text-align:center">&mdash;</td><td style="padding:8px 12px;text-align:center">'+x.cups+'</td><td style="padding:8px 12px;text-align:right">&#8377;'+x.rate+'/cup</td><td style="padding:8px 12px;text-align:right">&minus;&#8377;'+x.amount.toFixed(0)+'</td></tr>';
-  }).join('');
+  + (P.opening>0?'<tr><td colspan="4" style="padding:8px 12px">'+_esc(P.note||'Opening balance / brought forward')+'</td><td style="padding:8px 12px;text-align:right">&#8377;'+P.opening.toFixed(0)+'</td></tr>':'');
+  const pline=function(lbl,val,color,sign){return '<div style="display:flex;justify-content:space-between;padding:6px 16px;font-size:13px;color:'+color+'"><span>'+lbl+'</span><span>'+sign+' &#8377;'+Math.abs(val).toFixed(0)+'</span></div>';};
+  const retLines=P.returns.map(function(x){return pline('Less: '+x.label+' ('+x.cups+' cups &times; &#8377;'+x.rate+')',x.amount,'#b91c1c','&minus;');}).join('');
   return `
     <div style="text-align:center;border-bottom:3px solid #0d1b4b;padding-bottom:14px;margin-bottom:18px">
       ${barkatLogoHTML(96)}
@@ -3748,10 +3791,12 @@ function buildBillBodyHTML(r){
       </thead>
       <tbody>${rows}</tbody>
     </table>
-    ${B.prev>0.5?`<div style="display:flex;justify-content:space-between;padding:7px 16px;font-size:13px;color:#b91c1c"><span>Previous Balance (unpaid)</span><span>&#8377;${B.prev.toFixed(0)}</span></div>`:''}
-    <div style="display:flex;justify-content:space-between;padding:7px 16px;font-size:13px;color:#0d1b4b"><span>Current Bill Amount</span><span>&#8377;${B.current.toFixed(0)}</span></div>
-    ${B.paidThis>0?`<div style="display:flex;justify-content:space-between;padding:7px 16px;font-size:13px;color:#15803d"><span>Paid on this bill</span><span>&minus; &#8377;${B.paidThis.toFixed(0)}</span></div>`:''}
-    ${B.credit>0.5?`<div style="display:flex;justify-content:space-between;padding:7px 16px;font-size:13px;color:#15803d"><span>Advance / credit</span><span>&minus; &#8377;${B.credit.toFixed(0)}</span></div>`:''}
+    <div style="display:flex;justify-content:space-between;padding:8px 16px;font-size:14px;font-weight:700;color:#0d1b4b;border-top:2px solid #e5e7eb"><span>Current Bill Total</span><span>&#8377;${B.currentGross.toFixed(0)}</span></div>
+    ${retLines}
+    ${B.returnsVal>0?pline('Total returns deducted',B.returnsVal,'#b91c1c','&minus;'):''}
+    ${B.paidThis>0?pline('Payment received',B.paidThis,'#15803d','&minus;'):''}
+    ${B.credit>0.5?pline('Advance / credit',B.credit,'#15803d','&minus;'):''}
+    ${B.prev>0.5?pline('Previous unpaid balance',B.prev,'#b91c1c','+'):''}
     <div style="background:${B.total>0.5?'#fff1f2':'#f0fdf4'};border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-top:8px">
       <span style="font-weight:700;font-size:14px;color:${B.total>0.5?'#b91c1c':'#15803d'}">${B.total>0.5?'Total To Be Paid':'Fully Paid'}</span>
       <span style="font-weight:700;font-size:20px;color:${B.total>0.5?'#b91c1c':'#15803d'}">&#8377;${B.total.toFixed(0)}</span>
@@ -4344,43 +4389,45 @@ function buildBillPDF(r){
   P.items.forEach(function(x){
     if(rowIdx++%2===0) ops.push({t:'rect',x:margin,y,w:textW,h:18,fill:'#f8faff'});
     ops.push({t:'text',x:cX.item,y:y+4,txt:x.label,s:9,color:'#1e293b'});
-    ops.push({t:'text',x:cX.crates,y:y+4,txt:String(x.crates),s:9,color:'#1e293b'});
-    ops.push({t:'text',x:cX.cups,y:y+4,txt:String(x.cups),s:9,color:'#1e293b'});
+    ops.push({t:'text',x:cX.crates,y:y+4,txt:x.crates?String(x.crates):'-',s:9,color:'#1e293b'});
+    ops.push({t:'text',x:cX.cups,y:y+4,txt:String(x.cups)+(x.extra?' (+'+x.extra+')':''),s:9,color:'#1e293b'});
     ops.push({t:'text',x:cX.rate,y:y+4,txt:'Rs.'+x.rate,s:8,color:'#1e293b'});
     ops.push({t:'text',x:cX.amt,y:y+4,txt:'Rs.'+x.amount.toFixed(0),s:9,color:'#1e293b'});
     y+=22;
   });
-  P.returns.forEach(function(x){
+  if(P.opening>0){
     if(rowIdx++%2===0) ops.push({t:'rect',x:margin,y,w:textW,h:18,fill:'#f8faff'});
-    ops.push({t:'text',x:cX.item,y:y+4,txt:'Less: '+x.label,s:9,color:'#b91c1c'});
-    ops.push({t:'text',x:cX.crates,y:y+4,txt:'-',s:9,color:'#b91c1c'});
-    ops.push({t:'text',x:cX.cups,y:y+4,txt:String(x.cups),s:9,color:'#b91c1c'});
-    ops.push({t:'text',x:cX.rate,y:y+4,txt:'Rs.'+x.rate,s:8,color:'#b91c1c'});
-    ops.push({t:'text',x:cX.amt,y:y+4,txt:'- Rs.'+x.amount.toFixed(0),s:9,color:'#b91c1c'});
+    ops.push({t:'text',x:cX.item,y:y+4,txt:String(P.note||'Opening balance / brought forward').slice(0,50),s:8,color:'#1e293b'});
+    ops.push({t:'text',x:cX.amt,y:y+4,txt:'Rs.'+P.opening.toFixed(0),s:9,color:'#1e293b'});
     y+=22;
-  });
+  }
 
   y+=4;
   hline('#cccccc');
 
-  // Totals (live: previous unpaid balance + current − paid/credit = total to pay)
+  // Totals: current total -> returns -> payment -> previous unpaid -> total to pay
   const B=billNumbers(r);
-  if(B.prev>0.5){
-    ops.push({t:'text',x:margin+8,y:y+4,txt:'Previous Balance (unpaid)',s:10,color:'#b91c1c'});
-    ops.push({t:'text',x:margin+370,y:y+4,txt:'Rs.'+B.prev.toFixed(0),s:10,color:'#b91c1c'});
-    y+=18;
-  }
-  ops.push({t:'text',x:margin+8,y:y+4,txt:'Current Bill Amount',s:10,color:'#0d1b4b'});
-  ops.push({t:'text',x:margin+370,y:y+4,txt:'Rs.'+B.current.toFixed(0),s:10,color:'#0d1b4b'});
+  ops.push({t:'text',x:margin+8,y:y+4,txt:'Current Bill Total',s:10,b:true,color:'#0d1b4b'});
+  ops.push({t:'text',x:margin+360,y:y+4,txt:'Rs.'+B.currentGross.toFixed(0),s:10,b:true,color:'#0d1b4b'});
   y+=18;
+  P.returns.forEach(function(x){
+    ops.push({t:'text',x:margin+8,y:y+4,txt:'Less: '+x.label+' ('+x.cups+' cups x Rs.'+x.rate+')',s:9,color:'#b91c1c'});
+    ops.push({t:'text',x:margin+360,y:y+4,txt:'- Rs.'+x.amount.toFixed(0),s:9,color:'#b91c1c'});
+    y+=16;
+  });
   if(B.paidThis>0){
-    ops.push({t:'text',x:margin+8,y:y+4,txt:'Paid on this bill',s:10,color:'#15803d'});
-    ops.push({t:'text',x:margin+370,y:y+4,txt:'- Rs.'+B.paidThis.toFixed(0),s:10,color:'#15803d'});
+    ops.push({t:'text',x:margin+8,y:y+4,txt:'Payment received',s:10,color:'#15803d'});
+    ops.push({t:'text',x:margin+360,y:y+4,txt:'- Rs.'+B.paidThis.toFixed(0),s:10,color:'#15803d'});
     y+=18;
   }
   if(B.credit>0.5){
     ops.push({t:'text',x:margin+8,y:y+4,txt:'Advance / credit',s:10,color:'#15803d'});
-    ops.push({t:'text',x:margin+370,y:y+4,txt:'- Rs.'+B.credit.toFixed(0),s:10,color:'#15803d'});
+    ops.push({t:'text',x:margin+360,y:y+4,txt:'- Rs.'+B.credit.toFixed(0),s:10,color:'#15803d'});
+    y+=18;
+  }
+  if(B.prev>0.5){
+    ops.push({t:'text',x:margin+8,y:y+4,txt:'Previous unpaid balance',s:10,color:'#b91c1c'});
+    ops.push({t:'text',x:margin+360,y:y+4,txt:'+ Rs.'+B.prev.toFixed(0),s:10,color:'#b91c1c'});
     y+=18;
   }
   const balFill=B.total>0.5?'#fff1f2':'#f0fdf4';

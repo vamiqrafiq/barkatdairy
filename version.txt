@@ -1,1 +1,1 @@
-2026-07-04 · v54 (opening-balance notes on ledger entries)
+2026-07-04 · v55 (unified dist: crates+loose cups, meter rates, new bill layout, no separate payments tab)
