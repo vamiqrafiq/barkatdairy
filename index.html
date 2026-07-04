@@ -2513,7 +2513,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-04 · v53 (fix: dates use local time, not UTC — no more day-early bills)';
+var APP_BUILD='2026-07-04 · v54 (opening-balance notes on ledger entries)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3362,7 +3362,7 @@ function distRecordHTML(r){
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
       <div>
         <div class="dist-sup">${_esc(r.dist)}</div>
-        <div style="font-size:10px;color:var(--gray);margin-top:2px">${r.date}${r.crates?' · '+r.crates+' crates':''}</div>
+        <div style="font-size:10px;color:var(--gray);margin-top:2px">${r.date}${r.crates?' · '+r.crates+' crates':''}${r.note?' · '+_esc(r.note):''}</div>
       </div>
       <div style="text-align:right">
         <div style="font-size:15px;font-weight:700;color:var(--teal)">₹${r.amount.toFixed(0)}</div>
@@ -3447,7 +3447,7 @@ function renderDistLedger(){
       const r=t.rec, cups=(r.c200||0)+(r.c400||0);
       return `<div style="border-bottom:1px solid #eef2f6;padding:9px 0">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div><div style="font-size:10px;color:var(--gray)">${t.date}</div><div style="font-size:12px;font-weight:600;color:var(--dark)">🚚 Delivery · ${cups} cups${r.paid?` · paid ₹${(r.paid).toFixed(0)}`:''}</div></div>
+          <div><div style="font-size:10px;color:var(--gray)">${t.date}</div><div style="font-size:12px;font-weight:600;color:var(--dark)">🚚 ${r.note?_esc(r.note):('Delivery · '+cups+' cups')}${r.paid?` · paid ₹${(r.paid).toFixed(0)}`:''}</div></div>
           <div style="text-align:right"><div style="font-weight:700;color:var(--teal)">+₹${(t.amount).toFixed(0)}</div><div style="font-size:10px;color:var(--gray)">balance ₹${t.run.toFixed(0)}</div></div>
         </div>
         <div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap">
