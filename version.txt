@@ -1,1 +1,1 @@
-2026-07-04 · v55 (unified dist: crates+loose cups, meter rates, new bill layout, no separate payments tab)
+2026-07-04 · v56 (multiple payments per distributor add up; payments are separate entries)
