@@ -2516,7 +2516,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-04 · v56 (multiple payments per distributor add up; payments are separate entries)';
+var APP_BUILD='2026-07-05 · v57 (clearer bill quantity: "3 crates + 6 loose = 90 cups")';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3212,8 +3212,9 @@ function calcDist(){
   const amt400=net400*p400;
   const total=amt200+amt400;
   // Live cup readouts under the crate inputs
-  const d2=document.getElementById('d-cups200-disp');if(d2)d2.textContent=del200+' cups'+(ex200?(' (incl '+ex200+' loose)'):'')+(ret200?(' − '+ret200+' returned = '+net200):'');
-  const d4=document.getElementById('d-cups400-disp');if(d4)d4.textContent=del400+' cups'+(ex400?(' (incl '+ex400+' loose)'):'')+(ret400?(' − '+ret400+' returned = '+net400):'');
+  const qd=(cr,ex,del)=>(cr?cr+' crate'+(cr===1?'':'s')+(ex?' + '+ex+' loose':'')+' = '+del+' cups':(del+' cups'));
+  const d2=document.getElementById('d-cups200-disp');if(d2)d2.textContent=qd(cr200,ex200,del200)+(ret200?(' − '+ret200+' returned = '+net200):'');
+  const d4=document.getElementById('d-cups400-disp');if(d4)d4.textContent=qd(cr400,ex400,del400)+(ret400?(' − '+ret400+' returned = '+net400):'');
   const l2=document.getElementById('d-lbl200');if(l2)l2.textContent='200g · '+net200+' cups @ ₹'+p200+'/cup';
   const l4=document.getElementById('d-lbl400');if(l4)l4.textContent='400g · '+net400+' cups @ ₹'+p400+'/cup';
   const distName=document.getElementById('d-dist').value.trim();
@@ -3660,6 +3661,13 @@ function billParts(r){
   const opening=(del2+del4===0 && (r.amount||0)>0) ? (r.amount||0) : 0;
   return {items,returns,gross,returnsVal,opening,note:r.note||''};
 }
+// Plain-language quantity, e.g. "3 crates + 6 loose = 90 cups" — clear for laymen.
+function _qtyText(x){
+  const cr=x.crates||0, ex=x.extra||0;
+  if(cr&&ex) return cr+' crate'+(cr===1?'':'s')+' + '+ex+' loose = '+x.cups+' cups';
+  if(cr) return cr+' crate'+(cr===1?'':'s')+' = '+x.cups+' cups';
+  return x.cups+' cups';
+}
 // Plain-text bill for sharing / WhatsApp.
 function buildBillText(r){
   const B=billNumbers(r);
@@ -3667,7 +3675,7 @@ function buildBillText(r){
   const L=['*BARKAT DAIRY PLANT*','Watlar, Ganderbal, Kashmir','_Pure Goodness, Blessed by Quality_','------------------------',
     'Bill To: '+r.dist,'Date: '+r.date,'Bill No: DB-'+String(r.id).slice(-6),'------------------------'];
   P.items.forEach(function(x){
-    L.push(x.label+': '+(x.crates?x.crates+' '+(x.crates===1?'crate':'crates'):'')+(x.extra?(x.crates?' + ':'')+x.extra+' loose':'')+' = '+x.cups+' cups × Rs.'+x.rate+'/cup = Rs.'+x.amount.toFixed(0));
+    L.push(x.label+': '+_qtyText(x)+' × Rs.'+x.rate+'/cup = Rs.'+x.amount.toFixed(0));
   });
   if(P.opening>0) L.push((P.note||'Opening balance')+': Rs.'+P.opening.toFixed(0));
   L.push('------------------------');
@@ -3708,10 +3716,9 @@ function showDistBill(id){
   const B=billNumbers(r);  // live previous/current/total (payments already applied)
   const P=billParts(r);
   const itemRows=P.items.map(function(x){
-    const cupsCell=x.cups+(x.extra?` <span style="font-size:9px;color:var(--gray)">(incl ${x.extra} loose)</span>`:'');
-    return `<tr><td>${x.label}</td><td style="text-align:center">${x.crates||'—'}</td><td style="text-align:center">${cupsCell}</td><td style="text-align:right">₹${x.rate}/cup</td><td style="text-align:right">₹${x.amount.toFixed(0)}</td></tr>`;
+    return `<tr><td>${x.label}</td><td style="font-size:11px">${_qtyText(x)}</td><td style="text-align:right">₹${x.rate}/cup</td><td style="text-align:right">₹${x.amount.toFixed(0)}</td></tr>`;
   }).join('');
-  const openingRow=P.opening>0?`<tr><td colspan="4">${_esc(P.note||'Opening balance / brought forward')}</td><td style="text-align:right">₹${P.opening.toFixed(0)}</td></tr>`:'';
+  const openingRow=P.opening>0?`<tr><td colspan="3">${_esc(P.note||'Opening balance / brought forward')}</td><td style="text-align:right">₹${P.opening.toFixed(0)}</td></tr>`:'';
   const returnLines=P.returns.map(function(x){
     return `<div style="display:flex;justify-content:space-between;padding:5px 12px;font-size:12px;color:var(--red)"><span>Less: ${x.label} (${x.cups} cups × ₹${x.rate})</span><span>−₹${x.amount.toFixed(0)}</span></div>`;
   }).join('');
@@ -3729,7 +3736,7 @@ function showDistBill(id){
       <div><b>Date:</b> ${r.date}<br/><b>Bill No:</b> ${billNo}</div>
     </div>
     <table class="dist-bill-table">
-      <thead><tr><th>Item</th><th style="text-align:center">Crates</th><th style="text-align:center">Cups</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
+      <thead><tr><th>Item</th><th>Quantity</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
       <tbody>${itemRows}${openingRow}</tbody>
     </table>
     <div style="display:flex;justify-content:space-between;padding:8px 12px;font-weight:700;font-size:13px;border-top:2px solid #e5e7eb"><span>Current Bill Total</span><span>₹${B.currentGross.toFixed(0)}</span></div>
@@ -3760,10 +3767,9 @@ function buildBillBodyHTML(r){
   const B=billNumbers(r);
   const P=billParts(r);
   const rows=P.items.map(function(x){
-    const cupsCell=x.cups+(x.extra?' <span style="font-size:9px;color:#6b7280">(incl '+x.extra+' loose)</span>':'');
-    return '<tr><td style="padding:8px 12px">'+x.label+'</td><td style="padding:8px 12px;text-align:center">'+(x.crates||'&mdash;')+'</td><td style="padding:8px 12px;text-align:center">'+cupsCell+'</td><td style="padding:8px 12px;text-align:right">&#8377;'+x.rate+'/cup</td><td style="padding:8px 12px;text-align:right">&#8377;'+x.amount.toFixed(0)+'</td></tr>';
+    return '<tr><td style="padding:8px 12px">'+x.label+'</td><td style="padding:8px 12px">'+_qtyText(x)+'</td><td style="padding:8px 12px;text-align:right">&#8377;'+x.rate+'/cup</td><td style="padding:8px 12px;text-align:right">&#8377;'+x.amount.toFixed(0)+'</td></tr>';
   }).join('')
-  + (P.opening>0?'<tr><td colspan="4" style="padding:8px 12px">'+_esc(P.note||'Opening balance / brought forward')+'</td><td style="padding:8px 12px;text-align:right">&#8377;'+P.opening.toFixed(0)+'</td></tr>':'');
+  + (P.opening>0?'<tr><td colspan="3" style="padding:8px 12px">'+_esc(P.note||'Opening balance / brought forward')+'</td><td style="padding:8px 12px;text-align:right">&#8377;'+P.opening.toFixed(0)+'</td></tr>':'');
   const pline=function(lbl,val,color,sign){return '<div style="display:flex;justify-content:space-between;padding:6px 16px;font-size:13px;color:'+color+'"><span>'+lbl+'</span><span>'+sign+' &#8377;'+Math.abs(val).toFixed(0)+'</span></div>';};
   const retLines=P.returns.map(function(x){return pline('Less: '+x.label+' ('+x.cups+' cups &times; &#8377;'+x.rate+')',x.amount,'#b91c1c','&minus;');}).join('');
   return `
@@ -3792,8 +3798,7 @@ function buildBillBodyHTML(r){
       <thead>
         <tr style="background:#0d1b4b;color:#fff">
           <th style="padding:10px 12px;text-align:left;font-size:11px">Item</th>
-          <th style="padding:10px 12px;text-align:center;font-size:11px">Crates</th>
-          <th style="padding:10px 12px;text-align:center;font-size:11px">Cups</th>
+          <th style="padding:10px 12px;text-align:left;font-size:11px">Quantity</th>
           <th style="padding:10px 12px;text-align:right;font-size:11px">Rate</th>
           <th style="padding:10px 12px;text-align:right;font-size:11px">Amount</th>
         </tr>
@@ -4382,12 +4387,11 @@ function buildBillPDF(r){
   hline('#0d1b4b', 1);
   y+=2;
 
-  // Table header — Item | Crates | Cups | Rate | Amount
-  const cX={item:margin+4, crates:margin+215, cups:margin+275, rate:margin+335, amt:margin+425};
+  // Table header — Item | Quantity | Rate | Amount
+  const cX={item:margin+4, qty:margin+118, rate:margin+330, amt:margin+420};
   ops.push({t:'rect',x:margin,y,w:textW,h:20,fill:'#e8eef8'});
   ops.push({t:'text',x:cX.item,y:y+5,txt:'Item',s:9,b:true,color:'#0d1b4b'});
-  ops.push({t:'text',x:cX.crates,y:y+5,txt:'Crates',s:9,b:true,color:'#0d1b4b'});
-  ops.push({t:'text',x:cX.cups,y:y+5,txt:'Cups',s:9,b:true,color:'#0d1b4b'});
+  ops.push({t:'text',x:cX.qty,y:y+5,txt:'Quantity',s:9,b:true,color:'#0d1b4b'});
   ops.push({t:'text',x:cX.rate,y:y+5,txt:'Rate',s:9,b:true,color:'#0d1b4b'});
   ops.push({t:'text',x:cX.amt,y:y+5,txt:'Amount',s:9,b:true,color:'#0d1b4b'});
   y+=24;
@@ -4397,15 +4401,14 @@ function buildBillPDF(r){
   P.items.forEach(function(x){
     if(rowIdx++%2===0) ops.push({t:'rect',x:margin,y,w:textW,h:18,fill:'#f8faff'});
     ops.push({t:'text',x:cX.item,y:y+4,txt:x.label,s:9,color:'#1e293b'});
-    ops.push({t:'text',x:cX.crates,y:y+4,txt:x.crates?String(x.crates):'-',s:9,color:'#1e293b'});
-    ops.push({t:'text',x:cX.cups,y:y+4,txt:String(x.cups)+(x.extra?' (+'+x.extra+')':''),s:9,color:'#1e293b'});
+    ops.push({t:'text',x:cX.qty,y:y+4,txt:_qtyText(x),s:8,color:'#1e293b'});
     ops.push({t:'text',x:cX.rate,y:y+4,txt:'Rs.'+x.rate,s:8,color:'#1e293b'});
     ops.push({t:'text',x:cX.amt,y:y+4,txt:'Rs.'+x.amount.toFixed(0),s:9,color:'#1e293b'});
     y+=22;
   });
   if(P.opening>0){
     if(rowIdx++%2===0) ops.push({t:'rect',x:margin,y,w:textW,h:18,fill:'#f8faff'});
-    ops.push({t:'text',x:cX.item,y:y+4,txt:String(P.note||'Opening balance / brought forward').slice(0,50),s:8,color:'#1e293b'});
+    ops.push({t:'text',x:cX.item,y:y+4,txt:String(P.note||'Opening balance / brought forward').slice(0,55),s:8,color:'#1e293b'});
     ops.push({t:'text',x:cX.amt,y:y+4,txt:'Rs.'+P.opening.toFixed(0),s:9,color:'#1e293b'});
     y+=22;
   }
