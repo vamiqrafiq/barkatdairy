@@ -1,1 +1,1 @@
-2026-07-05 · v57 (clearer bill quantity: "3 crates + 6 loose = 90 cups")
+2026-07-05 · v58 ("extra" not "loose"; clearer returns line on bill)
