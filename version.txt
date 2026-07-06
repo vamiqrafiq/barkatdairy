@@ -1,1 +1,1 @@
-2026-07-05 · v58 ("extra" not "loose"; clearer returns line on bill)
+2026-07-06 · v59 (previous unpaid = net after past payments, not gross)
