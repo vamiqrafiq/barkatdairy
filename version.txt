@@ -1,1 +1,1 @@
-2026-07-09 · v65 (pending rider money: ✕ remove-without-applying for bounced-cheque replacements etc.)
+2026-07-09 · v66 (standardisation: ideal mass-balance per owner dahi spec — SMP 96% SNF, targets 2.5/9.0, exact+practical values)
