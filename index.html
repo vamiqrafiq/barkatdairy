@@ -1423,7 +1423,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <div id="riderLocDot" style="width:12px;height:12px;border-radius:50%;background:#e5e7eb;flex-shrink:0"></div>
       <div style="flex:1">
         <div style="font-size:12px;font-weight:700;color:var(--dark)" id="riderLocTitle">Location sharing off</div>
-        <div style="font-size:10px;color:var(--gray);margin-top:1px" id="riderLocationStatus">Tap to share your live location with admin</div>
+        <div style="font-size:10px;color:var(--gray);margin-top:1px" id="riderLocationStatus">Keep the app open while on route — screen stays awake automatically. If you minimise or close it, admin sees your last location.</div>
       </div>
       <div id="riderLocBtn" onclick="startRiderLocation()"
         style="background:var(--blue);color:#fff;border:none;padding:8px 14px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0">
@@ -1434,6 +1434,60 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
         ⏹ Stop
       </div>
     </div>
+  </div>
+
+  <!-- Delivery record — rider fills this at each drop-off -->
+  <div class="section" style="margin-bottom:10px">
+    <div class="sec-title">📦 Record Delivery</div>
+    <div style="margin-bottom:6px"><label class="inp-label">Distributor</label><select id="rd-dist"></select></div>
+    <div class="grid2" style="margin-bottom:6px">
+      <div><label class="inp-label">200g crates (filled)</label><input type="number" id="rd-cr200" min="0" step="1" placeholder="0" oninput="riderDropCalc()"/></div>
+      <div><label class="inp-label">400g crates (filled)</label><input type="number" id="rd-cr400" min="0" step="1" placeholder="0" oninput="riderDropCalc()"/></div>
+    </div>
+    <div class="grid2" style="margin-bottom:6px">
+      <div><label class="inp-label">Extra 200g cups (loose)</label><input type="number" id="rd-ex200" min="0" step="1" placeholder="0" oninput="riderDropCalc()"/></div>
+      <div><label class="inp-label">Extra 400g cups (loose)</label><input type="number" id="rd-ex400" min="0" step="1" placeholder="0" oninput="riderDropCalc()"/></div>
+    </div>
+    <div style="margin-bottom:6px"><label class="inp-label">Crates carrying loose cups</label><input type="number" id="rd-loose" min="0" step="1" placeholder="0" oninput="riderDropCalc()"/></div>
+    <div id="rd-total" style="background:var(--light);border-radius:9px;padding:9px 11px;font-size:12px;font-weight:700;color:var(--dark);margin-bottom:8px">Total: 0 crates</div>
+    <div id="riderDropAlert"></div>
+    <button class="btn btn-primary btn-full" onclick="riderSaveDrop()">💾 Save Delivery</button>
+    <div id="riderDropList" style="margin-top:10px"></div>
+  </div>
+
+  <!-- Empty crates received back from distributor -->
+  <div class="section" style="margin-bottom:10px">
+    <div class="sec-title">🧺 Crates Received Back</div>
+    <div style="margin-bottom:6px"><label class="inp-label">From whom (distributor)</label><select id="rc-dist"></select></div>
+    <div style="margin-bottom:8px"><label class="inp-label">Crates received</label><input type="number" id="rc-crates" min="0" step="1" placeholder="0"/></div>
+    <div id="riderCrateAlert"></div>
+    <button class="btn btn-full" style="background:#0f766e;color:#fff;border:none" onclick="riderSaveCrate()">💾 Save Crates Received</button>
+    <div id="riderCrateList" style="margin-top:10px"></div>
+  </div>
+
+  <!-- Payment collected from distributor -->
+  <div class="section" style="margin-bottom:10px">
+    <div class="sec-title">💰 Payment Received</div>
+    <div style="margin-bottom:6px"><label class="inp-label">From distributor</label><select id="rp-dist"></select></div>
+    <div class="grid2" style="margin-bottom:8px">
+      <div><label class="inp-label">Amount (₹)</label><input type="number" id="rp-amount" min="0" step="1" placeholder="0"/></div>
+      <div><label class="inp-label">Mode of payment</label><select id="rp-mode"><option>Cash</option><option>UPI</option><option>Bank</option><option>Cheque</option></select></div>
+    </div>
+    <div id="riderPayAlert"></div>
+    <button class="btn btn-full" style="background:#15803d;color:#fff;border:none" onclick="riderSavePayment()">💾 Save Payment</button>
+    <div id="riderPayList" style="margin-top:10px"></div>
+  </div>
+
+  <!-- Fuel record -->
+  <div class="section" style="margin-bottom:10px">
+    <div class="sec-title">⛽ Fuel Record</div>
+    <div class="grid2" style="margin-bottom:6px">
+      <div><label class="inp-label">Amount (₹)</label><input type="number" id="rf-amount" min="0" step="1" placeholder="0"/></div>
+      <div><label class="inp-label">Note (optional)</label><input type="text" id="rf-note" placeholder="e.g. petrol 2L"/></div>
+    </div>
+    <div id="riderFuelAlert"></div>
+    <button class="btn btn-full" style="background:#b45309;color:#fff;border:none" onclick="riderSaveFuel()">💾 Save Fuel Expense</button>
+    <div id="riderFuelList" style="margin-top:10px"></div>
   </div>
 
   <!-- Procurement pickups -->
@@ -1494,6 +1548,30 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <div id="ridersList">
       <div class="empty"><div class="empty-icon">🛵</div><div class="empty-text">No riders sharing location</div></div>
     </div>
+  </div>
+
+  <!-- Rider delivery logs (all riders) -->
+  <div class="section">
+    <div class="sec-title">📦 Rider Delivery Logs</div>
+    <div id="trackerDropLogs"></div>
+  </div>
+
+  <!-- Empty crates collected (all riders) -->
+  <div class="section">
+    <div class="sec-title">🧺 Crates Received Back</div>
+    <div id="trackerCrateLogs"></div>
+  </div>
+
+  <!-- Payments collected by riders -->
+  <div class="section">
+    <div class="sec-title">💰 Payments Collected by Riders</div>
+    <div id="trackerRiderPays"></div>
+  </div>
+
+  <!-- Rider fuel spend (all riders) -->
+  <div class="section">
+    <div class="sec-title">⛽ Rider Fuel Spend</div>
+    <div id="trackerFuelLogs"></div>
   </div>
 
 </div>
@@ -2341,6 +2419,13 @@ function load(key,def){try{const v=localStorage.getItem('bd_'+key);return v?JSON
 // Local calendar date (YYYY-MM-DD). Using toISOString() directly gives UTC, which
 // rolls a day early for IST (+5:30) users late night / early morning.
 function _today(){var d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
+// IST date + clock time for rider logs, regardless of the device's timezone.
+function _istStamp(){
+  const d=new Date();
+  const date=d.toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});
+  const time=d.toLocaleTimeString('en-IN',{timeZone:'Asia/Kolkata',hour:'2-digit',minute:'2-digit',hour12:true}).toUpperCase();
+  return {date:date,time:time,ts:d.toISOString()};
+}
 // Monotonic unique id. Date.now() alone collides when two records are saved in
 // the same millisecond, producing duplicate DOM ids that break Edit/Delete.
 let _lastUid=0;
@@ -2389,6 +2474,9 @@ let distRecords=load('distRecords',[]);
 let testRecords=load('testRecords',[]);
 let savedSuppliers=load('savedSuppliers',[]);
 let savedDistributors=load('savedDistributors',[]);
+let riderDropLogs=load('riderDropLogs',[]);
+let riderCrateReturns=load('riderCrateReturns',[]);
+let fuelLog=load('fuelLog',[]);
 let attRecords=load('attRecords',[]);
 // Deletion tombstones: { syncKey: { recordId: timestamp } }. A deleted id is
 // remembered and filtered out of any synced copy so it can never be merged back
@@ -2516,7 +2604,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-06 · v59 (previous unpaid = net after past payments, not gross)';
+var APP_BUILD='2026-07-09 · v64 (rider money pending until owner confirms; duplicate guards; delete audits)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2577,6 +2665,7 @@ function goTab(name,btn){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   const pg=document.getElementById('tab-'+name);
   if(pg){pg.style.display='block';pg.classList.add('active');}
+  if((name==='rider'||name==='tracker')&&typeof renderRiderLogs==='function')renderRiderLogs();
   if(btn)btn.classList.add('active');
   else document.querySelectorAll('.tab').forEach(t=>{if(t.getAttribute('onclick')&&t.getAttribute('onclick').includes("'"+name+"'"))t.classList.add('active');});
   // Close any open ac-lists
@@ -2985,6 +3074,7 @@ function deleteProcRecord(id){
   records=records.filter(x=>String(x.id)!==String(id));
   _markDeleted('records',id);
   store('records',records);
+  _audit('procurement','delete',id,'₹'+(r.total||0).toFixed(0)+' · '+(r.supplier||'?')+' · '+(r.qty||0)+'L · '+(r.date||'no date'),'','Procurement entry deleted');
   renderAllRecords();
 }
 function renderAllRecords(){
@@ -3235,6 +3325,19 @@ function calcDist(){
     if(bp)bp.textContent=cleared?'✅ Cleared':'₹'+grandTotal.toFixed(0);
   }
 }
+// Guard against recording the same money twice. Returns true if OK to save.
+// Warns when (a) the rider holds unconfirmed cash from this distributor, or
+// (b) an identical payment (same distributor + date + amount) already exists.
+function _dupPayCheck(dist,amount,date){
+  const pend=(Array.isArray(paymentsLog)?paymentsLog:[]).filter(p=>p&&p.dist===dist&&p.pending);
+  if(pend.length){
+    const tot=pend.reduce((s,p)=>s+(p.amount||0),0);
+    if(!confirm('⚠️ '+dist+' already gave ₹'+tot.toFixed(0)+' to the rider — it is AWAITING YOUR HANDOVER CONFIRMATION.\n\nIf this ₹'+amount.toFixed(0)+' is that same money, press Cancel and use the "✓ Received" button (Payments tab or ledger) instead of typing it again.\n\nSave a NEW, separate payment?'))return false;
+  }
+  const dup=(Array.isArray(paymentsLog)?paymentsLog:[]).find(p=>p&&p.dist===dist&&!p.pending&&p.date===date&&(p.amount||0)===amount);
+  if(dup&&!confirm('⚠️ A payment of ₹'+amount.toFixed(0)+' from '+dist+' on '+date+' is ALREADY recorded'+(dup.by?' ('+dup.by+')':'')+'.\n\nRecord ANOTHER identical payment?'))return false;
+  return true;
+}
 function saveDist(){
   const g=id=>parseFloat((document.getElementById(id)||{}).value)||0;
   const dist=document.getElementById('d-dist').value.trim();
@@ -3249,6 +3352,9 @@ function saveDist(){
   const payMode=(document.getElementById('d-pay-mode')||{}).value||'Credit';
   if(!dist||!date){showAlert('distAlert','alert-red','⚠️ Enter distributor name and date');return;}
   if(!cr200&&!cr400&&!ex200&&!ex400&&!ret200&&!ret400){showAlert('distAlert','alert-red','⚠️ Enter at least one crate or cup quantity');return;}
+  const dupBill=distRecords.find(x=>x&&x.dist===dist&&x.date===date);
+  if(dupBill&&!confirm('A bill for '+dist+' dated '+date+' already exists (₹'+(dupBill.amount||0).toFixed(0)+').\n\nSave ANOTHER bill for the same day?')){showAlert('distAlert','alert-red','Not saved — a bill for '+_esc(dist)+' on '+date+' already exists.');return;}
+  if(paid>0&&!_dupPayCheck(dist,paid,date)){showAlert('distAlert','alert-red','Not saved — the ₹'+paid.toFixed(0)+' payment looked already recorded. Set "Paid" to 0 and save again if the rider already collected it.');return;}
   const lr=_lastRates(dist);
   const r200el=document.getElementById('d-rate200'),r400el=document.getElementById('d-rate400');
   const p200=(r200el&&r200el.value!=='')?(parseFloat(r200el.value)||0):lr.r200;
@@ -3443,6 +3549,7 @@ function distRecordHTML(r){
 function toggleDistEdit(id){const f=document.getElementById('distEdit-'+id);if(f)f.style.display=f.style.display==='none'?'block':'none';}
 function saveDistEdit(id){
   const r=distRecords.find(x=>String(x.id)===String(id));if(!r)return;
+  const oldAmount=r.amount||0,oldPaid=r.paid||0;
   const num=eid=>{const e=document.getElementById(eid);return e?(parseFloat(e.value)||0):0;};
   r.crates200=num('de-cr200-'+id);r.crates400=num('de-cr400-'+id);
   r.ret200=num('de-ret200-'+id);r.ret400=num('de-ret400-'+id);
@@ -3454,6 +3561,8 @@ function saveDistEdit(id){
   r.amount=r.c200*r.rate200+r.c400*r.rate400;
   r.balance=(r.prevBalance||0)+r.amount-r.paid;
   store('distRecords',distRecords);
+  if(r.amount!==oldAmount||r.paid!==oldPaid)
+    _audit('distribution','edit',id,'₹'+oldAmount.toFixed(0)+' paid ₹'+oldPaid.toFixed(0),'₹'+r.amount.toFixed(0)+' paid ₹'+r.paid.toFixed(0),'Bill edited · '+r.dist+' · '+(r.date||'no date'));
   renderDistRecords();
   showAlert('distAlert','alert-green','✅ Bill updated');
 }
@@ -3467,7 +3576,7 @@ function closeDistLedger(){ document.getElementById('distLedgerModal').classList
 function _ledgerTx(dist){
   const tx=[];
   (Array.isArray(distRecords)?distRecords:[]).forEach(r=>{if(r&&r.dist===dist)tx.push({kind:'delivery',id:r.id,date:r.date||'',amount:(r.amount||0),paid:(r.paid||0),rec:r});});
-  (Array.isArray(paymentsLog)?paymentsLog:[]).forEach(p=>{if(p&&p.dist===dist)tx.push({kind:'payment',id:p.id,date:p.date||'',amount:(p.amount||0),rec:p});});
+  (Array.isArray(paymentsLog)?paymentsLog:[]).forEach(p=>{if(p&&p.dist===dist&&!p.pending)tx.push({kind:'payment',id:p.id,date:p.date||'',amount:(p.amount||0),rec:p});});
   tx.sort((a,b)=> a.date<b.date?-1 : a.date>b.date?1 : (a.id-b.id));
   let run=0;
   tx.forEach(t=>{ run += (t.kind==='delivery') ? (t.amount-(t.paid||0)) : (-t.amount); t.run=run; });
@@ -3518,12 +3627,22 @@ function renderDistLedger(){
       </div>
     </div>`;
   }).join('');
+  const pend=(Array.isArray(paymentsLog)?paymentsLog:[]).filter(p=>p&&p.dist===dist&&p.pending);
+  const pendHtml=pend.length?`<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:10px;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;color:#b45309;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">🟡 With rider — awaiting handover (not in account yet)</div>
+      ${pend.map(p=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0">
+        <div style="flex:1;font-size:11px;color:var(--dark)">${p.date}${p.time?' · '+p.time+' IST':''} · ${_esc(p.by||p.savedBy||'')}</div>
+        <div style="font-size:13px;font-weight:700;color:#b45309">₹${(p.amount||0).toFixed(0)}</div>
+        <button class="btn btn-sm btn-primary" onclick="confirmRiderPayment(${p.id})">✓ Received</button>
+      </div>`).join('')}
+    </div>`:'';
   el.innerHTML=`
     <div style="text-align:center;margin-bottom:10px">
       <div style="font-size:17px;font-weight:800;color:var(--dark)">${_esc(dist)}</div>
       <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">Account balance</div>
       <div style="font-size:26px;font-weight:800;color:${balColor}">${bal>0.5?'₹'+bal.toFixed(0):'✅ Cleared'}</div>
     </div>
+    ${pendHtml}
     <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:10px;margin-bottom:12px">
       <div style="font-size:10px;font-weight:700;color:#047857;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">＋ Record payment received</div>
       <div class="grid3" style="margin-bottom:6px">
@@ -3546,6 +3665,7 @@ function savePaymentFor(){
   const mode=(document.getElementById('ld-pay-mode')||{}).value||'Cash';
   const a=document.getElementById('ld-pay-alert');
   if(!amt){if(a)a.innerHTML='<div class="alert alert-red">Enter an amount</div>';return;}
+  if(!_dupPayCheck(dist,amt,date))return;
   const rec={id:_uid(),dist:dist,amount:amt,date:date,mode:mode,by:'',savedBy:currentUser?currentUser.name:'Staff'};
   paymentsLog.unshift(rec);
   store('paymentsLog',paymentsLog);
@@ -3555,9 +3675,14 @@ function savePaymentFor(){
 function togglePayEdit(id){const f=document.getElementById('payEdit-'+id);if(f)f.style.display=f.style.display==='none'?'block':'none';}
 function savePaymentEdit(id){
   const p=paymentsLog.find(x=>String(x.id)===String(id));if(!p)return;
-  p.amount=parseFloat((document.getElementById('pe-amt-'+id)||{}).value)||0;
+  const oldAmount=p.amount||0,oldDate=p.date||'';
+  const newAmt=parseFloat((document.getElementById('pe-amt-'+id)||{}).value)||0;
+  if(newAmt<=0){alert('Enter a valid amount above 0 — to remove this payment use 🗑 Delete instead.');return;}
+  p.amount=newAmt;
   p.date=(document.getElementById('pe-date-'+id)||{}).value||p.date;
   store('paymentsLog',paymentsLog);
+  if(p.amount!==oldAmount||(p.date||'')!==oldDate)
+    _audit('payments','edit',id,'₹'+oldAmount.toFixed(0)+' · '+(oldDate||'no date'),'₹'+p.amount.toFixed(0)+' · '+(p.date||'no date'),'Payment edited · '+(p.dist||'?'));
   _reRenderDistAll();
 }
 function deletePayment(id){
@@ -3566,11 +3691,13 @@ function deletePayment(id){
   paymentsLog=paymentsLog.filter(x=>String(x.id)!==String(id));
   _markDeleted('paymentsLog',id);
   store('paymentsLog',paymentsLog);
+  _audit('payments','delete',id,'₹'+(p.amount||0).toFixed(0)+' from '+(p.dist||'?')+' · '+(p.date||'no date'),'','Payment deleted');
   _reRenderDistAll();
 }
 function toggleLedgerDe(id){const f=document.getElementById('ledDe-'+id);if(f)f.style.display=f.style.display==='none'?'block':'none';}
 function saveLedgerDe(id){
   const r=distRecords.find(x=>String(x.id)===String(id));if(!r)return;
+  const oldAmount=r.amount||0;
   const num=eid=>{const e=document.getElementById(eid);return e?(parseFloat(e.value)||0):0;};
   r.crates200=num('lde-cr200-'+id);r.crates400=num('lde-cr400-'+id);
   r.extra200=num('lde-ex200-'+id);r.extra400=num('lde-ex400-'+id);
@@ -3581,6 +3708,8 @@ function saveLedgerDe(id){
   r.crates=r.crates200+r.crates400;
   r.amount=r.c200*r.rate200+r.c400*r.rate400;
   store('distRecords',distRecords);
+  if(r.amount!==oldAmount)
+    _audit('distribution','edit',id,'₹'+oldAmount.toFixed(0),'₹'+r.amount.toFixed(0),'Delivery edited (ledger) · '+r.dist+' · '+(r.date||'no date'));
   _reRenderDistAll();
 }
 function _riderName(username){const u=(Array.isArray(users)?users:[]).find(x=>x&&x.username===username);return u?(u.name||u.username):username;}
@@ -3601,6 +3730,24 @@ function deleteDistRecord(id){
   distRecords=distRecords.filter(x=>x.id!==id);
   _markDeleted('distRecords',id);
   store('distRecords',distRecords);
+  _audit('distribution','delete',id,'₹'+(r.amount||0).toFixed(0)+' bill · '+r.dist+' · '+(r.date||'no date')+(r.paid?' · paid ₹'+r.paid.toFixed(0):''),'','Delivery deleted');
+  // Reverse the crate deduction that was made when this bill was saved,
+  // otherwise a delete + re-entry deducts the crates from stock twice.
+  if((r.crates||0)>0){
+    invEntries.unshift({id:_uid(),item:'crates',date:_today(),recv:r.crates,used:0,note:'Bill deleted — crates reversed: '+r.dist,savedBy:currentUser?currentUser.name:'Staff'});
+    store('invEntries',invEntries);
+  }
+  // A bill saved with "Paid now" also created a separate same-day payment.
+  // Offer to remove it too, so deleting a bill can't leave an orphan payment
+  // that silently lowers the balance (rider-collected money is never touched).
+  (paymentsLog.filter(p=>p&&p.dist===r.dist&&p.date===r.date&&!p.collectedBy)).forEach(function(p){
+    if(confirm('A payment of ₹'+(p.amount||0).toFixed(0)+' for '+r.dist+' dated '+r.date+' exists — possibly saved together with this bill.\n\nDelete that payment too?')){
+      paymentsLog=paymentsLog.filter(x=>String(x.id)!==String(p.id));
+      _markDeleted('paymentsLog',p.id);
+      store('paymentsLog',paymentsLog);
+      _audit('payments','delete',p.id,'₹'+(p.amount||0).toFixed(0)+' from '+r.dist+' · '+(p.date||''),'','Deleted together with bill DB-'+String(id).slice(-6));
+    }
+  });
   renderDistRecords();
 }
 function clearDistFilter(){renderDistRecords();}
@@ -3619,7 +3766,7 @@ function billNumbers(r){
   // Any payment dated the same day as this bill is shown separately as today's payment.
   let allPaid=0, todayPay=0;
   (Array.isArray(distRecords)?distRecords:[]).forEach(function(x){ if(x&&x.dist===r.dist) allPaid+=(x.paid||0); });
-  (Array.isArray(paymentsLog)?paymentsLog:[]).forEach(function(p){ if(p&&p.dist===r.dist){ allPaid+=(p.amount||0); if(p.date===r.date) todayPay+=(p.amount||0); } });
+  (Array.isArray(paymentsLog)?paymentsLog:[]).forEach(function(p){ if(p&&p.dist===r.dist&&!p.pending){ allPaid+=(p.amount||0); if(p.date===r.date) todayPay+=(p.amount||0); } });
   const acct=(typeof getDistBalance==='function')?getDistBalance(r.dist):((r.prevBalance||0)+current-allPaid);
   const prev=Math.max(0, acct-current+todayPay);     // net unpaid carried in (payments before today applied)
   const payments=todayPay;                            // payment received today (shown as a line)
@@ -4196,9 +4343,9 @@ ${rowsHtml}</body></html>`;
   const a=document.createElement('a');a.href=url;a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url),20000);
 }
-function clearAllRecords(){if(confirm('Delete ALL procurement records?')){_markDeleted('records',records.map(_rid));records=[];store('records',records);renderAllRecords();}}
-function clearDistRecords(){if(confirm('Delete ALL distribution records?')){_markDeleted('distRecords',distRecords.map(_rid));distRecords=[];store('distRecords',distRecords);renderDistRecords();}}
-function clearTestRecords(){if(confirm('Delete ALL test records?')){_markDeleted('testRecords',testRecords.map(_rid));testRecords=[];store('testRecords',testRecords);renderTestHistory();}}
+function clearAllRecords(){if(confirm('Delete ALL procurement records?')){const n=records.length,tot=records.reduce((s,r)=>s+(r.total||0),0);_markDeleted('records',records.map(_rid));records=[];store('records',records);_audit('procurement','delete','ALL',n+' records · ₹'+tot.toFixed(0)+' total','','Cleared all procurement records');renderAllRecords();}}
+function clearDistRecords(){if(confirm('Delete ALL distribution records?')){const n=distRecords.length,tot=distRecords.reduce((s,r)=>s+(r.amount||0),0);_markDeleted('distRecords',distRecords.map(_rid));distRecords=[];store('distRecords',distRecords);_audit('distribution','delete','ALL',n+' records · ₹'+tot.toFixed(0)+' total','','Cleared all distribution records');renderDistRecords();}}
+function clearTestRecords(){if(confirm('Delete ALL test records?')){const n=testRecords.length;_markDeleted('testRecords',testRecords.map(_rid));testRecords=[];store('testRecords',testRecords);_audit('tests','delete','ALL',n+' records','','Cleared all test records');renderTestHistory();}}
 function updateRates(){
   const raw=document.getElementById('rateJson').value.trim();
   if(!raw){
@@ -4917,53 +5064,356 @@ function renderRiderView(){
 }
 
 // ══════════════════════════════════════════
+// RIDER LOGS — crate deliveries + fuel expenses, stamped with IST date & time
+// ══════════════════════════════════════════
+function _riderDistOptions(){
+  const set={};
+  getAllDistributors().forEach(n=>{if(n)set[n]=1;});
+  (Array.isArray(savedDistributors)?savedDistributors:[]).forEach(n=>{if(n)set[n]=1;});
+  return Object.keys(set).sort();
+}
+function riderDropCalc(){
+  const n=id=>{const e=document.getElementById(id);return e?(parseInt(e.value)||0):0;};
+  const cr2=n('rd-cr200'),cr4=n('rd-cr400'),ex2=n('rd-ex200'),ex4=n('rd-ex400'),loose=n('rd-loose');
+  const el=document.getElementById('rd-total');
+  if(el)el.innerHTML='200g: '+cr2+' cr'+(ex2?' + '+ex2+' loose cups':'')+' · 400g: '+cr4+' cr'+(ex4?' + '+ex4+' loose cups':'')+
+    ' · loose cr: '+loose+' → <span style="color:var(--teal)">TOTAL '+(cr2+cr4+loose)+' CRATES</span>';
+}
+function riderSaveDrop(){
+  const n=id=>{const e=document.getElementById(id);return e?(parseInt(e.value)||0):0;};
+  const sel=document.getElementById('rd-dist');
+  const dist=sel?sel.value:'';
+  const cr2=n('rd-cr200'),cr4=n('rd-cr400'),ex2=n('rd-ex200'),ex4=n('rd-ex400'),loose=n('rd-loose');
+  if(!dist){showAlert('riderDropAlert','alert-red','⚠️ Select a distributor');return;}
+  if(cr2+cr4+ex2+ex4===0){showAlert('riderDropAlert','alert-red','⚠️ Enter crates or loose cups');return;}
+  const S=_istStamp();
+  const rec={id:_uid(),rider:currentUser?currentUser.username:'',riderName:currentUser?currentUser.name:'Rider',
+    dist:dist,crates200:cr2,crates400:cr4,extra200:ex2,extra400:ex4,looseCrates:loose,
+    totalCrates:cr2+cr4+loose,cups200:cr2*CPC200+ex2,cups400:cr4*CPC400+ex4,
+    date:S.date,time:S.time,ts:S.ts};
+  riderDropLogs.unshift(rec);
+  store('riderDropLogs',riderDropLogs);
+  _audit('riderlog','add',rec.id,'',rec.totalCrates+' crates to '+dist+' by '+rec.riderName,'Rider delivery log');
+  ['rd-cr200','rd-cr400','rd-ex200','rd-ex400','rd-loose'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
+  riderDropCalc();
+  showAlert('riderDropAlert','alert-green','✅ Saved — '+S.date+' · '+S.time+' IST');
+  renderRiderLogs();
+}
+function riderDeleteDrop(id){
+  const r=riderDropLogs.find(x=>String(x.id)===String(id));if(!r)return;
+  if(!confirm('Delete delivery log for '+r.dist+' ('+r.totalCrates+' crates)?'))return;
+  riderDropLogs=riderDropLogs.filter(x=>String(x.id)!==String(id));
+  _markDeleted('riderDropLogs',r.id);
+  store('riderDropLogs',riderDropLogs);
+  _audit('riderlog','delete',r.id,r.totalCrates+' crates to '+r.dist,'','Rider delivery log deleted');
+  renderRiderLogs();
+}
+function riderSaveCrate(){
+  const sel=document.getElementById('rc-dist');
+  const dist=sel?sel.value:'';
+  const el=document.getElementById('rc-crates');
+  const crates=el?(parseInt(el.value)||0):0;
+  if(!dist){showAlert('riderCrateAlert','alert-red','⚠️ Select a distributor');return;}
+  if(crates<=0){showAlert('riderCrateAlert','alert-red','⚠️ Enter how many crates');return;}
+  const S=_istStamp();
+  const rec={id:_uid(),rider:currentUser?currentUser.username:'',riderName:currentUser?currentUser.name:'Rider',
+    dist:dist,crates:crates,totalCrates:crates,date:S.date,time:S.time,ts:S.ts};
+  riderCrateReturns.unshift(rec);
+  store('riderCrateReturns',riderCrateReturns);
+  _audit('riderlog','add',rec.id,'',crates+' crates back from '+dist+' by '+rec.riderName,'Crates received back');
+  if(el)el.value='';
+  showAlert('riderCrateAlert','alert-green','✅ Saved — '+S.date+' · '+S.time+' IST');
+  renderRiderLogs();
+}
+// Rider-collected payment goes into paymentsLog flagged pending:true — it is
+// NOT applied to the distributor's balance or bills until the owner confirms
+// the cash handover (confirmRiderPayment). Keeps rider money separate so it
+// can never silently change a bill the owner is preparing.
+function riderSavePayment(){
+  const sel=document.getElementById('rp-dist');
+  const dist=sel?sel.value:'';
+  const amtEl=document.getElementById('rp-amount');
+  const modeEl=document.getElementById('rp-mode');
+  const amount=amtEl?(parseFloat(amtEl.value)||0):0;
+  const mode=modeEl?modeEl.value:'Cash';
+  if(!dist){showAlert('riderPayAlert','alert-red','⚠️ Select a distributor');return;}
+  if(amount<=0){showAlert('riderPayAlert','alert-red','⚠️ Enter the amount received');return;}
+  const S=_istStamp();
+  const rec={id:_uid(),dist:dist,amount:amount,date:S.date,mode:mode,
+    by:'Collected by '+(currentUser?currentUser.name:'Rider'),
+    collectedBy:currentUser?currentUser.username:'',time:S.time,ts:S.ts,
+    pending:true,
+    savedBy:currentUser?currentUser.name:'Rider'};
+  paymentsLog.unshift(rec);
+  store('paymentsLog',paymentsLog);
+  _audit('payments','add',rec.id,'','₹'+amount+' from '+dist+' ('+mode+') collected by '+rec.savedBy,'Payment collected by rider — pending handover, not yet in account');
+  if(amtEl)amtEl.value='';
+  showAlert('riderPayAlert','alert-green','✅ ₹'+amount.toFixed(0)+' ('+mode+') saved — '+S.date+' · '+S.time+' IST. Will apply to the account once the owner confirms handover.');
+  renderRiderLogs();
+}
+// Owner confirms the rider handed over the cash — only then it hits the account.
+function confirmRiderPayment(id){
+  const p=paymentsLog.find(x=>String(x.id)===String(id));
+  if(!p||!p.pending)return;
+  if(!confirm('Confirm you RECEIVED ₹'+(p.amount||0).toFixed(0)+' from '+(p.savedBy||'the rider')+' ('+p.dist+', '+p.date+')?\n\nIt will now be applied to '+p.dist+"'s account and appear on bills."))return;
+  p.pending=false;
+  p.confirmedBy=currentUser?currentUser.name:'Staff';
+  p.confirmedOn=_today();
+  store('paymentsLog',paymentsLog);
+  _audit('payments','edit',p.id,'pending handover','applied to account','₹'+(p.amount||0).toFixed(0)+' from '+p.dist+' — rider handover confirmed');
+  _reRenderDistAll();
+  try{renderRiderLogs();}catch(e){}
+}
+function riderDeletePayment(id){
+  const r=paymentsLog.find(x=>String(x.id)===String(id));if(!r)return;
+  // Once the owner has confirmed the handover the money is in the accounts —
+  // only an admin may remove it then.
+  if(!r.pending&&!(currentUser&&_hasRole(currentUser,'admin'))){alert('This payment is already applied to the account. Ask the owner to remove it.');return;}
+  if(!confirm('Delete payment of ₹'+r.amount+' from '+r.dist+'?'))return;
+  paymentsLog=paymentsLog.filter(x=>String(x.id)!==String(id));
+  _markDeleted('paymentsLog',r.id);
+  store('paymentsLog',paymentsLog);
+  _audit('payments','delete',r.id,'₹'+r.amount+' from '+r.dist,'','Rider-collected payment deleted');
+  renderRiderLogs();
+}
+function riderDeleteCrate(id){
+  const r=riderCrateReturns.find(x=>String(x.id)===String(id));if(!r)return;
+  if(!confirm('Delete empty-crates entry from '+r.dist+' ('+r.totalCrates+' crates)?'))return;
+  riderCrateReturns=riderCrateReturns.filter(x=>String(x.id)!==String(id));
+  _markDeleted('riderCrateReturns',r.id);
+  store('riderCrateReturns',riderCrateReturns);
+  _audit('riderlog','delete',r.id,r.totalCrates+' empty crates from '+r.dist,'','Empty-crates entry deleted');
+  renderRiderLogs();
+}
+function riderSaveFuel(){
+  const amtEl=document.getElementById('rf-amount');
+  const noteEl=document.getElementById('rf-note');
+  const amount=amtEl?(parseFloat(amtEl.value)||0):0;
+  if(amount<=0){showAlert('riderFuelAlert','alert-red','⚠️ Enter the fuel amount (₹)');return;}
+  const S=_istStamp();
+  const rec={id:_uid(),rider:currentUser?currentUser.username:'',riderName:currentUser?currentUser.name:'Rider',
+    amount:amount,note:noteEl?noteEl.value.trim():'',date:S.date,time:S.time,ts:S.ts};
+  fuelLog.unshift(rec);
+  store('fuelLog',fuelLog);
+  _audit('fuel','add',rec.id,'','₹'+amount+' fuel by '+rec.riderName,'Fuel expense');
+  if(amtEl)amtEl.value='';if(noteEl)noteEl.value='';
+  showAlert('riderFuelAlert','alert-green','✅ ₹'+amount.toFixed(0)+' fuel saved — '+S.date+' · '+S.time+' IST');
+  renderRiderLogs();
+}
+function riderDeleteFuel(id){
+  const r=fuelLog.find(x=>String(x.id)===String(id));if(!r)return;
+  if(!confirm('Delete fuel entry of ₹'+r.amount+'?'))return;
+  fuelLog=fuelLog.filter(x=>String(x.id)!==String(id));
+  _markDeleted('fuelLog',r.id);
+  store('fuelLog',fuelLog);
+  _audit('fuel','delete',r.id,'₹'+r.amount+' by '+(r.riderName||r.rider),'','Fuel entry deleted');
+  renderRiderLogs();
+}
+function renderRiderLogs(){
+  ['rd-dist','rc-dist','rp-dist'].forEach(function(sid){
+    const sel=document.getElementById(sid);
+    if(sel){
+      const cur=sel.value;
+      sel.innerHTML='<option value="">— Select distributor —</option>'+
+        _riderDistOptions().map(n=>'<option value="'+_esc(n)+'"'+(n===cur?' selected':'')+'>'+_esc(n)+'</option>').join('');
+    }
+  });
+  const me=currentUser?currentUser.username:'';
+  const isAdmin=currentUser&&_hasRole(currentUser,'admin');
+  const drops=Array.isArray(riderDropLogs)?riderDropLogs:[];
+  const crates=Array.isArray(riderCrateReturns)?riderCrateReturns:[];
+  const fuels=Array.isArray(fuelLog)?fuelLog:[];
+  const crateRow=(r,showRider)=>`<div style="border-bottom:1px solid #eef2f6;padding:8px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+    <div>
+      <div style="font-size:12px;font-weight:700;color:var(--dark)">🧺 ${_esc(r.dist)}${showRider?' · <span style="color:#ea580c">'+_esc(r.riderName||r.rider||'')+'</span>':''}</div>
+      <div style="font-size:10px;color:var(--gray);margin-top:2px">${r.date} · ${r.time} IST</div>
+    </div>
+    <div style="text-align:right;flex-shrink:0">
+      <div style="font-size:14px;font-weight:700;color:#0f766e">${r.crates!=null?r.crates:(r.totalCrates||0)} crates</div>
+      ${(isAdmin||r.rider===me)?`<button class="btn btn-sm btn-red" style="margin-top:4px" onclick="riderDeleteCrate(${r.id})">🗑</button>`:''}
+    </div>
+  </div>`;
+  const payRow=(p,showRider)=>`<div style="border-bottom:1px solid #eef2f6;padding:8px 0;display:flex;justify-content:space-between;align-items:center;gap:8px">
+    <div>
+      <div style="font-size:12px;font-weight:700;color:var(--dark)">💰 ${_esc(p.dist)}${showRider?' · <span style="color:#ea580c">'+_esc(p.savedBy||'')+'</span>':''}</div>
+      <div style="font-size:10px;color:var(--gray);margin-top:2px">${p.date}${p.time?' · '+p.time+' IST':''} · ${_esc(p.mode||'Cash')}</div>
+    </div>
+    <div style="text-align:right;flex-shrink:0">
+      <div style="font-size:14px;font-weight:700;color:${p.pending?'#b45309':'var(--green)'}">₹${(p.amount||0).toFixed(0)}</div>
+      ${p.pending?'<div style="font-size:9px;font-weight:700;color:#b45309">🟡 awaiting handover</div>':(p.confirmedBy?'<div style="font-size:9px;color:var(--green)">✓ received</div>':'')}
+      ${(isAdmin||p.collectedBy===me)?`<button class="btn btn-sm btn-red" style="margin-top:4px" onclick="riderDeletePayment(${p.id})">🗑</button>`:''}
+    </div>
+  </div>`;
+  const dropRow=(r,showRider)=>`<div style="border-bottom:1px solid #eef2f6;padding:8px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+    <div>
+      <div style="font-size:12px;font-weight:700;color:var(--dark)">🚚 ${_esc(r.dist)}${showRider?' · <span style="color:#ea580c">'+_esc(r.riderName||r.rider||'')+'</span>':''}</div>
+      <div style="font-size:10px;color:var(--gray);margin-top:2px">${r.date} · ${r.time} IST</div>
+      <div style="font-size:11px;color:var(--dark);margin-top:2px">${r.crates200||0} cr 200g${r.extra200?' +'+r.extra200+' cups':''} · ${r.crates400||0} cr 400g${r.extra400?' +'+r.extra400+' cups':''}${r.looseCrates?' · '+r.looseCrates+' loose cr':''}</div>
+    </div>
+    <div style="text-align:right;flex-shrink:0">
+      <div style="font-size:14px;font-weight:700;color:var(--teal)">${r.totalCrates||0} crates</div>
+      ${(isAdmin||r.rider===me)?`<button class="btn btn-sm btn-red" style="margin-top:4px" onclick="riderDeleteDrop(${r.id})">🗑</button>`:''}
+    </div>
+  </div>`;
+  const fuelRow=(r,showRider)=>`<div style="border-bottom:1px solid #eef2f6;padding:8px 0;display:flex;justify-content:space-between;align-items:center;gap:8px">
+    <div>
+      <div style="font-size:12px;font-weight:700;color:var(--dark)">⛽ ₹${(r.amount||0).toFixed(0)}${showRider?' · <span style="color:#ea580c">'+_esc(r.riderName||r.rider||'')+'</span>':''}${r.note?' · <span style="font-weight:400;color:var(--gray)">'+_esc(r.note)+'</span>':''}</div>
+      <div style="font-size:10px;color:var(--gray);margin-top:2px">${r.date} · ${r.time} IST</div>
+    </div>
+    ${(isAdmin||r.rider===me)?`<button class="btn btn-sm btn-red" style="flex-shrink:0" onclick="riderDeleteFuel(${r.id})">🗑</button>`:''}
+  </div>`;
+  const empty=t=>'<div class="empty" style="padding:10px 0"><div class="empty-text">'+t+'</div></div>';
+  const month=_istStamp().date.slice(0,7);
+  // Rider's own lists
+  const myDropEl=document.getElementById('riderDropList');
+  if(myDropEl){
+    const mine=drops.filter(r=>r.rider===me).slice(0,25);
+    myDropEl.innerHTML=mine.length?mine.map(r=>dropRow(r,false)).join(''):empty('No deliveries recorded yet');
+  }
+  const myCrateEl=document.getElementById('riderCrateList');
+  if(myCrateEl){
+    const mine=crates.filter(r=>r.rider===me).slice(0,25);
+    myCrateEl.innerHTML=mine.length?mine.map(r=>crateRow(r,false)).join(''):empty('No crates recorded yet');
+  }
+  const myPayEl=document.getElementById('riderPayList');
+  if(myPayEl){
+    const mine=(Array.isArray(paymentsLog)?paymentsLog:[]).filter(p=>p.collectedBy===me).slice(0,25);
+    myPayEl.innerHTML=mine.length?mine.map(p=>payRow(p,false)).join(''):empty('No payments collected yet');
+  }
+  const myFuelEl=document.getElementById('riderFuelList');
+  if(myFuelEl){
+    const mine=fuels.filter(r=>r.rider===me);
+    const mTotal=mine.filter(r=>(r.date||'').slice(0,7)===month).reduce((s,r)=>s+(r.amount||0),0);
+    myFuelEl.innerHTML=(mine.length?'<div style="font-size:11px;font-weight:700;color:#b45309;margin-bottom:4px">This month: ₹'+mTotal.toFixed(0)+'</div>':'')+
+      (mine.slice(0,25).map(r=>fuelRow(r,false)).join('')||empty('No fuel entries yet'));
+  }
+  // Admin lists (Tracker tab)
+  const aDropEl=document.getElementById('trackerDropLogs');
+  if(aDropEl)aDropEl.innerHTML=drops.slice(0,40).map(r=>dropRow(r,true)).join('')||empty('No rider deliveries recorded');
+  const aCrateEl=document.getElementById('trackerCrateLogs');
+  if(aCrateEl)aCrateEl.innerHTML=crates.slice(0,40).map(r=>crateRow(r,true)).join('')||empty('No crates recorded');
+  const aPayEl=document.getElementById('trackerRiderPays');
+  if(aPayEl){
+    const rp=(Array.isArray(paymentsLog)?paymentsLog:[]).filter(p=>p.collectedBy).slice(0,40);
+    aPayEl.innerHTML=rp.length?rp.map(p=>payRow(p,true)).join(''):empty('No rider-collected payments yet');
+  }
+  const aFuelEl=document.getElementById('trackerFuelLogs');
+  if(aFuelEl){
+    const mTotal=fuels.filter(r=>(r.date||'').slice(0,7)===month).reduce((s,r)=>s+(r.amount||0),0);
+    aFuelEl.innerHTML=(fuels.length?'<div style="font-size:11px;font-weight:700;color:#b45309;margin-bottom:4px">All riders this month: ₹'+mTotal.toFixed(0)+'</div>':'')+
+      (fuels.slice(0,40).map(r=>fuelRow(r,true)).join('')||empty('No fuel entries recorded'));
+  }
+}
+
+// ══════════════════════════════════════════
 // RIDER LIVE LOCATION — using localStorage as relay
 // (works on same device; for cross-device use a server)
 // ══════════════════════════════════════════
 let riderLocInterval=null;
 let riderLocWatchId=null;
+let _wakeLock=null;
+let _lastLocPush=0;
+let _fbIdToken='';
+
+// Keep a fresh auth token cached so the last-gasp beacon (sent while the page is
+// closing, when the Firebase SDK can no longer complete a write) can use REST.
+function _refreshIdToken(){
+  try{
+    if(typeof firebase!=='undefined'&&typeof firebase.auth==='function'&&firebase.auth().currentUser){
+      firebase.auth().currentUser.getIdToken().then(function(t){_fbIdToken=t||'';}).catch(function(){});
+    }
+  }catch(e){}
+}
+setInterval(_refreshIdToken,240000);
+
+// Screen wake lock: the OS suspends browser GPS within seconds of the screen
+// sleeping, so while a rider is sharing we keep the screen awake.
+async function _acquireWakeLock(){
+  try{
+    if('wakeLock' in navigator&&!_wakeLock&&document.visibilityState==='visible'){
+      _wakeLock=await navigator.wakeLock.request('screen');
+      _wakeLock.addEventListener('release',function(){_wakeLock=null;});
+    }
+  }catch(e){_wakeLock=null;}
+}
+function _releaseWakeLock(){try{if(_wakeLock){_wakeLock.release();_wakeLock=null;}}catch(e){}}
+
+function _pushLoc(pos,extra){
+  const loc={
+    lat:pos.coords.latitude,
+    lng:pos.coords.longitude,
+    acc:Math.round(pos.coords.accuracy),
+    ts:Date.now(),
+    name:currentUser?currentUser.name:'Staff',
+    username:currentUser?currentUser.username:'user',
+    role:currentUser&&currentUser.roles?currentUser.roles.join(','):''
+  };
+  if(extra)Object.assign(loc,extra);
+  try{localStorage.setItem('bd_riderLoc_'+loc.username, JSON.stringify(loc));}catch(e){}
+  // Push to the cloud so the admin Tracker (on another device) can see it
+  try{if(typeof _fb!=='undefined'&&_fb&&_fbAuthed)_fb.ref('bd/liveLocations/'+loc.username).set(loc);}catch(e){}
+  _lastLocPush=Date.now();
+  showRiderLocStatus('✅ Sharing live location — accuracy ±'+loc.acc+'m','alert-green');
+}
 
 function startRiderLocation(){
   if(!navigator.geolocation){
     showRiderLocStatus('❌ Geolocation not supported on this device.','alert-red');
     return;
   }
+  if(riderLocWatchId!=null)return; // already sharing
   showRiderLocStatus('📡 Acquiring GPS signal…','alert-gold');
   var _b=document.getElementById('riderLocBtn');if(_b)_b.style.display='none';
   var _s=document.getElementById('riderLocStopBtn');if(_s)_s.style.display='block';
-
-  riderLocWatchId=1;function _riderLocTick(){navigator.geolocation.getCurrentPosition(
-    pos=>{
-      const loc={
-        lat:pos.coords.latitude,
-        lng:pos.coords.longitude,
-        acc:Math.round(pos.coords.accuracy),
-        ts:Date.now(),
-        name:currentUser?currentUser.name:'Staff',
-        username:currentUser?currentUser.username:'user',
-        role:currentUser&&currentUser.roles?currentUser.roles.join(','):''
-      };
-      try{localStorage.setItem('bd_riderLoc_'+loc.username, JSON.stringify(loc));}catch(e){}
-      // Push to the cloud so the admin Tracker (on another device) can see it
-      try{if(typeof _fb!=='undefined'&&_fb&&_fbAuthed)_fb.ref('bd/liveLocations/'+loc.username).set(loc);}catch(e){}
-      showRiderLocStatus('✅ Sharing live location — accuracy ±'+loc.acc+'m','alert-green');
-    },
-    err=>{showRiderLocStatus('⚠️ Location error: '+err.message,'alert-gold');},
-    {enableHighAccuracy:true,timeout:15000,maximumAge:30000}
-    );}
-    _riderLocTick();
-    riderLocInterval=setInterval(_riderLocTick,60000
+  _acquireWakeLock();
+  _refreshIdToken();
+  // Continuous GPS stream — updates flow as the rider moves (throttled to ~15 s).
+  riderLocWatchId=navigator.geolocation.watchPosition(
+    function(pos){ if(Date.now()-_lastLocPush>15000)_pushLoc(pos); },
+    function(err){ showRiderLocStatus('⚠️ Location error: '+err.message,'alert-gold'); },
+    {enableHighAccuracy:true,timeout:20000,maximumAge:10000}
   );
+  // Fallback poll — some browsers stall watchPosition when stationary.
+  riderLocInterval=setInterval(function(){
+    if(Date.now()-_lastLocPush<55000)return;
+    navigator.geolocation.getCurrentPosition(function(pos){_pushLoc(pos);},function(){},
+      {enableHighAccuracy:true,timeout:15000,maximumAge:30000});
+  },60000);
 }
 
 function stopRiderLocation(){
-  if(riderLocWatchId!=null){navigator.geolocation.clearWatch(riderLocWatchId);riderLocWatchId=null;}
+  if(riderLocWatchId!=null){try{navigator.geolocation.clearWatch(riderLocWatchId);}catch(e){}riderLocWatchId=null;}
   if(riderLocInterval){clearInterval(riderLocInterval);riderLocInterval=null;}
+  _releaseWakeLock();
   document.getElementById('riderLocBtn').style.display='block';
   document.getElementById('riderLocStopBtn').style.display='none';
   if(document.getElementById('riderLocationStatus'))
     showRiderLocStatus('📍 Location sharing stopped.','alert-gold');
 }
+
+// Last-gasp beacon: when the app is minimised or closed mid-share, stamp the last
+// known fix with bg=true so the Tracker shows "app closed — last seen here at …".
+// fetch keepalive completes even as the page dies (best effort).
+function _locOfflineBeacon(){
+  try{
+    if(riderLocWatchId==null||!_fbIdToken||!currentUser)return;
+    var last=JSON.parse(localStorage.getItem('bd_riderLoc_'+currentUser.username)||'null');
+    if(!last)return;
+    last.bg=true; last.bgTs=Date.now();
+    fetch('https://barkatdairy-583d8-default-rtdb.asia-southeast1.firebasedatabase.app/bd/liveLocations/'+encodeURIComponent(currentUser.username)+'.json?auth='+_fbIdToken,
+      {method:'PUT',keepalive:true,headers:{'Content-Type':'application/json'},body:JSON.stringify(last)});
+  }catch(e){}
+}
+window.addEventListener('pagehide',_locOfflineBeacon);
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='hidden'){_locOfflineBeacon();}
+  else if(riderLocWatchId!=null){
+    // Back in the foreground: re-grab the wake lock and push a fresh fix now.
+    _acquireWakeLock();
+    try{navigator.geolocation.getCurrentPosition(function(pos){_pushLoc(pos);},function(){},
+      {enableHighAccuracy:true,timeout:10000,maximumAge:0});}catch(e){}
+  }
+});
 
 function showRiderLocStatus(msg,cls){
   const el=document.getElementById('riderLocationStatus');
@@ -4998,29 +5448,50 @@ function initTracker(){
   try{if(typeof _fb!=='undefined'&&_fb&&!window._locSub){window._locSub=true;_fb.ref('bd/liveLocations').on('value',function(s){window._liveLocs=s.val()||{};});}}catch(e){}
 }
 
+// Last-seen clock time in IST for a location fix.
+function _locSeenIST(ts){
+  try{return new Date(ts).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true}).toUpperCase();}catch(e){return '';}
+}
+// live (<2 min) → stale (app open but no fix) → closed (rider minimised/closed app)
+function _locState(loc){
+  const age=(Date.now()-(loc.ts||0))/1000;
+  if(loc.bg)return {label:'📴 App closed — last seen',color:'#94a3b8',live:false};
+  if(age<120)return {label:'● Live',color:'var(--green)',live:true};
+  if(age<600)return {label:'○ Stale',color:'#f59e0b',live:false};
+  return {label:'📴 Offline — last seen',color:'#94a3b8',live:false};
+}
 function updateTrackerMap(){
   if(!trackerMap)return;
-  // Scan all rider location keys in localStorage
+  // Show every rider's LAST KNOWN location for 24 h — never blank the map just
+  // because a rider's app closed; mark it live/stale/closed instead.
   const riderLocations=[];
+  const CUTOFF=86400000;
   try{
     for(let i=0;i<localStorage.length;i++){
       const key=localStorage.key(i);
       if(key&&key.startsWith('bd_riderLoc_')){
         const loc=JSON.parse(localStorage.getItem(key)||'null');
-        if(loc&&(Date.now()-loc.ts)<120000) riderLocations.push(loc); // only within 2 min
+        if(loc&&(Date.now()-loc.ts)<CUTOFF) riderLocations.push(loc);
       }
     }
   }catch(e){}
-  // Merge in cloud live locations from other devices
-  try{var ll=window._liveLocs||{};Object.keys(ll).forEach(function(k){var loc=ll[k];if(loc&&loc.ts&&(Date.now()-loc.ts)<120000&&!riderLocations.some(function(x){return x.username===loc.username;}))riderLocations.push(loc);});}catch(e){}
+  // Merge in cloud live locations from other devices (cloud copy wins if newer)
+  try{var ll=window._liveLocs||{};Object.keys(ll).forEach(function(k){
+    var loc=ll[k];if(!loc||!loc.ts||(Date.now()-loc.ts)>=CUTOFF)return;
+    var ix=riderLocations.findIndex(function(x){return x.username===loc.username;});
+    if(ix<0)riderLocations.push(loc);
+    else if(loc.ts>riderLocations[ix].ts)riderLocations[ix]=loc;
+  });}catch(e){}
+  riderLocations.sort(function(a,b){return (b.ts||0)-(a.ts||0);});
 
   const statusEl=document.getElementById('trackerStatus');
   const infoEl=document.getElementById('trackerInfo');
   const listEl=document.getElementById('ridersList');
+  const liveCount=riderLocations.filter(l=>_locState(l).live).length;
 
   // Update hero
   const heroCount=document.getElementById('tracker-hero-count');
-  if(heroCount)heroCount.textContent=riderLocations.length;
+  if(heroCount)heroCount.textContent=liveCount;
 
   if(riderLocations.length===0){
     if(statusEl){statusEl.textContent='No riders online';statusEl.style.background='rgba(255,255,255,.1)';}
@@ -5028,52 +5499,57 @@ function updateTrackerMap(){
     if(listEl)listEl.innerHTML='<div class="empty"><div class="empty-icon">🛵</div><div class="empty-text">No riders sharing location</div></div>';
     return;
   }
-  if(statusEl){statusEl.innerHTML='<span style="color:#86efac">●</span> LIVE · '+riderLocations.length+' rider'+(riderLocations.length===1?'':'s');statusEl.style.background='rgba(21,128,61,.25)';}
+  if(statusEl){
+    if(liveCount>0){statusEl.innerHTML='<span style="color:#86efac">●</span> LIVE · '+liveCount+' rider'+(liveCount===1?'':'s');statusEl.style.background='rgba(21,128,61,.25)';}
+    else{statusEl.textContent='Last known positions';statusEl.style.background='rgba(255,255,255,.1)';}
+  }
 
-  // Update markers
-  const riderIcon=window.L?L.divIcon({
-    html:'<div style="background:#1a3a8f;color:#fff;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,0.3);border:2px solid #c49a2a">🛵</div>',
+  const mkIcon=live=>window.L?L.divIcon({
+    html:'<div style="background:'+(live?'#1a3a8f':'#94a3b8')+';color:#fff;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,0.3);border:2px solid '+(live?'#c49a2a':'#e2e8f0')+';'+(live?'':'opacity:.75')+'">🛵</div>',
     className:'',iconSize:[36,36],iconAnchor:[18,18]
   }):null;
 
   riderLocations.forEach(loc=>{
     const key=loc.username;
+    const st=_locState(loc);
     const age=Math.round((Date.now()-loc.ts)/1000);
-    const popup=`<div style="font-family:sans-serif;min-width:160px">
+    const ageLabel=age<60?age+'s ago':age<3600?Math.floor(age/60)+' min ago':Math.floor(age/3600)+'h '+Math.floor((age%3600)/60)+'m ago';
+    const popup=`<div style="font-family:sans-serif;min-width:170px">
       <div style="font-weight:700;color:#0d1b4b;margin-bottom:4px">🛵 ${loc.name}</div>
-      <div style="font-size:11px;color:#666">📡 Accuracy: ±${loc.acc}m</div>
-      <div style="font-size:11px;color:#666">🕐 Updated: ${age}s ago</div>
+      <div style="font-size:11px;font-weight:700;color:${st.live?'#15803d':'#64748b'}">${st.label} ${st.live?'':_locSeenIST(loc.ts)+' IST'}</div>
+      <div style="font-size:11px;color:#666">🕐 ${ageLabel} · 📡 ±${loc.acc}m</div>
       <div style="font-size:11px;color:#666">📍 ${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}</div>
     </div>`;
     if(trackerMarkers[key]){
       trackerMarkers[key].setLatLng([loc.lat,loc.lng]);
       trackerMarkers[key].setPopupContent(popup);
+      try{trackerMarkers[key].setIcon(mkIcon(st.live));}catch(e){}
     } else if(window.L){
-      trackerMarkers[key]=L.marker([loc.lat,loc.lng],{icon:riderIcon})
+      trackerMarkers[key]=L.marker([loc.lat,loc.lng],{icon:mkIcon(st.live)})
         .bindPopup(popup).addTo(trackerMap);
     }
   });
-  // Pan to first rider
+  // Pan to the freshest rider
   const first=riderLocations[0];
   if(first&&window.L)trackerMap.setView([first.lat,first.lng],15);
 
   if(infoEl)infoEl.textContent='Tap a marker for details · Auto-refreshing every 4 s';
   if(listEl)listEl.innerHTML=riderLocations.map(loc=>{
+    const st=_locState(loc);
     const age=Math.round((Date.now()-loc.ts)/1000);
-    const ageLabel=age<60?age+'s ago':Math.floor(age/60)+'m ago';
-    const fresh=age<30;
+    const ageLabel=age<60?age+'s ago':age<3600?Math.floor(age/60)+' min ago':Math.floor(age/3600)+'h '+Math.floor((age%3600)/60)+'m ago';
     const initial=(loc.name||'?')[0].toUpperCase();
     return`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f3f4f8">
       <div style="width:38px;height:38px;border-radius:50%;background:var(--light);color:var(--blue);font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative">
         ${initial}
-        <div style="position:absolute;bottom:0;right:0;width:11px;height:11px;border-radius:50%;background:${fresh?'var(--green)':'#f59e0b'};border:2px solid #fff"></div>
+        <div style="position:absolute;bottom:0;right:0;width:11px;height:11px;border-radius:50%;background:${st.live?'var(--green)':st.color};border:2px solid #fff"></div>
       </div>
       <div style="flex:1">
         <div style="font-size:13px;font-weight:700;color:var(--dark)">${_esc(loc.name)}</div>
-        <div style="font-size:10px;color:var(--gray)">±${loc.acc}m accuracy · ${ageLabel}</div>
+        <div style="font-size:10px;color:var(--gray)">${_locSeenIST(loc.ts)} IST · ${ageLabel} · ±${loc.acc}m</div>
       </div>
       <div style="text-align:right">
-        <div style="font-size:11px;font-weight:700;color:${fresh?'var(--green)':'#f59e0b'}">${fresh?'● Fresh':'○ Stale'}</div>
+        <div style="font-size:11px;font-weight:700;color:${st.live?'var(--green)':st.color}">${st.live?'● Live':st.label.indexOf('Stale')>=0?'○ Stale':'📴 App closed'}</div>
         <div style="font-size:9px;color:var(--gray)">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</div>
       </div>
     </div>`;
@@ -6937,14 +7413,15 @@ td{padding:7px 10px;border-bottom:1px solid #e5e7eb}
 }
 
 // Init helpers called from tab buttons
-function clearBatchRecords(){if(confirm('Delete ALL batch records?')){_markDeleted('productionBatches',productionBatches.map(_rid));productionBatches=[];store('productionBatches',productionBatches);renderBatchList();}}
-function clearCipRecords(){if(confirm('Delete ALL CIP records?')){_markDeleted('cipLogs',cipLogs.map(_rid));cipLogs=[];store('cipLogs',cipLogs);renderCIPList();renderCIPCalendar();}}
+function clearBatchRecords(){if(confirm('Delete ALL batch records?')){var n=productionBatches.length;_markDeleted('productionBatches',productionBatches.map(_rid));productionBatches=[];store('productionBatches',productionBatches);_audit('production','delete','ALL',n+' records','','Cleared all batch records');renderBatchList();}}
+function clearCipRecords(){if(confirm('Delete ALL CIP records?')){var n=cipLogs.length;_markDeleted('cipLogs',cipLogs.map(_rid));cipLogs=[];store('cipLogs',cipLogs);_audit('cip','delete','ALL',n+' records','','Cleared all CIP records');renderCIPList();renderCIPCalendar();}}
 
 // ═══ FIREBASE CLOUD SYNC ═══
 var _fb=null,_fbReady=false,_fbListening=false,_fbAuthed=false,_syncReady=false;
 var _syncKeys=['records','distRecords','testRecords','productionBatches','cipLogs',
   'users','settings','savedSuppliers','savedDistributors','attRecords',
-  'invEntries','invOpening','returnsLog','paymentsLog','auditLog','rateOverride','deletedIds'];
+  'invEntries','invOpening','returnsLog','paymentsLog','auditLog','rateOverride',
+  'riderDropLogs','riderCrateReturns','fuelLog','deletedIds'];
 
 // ── Deletion tombstones ───────────────────────────────────────────────────
 // Natural key for a record (matches the merge logic in _syncDown).
@@ -7068,6 +7545,9 @@ function _setGlobal(k,v){
     case 'paymentsLog':paymentsLog=v;break;
     case 'auditLog':auditLog=v;break;
     case 'rateOverride':rateOverride=v;break;
+    case 'riderDropLogs':riderDropLogs=v;break;
+    case 'riderCrateReturns':riderCrateReturns=v;break;
+    case 'fuelLog':fuelLog=v;break;
     case 'deletedIds':deletedIds=v;break;
     default: try{window[k]=v;}catch(e){}
   }
@@ -7156,6 +7636,7 @@ function _refreshUI(){
     if(typeof renderBatchList==='function')renderBatchList();
     if(typeof renderAttToday==='function')renderAttToday();
     if(typeof renderCIPList==='function')renderCIPList();
+    if(typeof renderRiderLogs==='function')renderRiderLogs();
   }catch(e){}
 }
 // Override store to sync to cloud
@@ -7335,10 +7816,11 @@ function renderReturns(){
 // PAYMENTS / CREDIT MODULE
 // ════════════════════════════════════════════════
 function getDistBalance(dist){
-  // Total billed minus total paid (from dist records) minus separate payments
-  var billed=distRecords.filter(function(r){return r.dist===dist;}).reduce(function(s,r){return s+r.amount;},0);
+  // Total billed minus total paid (from dist records) minus separate payments.
+  // Rider-collected payments still pending handover (p.pending) do NOT count.
+  var billed=distRecords.filter(function(r){return r.dist===dist;}).reduce(function(s,r){return s+(r.amount||0);},0);
   var paidInBills=distRecords.filter(function(r){return r.dist===dist;}).reduce(function(s,r){return s+(r.paid||0);},0);
-  var sepPayments=paymentsLog.filter(function(p){return p.dist===dist;}).reduce(function(s,p){return s+p.amount;},0);
+  var sepPayments=paymentsLog.filter(function(p){return p.dist===dist&&!p.pending;}).reduce(function(s,p){return s+(p.amount||0);},0);
   return billed-paidInBills-sepPayments;
 }
 
@@ -7398,18 +7880,35 @@ function renderPayments(){
     }
   }
 
-  // Payment history — grouped by date
+  // Pending rider collections — money with riders, not yet in any account
+  var pendingPays=paymentsLog.filter(function(p){return p&&p.pending;});
+  var pendingHtml='';
+  if(pendingPays.length){
+    pendingHtml='<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:10px;margin-bottom:12px">'+
+      '<div style="font-size:10px;font-weight:700;color:#b45309;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">🟡 With riders — awaiting handover (not in accounts yet)</div>'+
+      pendingPays.map(function(p){
+        return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #fde68a">'+
+          '<div style="flex:1"><div style="font-size:12px;font-weight:700;color:var(--dark)">'+_esc(p.dist)+'</div>'+
+          '<div style="font-size:10px;color:var(--gray)">'+p.date+(p.time?' · '+p.time+' IST':'')+' · '+_esc(p.by||p.savedBy||'')+'</div></div>'+
+          '<div style="font-size:14px;font-weight:700;color:#b45309">₹'+(p.amount||0).toFixed(0)+'</div>'+
+          '<button class="btn btn-sm btn-primary" onclick="confirmRiderPayment('+p.id+')">✓ Received</button>'+
+        '</div>';
+      }).join('')+'</div>';
+  }
+
+  // Payment history — grouped by date (pending rider money shown above, not here)
+  var confirmedPays=paymentsLog.filter(function(p){return p&&!p.pending;});
   var ph=document.getElementById('paymentHistory');
   var pc=document.getElementById('payCount');
-  if(pc)pc.textContent=paymentsLog.length+' payments';
+  if(pc)pc.textContent=confirmedPays.length+' payments'+(pendingPays.length?' · '+pendingPays.length+' with rider':'');
   if(ph){
-    if(!paymentsLog.length){
+    if(!confirmedPays.length&&!pendingPays.length){
       ph.innerHTML='<div class="empty"><div class="empty-icon">💰</div><div class="empty-text">No payments recorded</div></div>';
     } else {
       var modeIcon={'Cash':'💵','UPI':'📱','UPI / Online':'📱','Bank Transfer':'🏦','Cheque':'📝'};
       var grouped={};
-      paymentsLog.slice(0,40).forEach(function(p){if(!grouped[p.date])grouped[p.date]=[];grouped[p.date].push(p);});
-      ph.innerHTML=Object.keys(grouped).sort(function(a,b){return b.localeCompare(a);}).map(function(date){
+      confirmedPays.slice(0,40).forEach(function(p){if(!grouped[p.date])grouped[p.date]=[];grouped[p.date].push(p);});
+      ph.innerHTML=pendingHtml+Object.keys(grouped).sort(function(a,b){return b.localeCompare(a);}).map(function(date){
         var rows=grouped[date];
         var dayTotal=rows.reduce(function(s,p){return s+p.amount;},0);
         return '<div style="margin-bottom:12px">'+
@@ -7472,6 +7971,7 @@ function savePayment(){
   var mode=document.getElementById('pay-mode').value;
   var by=document.getElementById('pay-by').value.trim();
   if(!dist||!amount||!date){showAlert('payAlert','alert-red','⚠️ Select distributor, amount and date');return;}
+  if(!_dupPayCheck(dist,amount,date))return;
   var rec={id:Date.now(),dist:dist,amount:amount,date:date,mode:mode,by:by,
     savedBy:currentUser?currentUser.name:'Staff'};
   paymentsLog.unshift(rec);
@@ -7543,7 +8043,7 @@ function importDataFile(input){
   var rd=new FileReader();
   rd.onload=function(){
     var data;try{data=JSON.parse(rd.result);}catch(e){alert('That file is not a valid backup (JSON).');return;}
-    var listKeys=['records','distRecords','testRecords','productionBatches','cipLogs','attRecords','invEntries','returnsLog','paymentsLog','auditLog','savedSuppliers','savedDistributors'];
+    var listKeys=['records','distRecords','testRecords','productionBatches','cipLogs','attRecords','invEntries','returnsLog','paymentsLog','auditLog','savedSuppliers','savedDistributors','riderDropLogs','riderCrateReturns','fuelLog'];
     var rid=function(x){return x&&(x.id||x.batchId||x.username||x.lotId);};
     var added=0;
     listKeys.forEach(function(k){

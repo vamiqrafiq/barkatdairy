@@ -1,1 +1,1 @@
-2026-07-06 · v59 (previous unpaid = net after past payments, not gross)
+2026-07-09 · v64 (rider money pending until owner confirms; duplicate guards; delete audits)
