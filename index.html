@@ -2604,7 +2604,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-09 · v64 (rider money pending until owner confirms; duplicate guards; delete audits)';
+var APP_BUILD='2026-07-09 · v65 (pending rider money: ✕ remove-without-applying for bounced-cheque replacements etc.)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3634,6 +3634,7 @@ function renderDistLedger(){
         <div style="flex:1;font-size:11px;color:var(--dark)">${p.date}${p.time?' · '+p.time+' IST':''} · ${_esc(p.by||p.savedBy||'')}</div>
         <div style="font-size:13px;font-weight:700;color:#b45309">₹${(p.amount||0).toFixed(0)}</div>
         <button class="btn btn-sm btn-primary" onclick="confirmRiderPayment(${p.id})">✓ Received</button>
+        <button class="btn btn-sm btn-outline" title="Remove without applying" onclick="dismissRiderPayment(${p.id})">✕</button>
       </div>`).join('')}
     </div>`:'';
   el.innerHTML=`
@@ -5161,6 +5162,20 @@ function confirmRiderPayment(id){
   p.confirmedOn=_today();
   store('paymentsLog',paymentsLog);
   _audit('payments','edit',p.id,'pending handover','applied to account','₹'+(p.amount||0).toFixed(0)+' from '+p.dist+' — rider handover confirmed');
+  _reRenderDistAll();
+  try{renderRiderLogs();}catch(e){}
+}
+// Owner removes a pending rider collection WITHOUT applying it — for money that
+// is already covered in the ledger (e.g. replacement for a bounced cheque) or
+// an entry made in error. The distributor's balance does not change.
+function dismissRiderPayment(id){
+  const p=paymentsLog.find(x=>String(x.id)===String(id));
+  if(!p||!p.pending)return;
+  if(!confirm('Remove ₹'+(p.amount||0).toFixed(0)+' from '+p.dist+' ('+(p.savedBy||'rider')+') WITHOUT applying it to the account?\n\nUse this only when this money is already accounted for in the ledger — e.g. it replaces a bounced cheque you already credited — or the entry was a mistake.\n\nThe balance will NOT change.'))return;
+  paymentsLog=paymentsLog.filter(x=>String(x.id)!==String(p.id));
+  _markDeleted('paymentsLog',p.id);
+  store('paymentsLog',paymentsLog);
+  _audit('payments','delete',p.id,'₹'+(p.amount||0).toFixed(0)+' from '+p.dist+' · pending handover ('+(p.savedBy||'rider')+')','','Pending rider collection removed WITHOUT applying to account');
   _reRenderDistAll();
   try{renderRiderLogs();}catch(e){}
 }
@@ -7892,6 +7907,7 @@ function renderPayments(){
           '<div style="font-size:10px;color:var(--gray)">'+p.date+(p.time?' · '+p.time+' IST':'')+' · '+_esc(p.by||p.savedBy||'')+'</div></div>'+
           '<div style="font-size:14px;font-weight:700;color:#b45309">₹'+(p.amount||0).toFixed(0)+'</div>'+
           '<button class="btn btn-sm btn-primary" onclick="confirmRiderPayment('+p.id+')">✓ Received</button>'+
+          '<button class="btn btn-sm btn-outline" title="Remove without applying" onclick="dismissRiderPayment('+p.id+')">✕</button>'+
         '</div>';
       }).join('')+'</div>';
   }
