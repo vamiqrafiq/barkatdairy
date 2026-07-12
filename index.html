@@ -2692,7 +2692,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-12 · v75 (favicon.ico at root so tabs/bookmarks show the logo)';
+var APP_BUILD='2026-07-13 · v76 (edit bills to tag dispatched batches — traceability + cold-store subtraction; bill edits keep extra cups)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3582,6 +3582,31 @@ function renderDistBatchPicker(){
     </div>`;
   }).join('');
 }
+// ── Batch picker inside a bill's ✏️ edit panel: retro-tag which batches went
+// out on an already-saved bill (traceability + cold-store subtraction). ──
+function _bpRows(sel){
+  const chosen={};String(sel||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(x=>chosen[x]=1);
+  const list=productionBatches.slice(0,40);
+  if(!list.length)return '<div style="font-size:11px;color:var(--gray);padding:6px">No batches recorded yet.</div>';
+  return list.map(b=>{
+    const on=!!chosen[b.batchId];
+    const c2=parseInt(b.cups200)||0,c4=parseInt(b.cups400)||0;
+    return `<div onclick="_bpToggle(this)" data-id="${_esc(b.batchId)}" data-on="${on?1:0}" style="display:flex;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid #f3f4f8;font-size:11px;cursor:pointer;-webkit-tap-highlight-color:transparent;background:${on?'#ecfdf5':'transparent'}">
+      <span class="bp-chk" style="width:19px;height:19px;border:2px solid ${on?'var(--teal)':'#cbd5e1'};border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;background:${on?'var(--teal)':'#fff'};flex-shrink:0">${on?'✓':''}</span>
+      <span>${_esc(b.batchId)} · ${b.date}${(c2||c4)?` · ${c2}×200g ${c4}×400g`:''}</span>
+    </div>`;
+  }).join('');
+}
+function _bpToggle(row){
+  const on=row.dataset.on==='1'?0:1;row.dataset.on=String(on);
+  row.style.background=on?'#ecfdf5':'transparent';
+  const chk=row.querySelector('.bp-chk');
+  if(chk){chk.style.background=on?'var(--teal)':'#fff';chk.style.borderColor=on?'var(--teal)':'#cbd5e1';chk.textContent=on?'✓':'';}
+}
+function _bpRead(containerId){
+  const el=document.getElementById(containerId);if(!el)return null;
+  return Array.prototype.map.call(el.querySelectorAll('[data-id]'),function(x){return x.dataset.on==='1'?x.dataset.id:null;}).filter(Boolean).join(',');
+}
 var _distBatchSel={};
 function toggleDistBatch(id){
   if(_distBatchSel[id])delete _distBatchSel[id];else _distBatchSel[id]=1;
@@ -3703,6 +3728,8 @@ function distRecordHTML(r){
         <div><label class="inp-label">400g rate</label><input type="number" id="de-r400-${r.id}" step="0.5" value="${r.rate400!=null?r.rate400:(settings.p400||34)}"/></div>
       </div>
       <div style="margin-bottom:6px"><label class="inp-label">Paid (₹)</label><input type="number" id="de-paid-${r.id}" value="${r.paid||0}"/></div>
+      <div style="margin-bottom:6px"><label class="inp-label">🧫 Batches in this bill (tick one or more)</label>
+        <div id="de-batches-${r.id}" style="max-height:130px;overflow-y:auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px">${_bpRows(r.batchIds)}</div></div>
       <button class="btn btn-primary btn-sm btn-full" onclick="saveDistEdit(${r.id})">💾 Save changes</button>
     </div>
   </div>`;
@@ -3716,15 +3743,23 @@ function saveDistEdit(id){
   r.ret200=num('de-ret200-'+id);r.ret400=num('de-ret400-'+id);
   r.rate200=num('de-r200-'+id);r.rate400=num('de-r400-'+id);
   r.paid=num('de-paid-'+id);
-  r.c200=Math.max(0,r.crates200*CPC200-r.ret200);
-  r.c400=Math.max(0,r.crates400*CPC400-r.ret400);
+  // include extra cups (this panel has no extras fields — keep the stored ones,
+  // otherwise editing a bill with extras would silently shrink its amount)
+  r.c200=Math.max(0,r.crates200*CPC200+(r.extra200||0)-r.ret200);
+  r.c400=Math.max(0,r.crates400*CPC400+(r.extra400||0)-r.ret400);
   r.crates=r.crates200+r.crates400;
   r.amount=r.c200*r.rate200+r.c400*r.rate400;
   r.balance=(r.prevBalance||0)+r.amount-r.paid;
+  const nb=_bpRead('de-batches-'+id);
+  if(nb!==null&&nb!==(r.batchIds||'')){
+    _audit('distribution','edit-batches',id,r.batchIds||'—',nb||'—','Bill batches edited · '+r.dist+' · '+(r.date||'no date'));
+    r.batchIds=nb;
+  }
   store('distRecords',distRecords);
   if(r.amount!==oldAmount||r.paid!==oldPaid)
     _audit('distribution','edit',id,'₹'+oldAmount.toFixed(0)+' paid ₹'+oldPaid.toFixed(0),'₹'+r.amount.toFixed(0)+' paid ₹'+r.paid.toFixed(0),'Bill edited · '+r.dist+' · '+(r.date||'no date'));
   renderDistRecords();
+  try{renderColdStore();}catch(e){}
   showAlert('distAlert','alert-green','✅ Bill updated');
 }
 
@@ -3767,6 +3802,8 @@ function renderDistLedger(){
           <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g extra cups</label><input type="number" id="lde-ex200-${r.id}" value="${r.extra200||0}"/></div><div><label class="inp-label">400g extra cups</label><input type="number" id="lde-ex400-${r.id}" value="${r.extra400||0}"/></div></div>
           <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g returned</label><input type="number" id="lde-ret200-${r.id}" value="${r.ret200||0}"/></div><div><label class="inp-label">400g returned</label><input type="number" id="lde-ret400-${r.id}" value="${r.ret400||0}"/></div></div>
           <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g rate</label><input type="number" id="lde-r200-${r.id}" step="0.5" value="${r.rate200!=null?r.rate200:(settings.p200||18)}"/></div><div><label class="inp-label">400g rate</label><input type="number" id="lde-r400-${r.id}" step="0.5" value="${r.rate400!=null?r.rate400:(settings.p400||34)}"/></div></div>
+          <div style="margin-bottom:5px"><label class="inp-label">🧫 Batches in this bill (tick one or more)</label>
+            <div id="lde-batches-${r.id}" style="max-height:130px;overflow-y:auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px">${_bpRows(r.batchIds)}</div></div>
           <div style="font-size:10px;color:var(--gray);margin-bottom:6px">💡 To record a payment, use "＋ Record payment received" at the top — each payment is its own entry so they add up.</div>
           <button class="btn btn-primary btn-sm btn-full" onclick="saveLedgerDe(${r.id})">💾 Save delivery</button>
         </div>
@@ -3869,10 +3906,16 @@ function saveLedgerDe(id){
   r.c400=Math.max(0,r.crates400*CPC400+r.extra400-r.ret400);
   r.crates=r.crates200+r.crates400;
   r.amount=r.c200*r.rate200+r.c400*r.rate400;
+  const nb=_bpRead('lde-batches-'+id);
+  if(nb!==null&&nb!==(r.batchIds||'')){
+    _audit('distribution','edit-batches',id,r.batchIds||'—',nb||'—','Bill batches edited (ledger) · '+r.dist+' · '+(r.date||'no date'));
+    r.batchIds=nb;
+  }
   store('distRecords',distRecords);
   if(r.amount!==oldAmount)
     _audit('distribution','edit',id,'₹'+oldAmount.toFixed(0),'₹'+r.amount.toFixed(0),'Delivery edited (ledger) · '+r.dist+' · '+(r.date||'no date'));
   _reRenderDistAll();
+  try{renderColdStore();}catch(e){}
 }
 function _riderName(username){const u=(Array.isArray(users)?users:[]).find(x=>x&&x.username===username);return u?(u.name||u.username):username;}
 function _riderOpts(sel){

@@ -1,1 +1,1 @@
-2026-07-12 · v75 (favicon.ico at root so tabs/bookmarks show the logo)
+2026-07-13 · v76 (edit bills to tag dispatched batches — traceability + cold-store subtraction; bill edits keep extra cups)
