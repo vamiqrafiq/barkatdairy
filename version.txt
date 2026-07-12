@@ -1,1 +1,1 @@
-2026-07-13 · v76 (edit bills to tag dispatched batches — traceability + cold-store subtraction; bill edits keep extra cups)
+2026-07-13 · v77 (fix: editing cup-based bills no longer zeroes them — 27 Jun Shafi bill restored)

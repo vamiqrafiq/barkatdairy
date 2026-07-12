@@ -2692,7 +2692,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-13 · v76 (edit bills to tag dispatched batches — traceability + cold-store subtraction; bill edits keep extra cups)';
+var APP_BUILD='2026-07-13 · v77 (fix: editing cup-based bills no longer zeroes them — 27 Jun Shafi bill restored)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3745,8 +3745,11 @@ function saveDistEdit(id){
   r.paid=num('de-paid-'+id);
   // include extra cups (this panel has no extras fields — keep the stored ones,
   // otherwise editing a bill with extras would silently shrink its amount)
-  r.c200=Math.max(0,r.crates200*CPC200+(r.extra200||0)-r.ret200);
-  r.c400=Math.max(0,r.crates400*CPC400+(r.extra400||0)-r.ret400);
+  const nc200=Math.max(0,r.crates200*CPC200+(r.extra200||0)-r.ret200);
+  const nc400=Math.max(0,r.crates400*CPC400+(r.extra400||0)-r.ret400);
+  // Cup-based bills (restored/legacy records store cups directly, crates 0):
+  // recomputing from empty crate inputs would zero them — keep stored cups.
+  if(!(nc200===0&&nc400===0&&((r.c200||0)>0||(r.c400||0)>0))){r.c200=nc200;r.c400=nc400;}
   r.crates=r.crates200+r.crates400;
   r.amount=r.c200*r.rate200+r.c400*r.rate400;
   r.balance=(r.prevBalance||0)+r.amount-r.paid;
@@ -3902,8 +3905,11 @@ function saveLedgerDe(id){
   r.extra200=num('lde-ex200-'+id);r.extra400=num('lde-ex400-'+id);
   r.ret200=num('lde-ret200-'+id);r.ret400=num('lde-ret400-'+id);
   r.rate200=num('lde-r200-'+id);r.rate400=num('lde-r400-'+id);
-  r.c200=Math.max(0,r.crates200*CPC200+r.extra200-r.ret200);
-  r.c400=Math.max(0,r.crates400*CPC400+r.extra400-r.ret400);
+  const nc200=Math.max(0,r.crates200*CPC200+r.extra200-r.ret200);
+  const nc400=Math.max(0,r.crates400*CPC400+r.extra400-r.ret400);
+  // Cup-based bills (restored/legacy records store cups directly, crates 0):
+  // recomputing from empty crate inputs would zero them — keep stored cups.
+  if(!(nc200===0&&nc400===0&&((r.c200||0)>0||(r.c400||0)>0))){r.c200=nc200;r.c400=nc400;}
   r.crates=r.crates200+r.crates400;
   r.amount=r.c200*r.rate200+r.c400*r.rate400;
   const nb=_bpRead('lde-batches-'+id);
