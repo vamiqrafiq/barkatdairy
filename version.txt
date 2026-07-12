@@ -1,1 +1,1 @@
-2026-07-09 · v66 (standardisation: ideal mass-balance per owner dahi spec — SMP 96% SNF, targets 2.5/9.0, exact+practical values)
+2026-07-12 · v72 (batch rename + remembered culture & pasteurization defaults)

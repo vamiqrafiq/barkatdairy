@@ -2,10 +2,11 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "barkat",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8099"],
-      "port": 8099
+      "name": "barkat-v67",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "http-server", "-p", "8098", "-c-1"],
+      "port": 8098,
+      "autoPort": false
     }
   ]
 }

@@ -669,7 +669,7 @@ textarea{resize:vertical;min-height:80px}
                   <span style="font-size:14px;font-weight:700;color:var(--blue)" id="p-lotid">RM-...</span>
                 </div>
                 <label class="inp-label">Supplier Name</label>
-                <div class="ac-wrap"><input type="text" id="p-supplier" placeholder="Type name…" autocomplete="off" oninput="acFilter('p-supplier','proc-ac-list','savedSuppliers')" onfocus="acFilter('p-supplier','proc-ac-list','savedSuppliers')"/><div class="ac-list" id="proc-ac-list"></div></div>
+                <div class="ac-wrap"><input type="text" id="p-supplier" placeholder="Type name…" autocomplete="off" oninput="acFilter('p-supplier','proc-ac-list','savedSuppliers');calcProc()" onfocus="acFilter('p-supplier','proc-ac-list','savedSuppliers')"/><div class="ac-list" id="proc-ac-list"></div></div>
               </div>
               <div class="form-row">
                 <div class="form-group"><label class="inp-label">Milk Qty (L)</label><input type="number" id="p-qty" placeholder="e.g. 300" oninput="calcProc()"/></div>
@@ -687,7 +687,7 @@ textarea{resize:vertical;min-height:80px}
                 </div>
               </div>
               <div class="grid2" style="margin-bottom:12px">
-                <div class="auto-box"><div class="auto-box-label">Rate (₹/L)</div><div class="auto-box-val" id="p-rate">—</div></div>
+                <div class="auto-box"><div class="auto-box-label" id="p-rate-label">Rate (₹/L)</div><div class="auto-box-val" id="p-rate">—</div></div>
                 <div class="auto-box"><div class="auto-box-label">Total Cost</div><div class="auto-box-val" id="p-total" style="font-size:16px">—</div></div>
               </div>
               <div id="p-decision" style="margin-bottom:10px"></div>
@@ -1072,6 +1072,29 @@ textarea{resize:vertical;min-height:80px}
               <div id="settingsAlert"></div>
             </div>
             <div class="card" style="margin-top:16px">
+              <div class="card-header"><div class="card-title">💰 Supplier Rate Method</div></div>
+              <div style="font-size:11px;color:var(--gray);margin-bottom:10px">Choose how each supplier's milk rate is set. <b>Fixed rate</b> works like a meter — set it once and it applies to every entry for that supplier until you change it here. All other suppliers use the Fat/SNF calculator.</div>
+              <div style="margin-bottom:10px">
+                <label class="inp-label">Supplier Name</label>
+                <div class="ac-wrap"><input type="text" id="sr-supplier" placeholder="Type name…" autocomplete="off" oninput="acFilter('sr-supplier','sr-ac-list','savedSuppliers')" onfocus="acFilter('sr-supplier','sr-ac-list','savedSuppliers')"/><div class="ac-list" id="sr-ac-list"></div></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label class="inp-label">Rate Method</label>
+                  <select id="sr-method" onchange="srMethodChange()">
+                    <option value="fatsnf">Fat/SNF Calculator</option>
+                    <option value="fixed">🔒 Fixed Rate (₹/L)</option>
+                  </select>
+                </div>
+                <div class="form-group" id="sr-rate-wrap" style="display:none"><label class="inp-label">Fixed Rate (₹/L)</label><input type="number" id="sr-rate" step="0.5" placeholder="e.g. 38"/></div>
+              </div>
+              <button class="btn btn-primary" onclick="saveSupplierRateMethod()">💾 Save Rate Method</button>
+              <div id="srAlert" style="margin-top:8px"></div>
+              <div style="border-top:1px solid #f3f4f8;padding-top:12px;margin-top:12px">
+                <div class="sec-title">Fixed-Rate Suppliers</div>
+                <div id="srList"></div>
+              </div>
+            </div>
+            <div class="card" style="margin-top:16px">
               <div class="card-header"><div class="card-title">📦 Opening Stock</div></div>
               <div class="form-row">
                 <div class="form-group"><label class="inp-label">200g Cups</label><input type="number" id="os-cups200" placeholder="1000"/></div>
@@ -1289,6 +1312,21 @@ function getRateFromTable(fat,snf){
   return parseFloat(r.toFixed(2));
 }
 
+// Per-supplier rate method: fixed ₹/L "meter" set by admin, or the Fat/SNF table (default)
+function getSupplierRateConfig(name){
+  if(!name)return null;
+  const n=name.trim().toLowerCase();
+  for(const k in supplierRates){
+    if(k.trim().toLowerCase()===n)return supplierRates[k];
+  }
+  return null;
+}
+function getProcRate(supplier,fat,snf){
+  const cfg=getSupplierRateConfig(supplier);
+  if(cfg&&cfg.method==='fixed'&&cfg.rate>0)return{rate:cfg.rate,method:'fixed'};
+  return{rate:getRateFromTable(fat,snf),method:'fatsnf'};
+}
+
 // ══════════════════════════════════════════
 // STORAGE
 // ══════════════════════════════════════════
@@ -1314,6 +1352,7 @@ let records=load('records',[]);
 let distRecords=load('distRecords',[]);
 let testRecords=load('testRecords',[]);
 let savedSuppliers=load('savedSuppliers',[]);
+var supplierRates=load('supplierRates',{});
 let savedDistributors=load('savedDistributors',[]);
 let attRecords=load('attRecords',[]);
 let attSavedName=load('attSavedName','');
@@ -1372,6 +1411,7 @@ function doLogin(){
   loadSettings();
   if(!isRider){
     renderUsers();
+    renderSupplierRates();
     renderAllRecords();
     renderDistRecords();
     renderTestHistory();
@@ -1454,6 +1494,7 @@ function acSelect(inputId,listId,val){
   // Trigger calc
   if(inputId==='p-supplier')calcProc();
   if(inputId==='d-dist')calcDist();
+  if(inputId==='sr-supplier')srPrefill();
 }
 function saveSupplierName(name){
   if(!name||savedSuppliers.includes(name))return;
@@ -1490,6 +1531,62 @@ function saveSettings(){
   const a=document.getElementById('settingsAlert');
   if(a){a.innerHTML='<div class="alert alert-green">✅ Settings saved</div>';setTimeout(()=>a.innerHTML='',2000);}
   calcOps();calcProc();calcDist();
+}
+
+// ══════════════════════════════════════════
+// SUPPLIER RATE METHOD (admin)
+// ══════════════════════════════════════════
+function srMethodChange(){
+  const m=document.getElementById('sr-method').value;
+  document.getElementById('sr-rate-wrap').style.display=m==='fixed'?'block':'none';
+}
+function srPrefill(){
+  const name=document.getElementById('sr-supplier').value.trim();
+  const cfg=getSupplierRateConfig(name);
+  document.getElementById('sr-method').value=cfg&&cfg.method==='fixed'?'fixed':'fatsnf';
+  document.getElementById('sr-rate').value=cfg&&cfg.rate?cfg.rate:'';
+  srMethodChange();
+}
+function saveSupplierRateMethod(){
+  const name=document.getElementById('sr-supplier').value.trim();
+  const method=document.getElementById('sr-method').value;
+  const rate=parseFloat(document.getElementById('sr-rate').value)||0;
+  if(!name){showAlert('srAlert','alert-red','⚠️ Enter supplier name');return;}
+  if(method==='fixed'&&rate<=0){showAlert('srAlert','alert-red','⚠️ Enter a valid fixed rate (₹/L)');return;}
+  Object.keys(supplierRates).forEach(k=>{if(k.trim().toLowerCase()===name.toLowerCase())delete supplierRates[k];});
+  if(method==='fixed'){
+    supplierRates[name]={method:'fixed',rate:rate,updatedAt:new Date().toISOString().split('T')[0],updatedBy:currentUser?currentUser.name:'Admin'};
+  }
+  store('supplierRates',supplierRates);
+  saveSupplierName(name);
+  showAlert('srAlert','alert-green',method==='fixed'?'✅ '+name+' set to 🔒 FIXED rate ₹'+rate+'/L':'✅ '+name+' now uses the Fat/SNF calculator');
+  renderSupplierRates();
+  calcProc();
+}
+function removeSupplierRate(name){
+  if(!confirm('Switch "'+name+'" back to the Fat/SNF calculator?'))return;
+  delete supplierRates[name];
+  store('supplierRates',supplierRates);
+  renderSupplierRates();
+  calcProc();
+}
+function srEdit(name){
+  document.getElementById('sr-supplier').value=name;
+  srPrefill();
+  document.getElementById('sr-rate').focus();
+}
+function renderSupplierRates(){
+  const el=document.getElementById('srList');
+  if(!el)return;
+  const names=Object.keys(supplierRates||{});
+  if(names.length===0){el.innerHTML='<div style="font-size:12px;color:var(--gray);padding:6px 0">No fixed-rate suppliers yet — everyone uses the Fat/SNF calculator</div>';return;}
+  el.innerHTML=names.map(n=>{
+    const c=supplierRates[n];
+    const arg=n.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    return `<div class="row"><span class="rl">🔒 ${_esc(n)} <span style="color:var(--gray)">· since ${c.updatedAt||'—'}</span></span><span class="rv">₹${c.rate}/L
+      <button class="card-action" onclick="srEdit('${arg}')">Edit</button>
+      <button class="card-action" style="color:var(--red)" onclick="removeSupplierRate('${arg}')">Use Calculator</button></span></div>`;
+  }).join('');
 }
 
 // ══════════════════════════════════════════
@@ -1551,13 +1648,22 @@ function calcOps(){
 // PROCUREMENT
 // ══════════════════════════════════════════
 function calcProc(){
+  const supplier=document.getElementById('p-supplier').value.trim();
   const fat=parseFloat(document.getElementById('p-fat').value)||0;
   const snf=parseFloat(document.getElementById('p-snf').value)||0;
   const qty=parseFloat(document.getElementById('p-qty').value)||0;
-  if(!fat||!snf){document.getElementById('p-rate').textContent='—';document.getElementById('p-total').textContent='—';return;}
-  const rate=getRateFromTable(fat,snf);
+  const cfg=getSupplierRateConfig(supplier);
+  const isFixed=cfg&&cfg.method==='fixed'&&cfg.rate>0;
+  const rateLabel=document.getElementById('p-rate-label');
+  if(rateLabel)rateLabel.textContent=isFixed?'Rate (₹/L) · 🔒 Fixed':'Rate (₹/L)';
+  if(!isFixed&&(!fat||!snf)){document.getElementById('p-rate').textContent='—';document.getElementById('p-total').textContent='—';return;}
+  const rate=isFixed?cfg.rate:getRateFromTable(fat,snf);
   document.getElementById('p-rate').textContent='₹'+rate;
   document.getElementById('p-total').textContent=qty?'₹'+(qty*rate).toFixed(0):'—';
+  if(isFixed){
+    document.getElementById('p-decision').innerHTML=`<div class="alert alert-green">🔒 FIXED RATE supplier — ₹${rate}/L applies regardless of Fat/SNF (change in Admin → Supplier Rate Method)</div>`;
+    return;
+  }
   const dec=fat>=4.5&&snf>=8.4?{l:'🟢 PREMIUM MILK',c:'green'}:fat>=4&&snf>=8.3?{l:'🟢 GOOD BUY',c:'green'}:fat>=3.8&&snf>=8.1?{l:'🟡 SAFE BUY',c:'gold'}:{l:'🔴 POOR QUALITY',c:'red'};
   document.getElementById('p-decision').innerHTML=`<div class="alert alert-${dec.c==='green'?'green':dec.c==='gold'?'gold':'red'}">${dec.l} — Fat: ${fat}% | SNF: ${snf}% | Rate: ₹${rate}/L</div>`;
 }
@@ -1567,12 +1673,13 @@ function saveProc(){
   const fat=parseFloat(document.getElementById('p-fat').value)||0;
   const snf=parseFloat(document.getElementById('p-snf').value)||0;
   const date=document.getElementById('p-date').value;
-  if(!supplier||!qty||!fat||!snf||!date){
+  const rr=getProcRate(supplier,fat,snf);
+  if(!supplier||!qty||!date||(rr.method!=='fixed'&&(!fat||!snf))){
     showAlert('procAlert','alert-red','⚠️ Please fill all fields');return;
   }
-  const rate=getRateFromTable(fat,snf);
+  const rate=rr.rate;
   const total=qty*rate;
-  const rec={id:Date.now(),supplier,qty,fat,snf,rate,total,date,savedBy:currentUser?currentUser.name:'Staff'};
+  const rec={id:Date.now(),supplier,qty,fat,snf,rate,rateMethod:rr.method,total,date,savedBy:currentUser?currentUser.name:'Staff'};
   records.unshift(rec);
   store('records',records);
   saveSupplierName(supplier);
@@ -1594,7 +1701,7 @@ function renderAllRecords(){
         <div class="proc-detail"><div class="proc-detail-label">Qty</div><div class="proc-detail-val">${r.qty}L</div></div>
         <div class="proc-detail"><div class="proc-detail-label">Fat</div><div class="proc-detail-val">${r.fat}%</div></div>
         <div class="proc-detail"><div class="proc-detail-label">SNF</div><div class="proc-detail-val">${r.snf}%</div></div>
-        <div class="proc-detail"><div class="proc-detail-label">Rate</div><div class="proc-detail-val">₹${r.rate}</div></div>
+        <div class="proc-detail"><div class="proc-detail-label">Rate</div><div class="proc-detail-val">${r.rateMethod==='fixed'?'🔒':''}₹${r.rate}</div></div>
         <div class="proc-detail" style="background:#fff8e7"><div class="proc-detail-label">Total</div><div class="proc-detail-val" style="color:#7a5a00">₹${r.total.toFixed(0)}</div></div>
         ${r.lotId?`<div class="proc-detail" style="background:#e8eef8;grid-column:1/-1"><div class="proc-detail-label">Lot ID</div><div class="proc-detail-val" style="font-size:10px;color:var(--blue)">${r.lotId}</div></div>`:''}
       </div>
@@ -1609,7 +1716,7 @@ function renderAllRecords(){
     const totalCost=recs.reduce((a,r)=>a+r.total,0);
     return`<div style="margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:6px;display:flex;justify-content:space-between"><span>${date}</span><span>${totalMilk}L · ₹${totalCost.toFixed(0)}</span></div>
-      ${recs.map(r=>`<div class="row"><span class="rl">${_esc(r.supplier)} · ${r.qty}L · ${r.fat}%F · ${r.snf}%S</span><span class="rv">₹${r.rate}/L = ₹${r.total.toFixed(0)}</span></div>`).join('')}
+      ${recs.map(r=>`<div class="row"><span class="rl">${_esc(r.supplier)} · ${r.qty}L · ${r.fat}%F · ${r.snf}%S</span><span class="rv">${r.rateMethod==='fixed'?'🔒':''}₹${r.rate}/L = ₹${r.total.toFixed(0)}</span></div>`).join('')}
     </div>`;
   }).join('');
 }
@@ -1624,10 +1731,11 @@ function showSlip(){
   const fat=parseFloat(document.getElementById('p-fat').value)||0;
   const snf=parseFloat(document.getElementById('p-snf').value)||0;
   const date=document.getElementById('p-date').value||new Date().toISOString().split('T')[0];
-  if(!supplier||!qty||!fat||!snf){showAlert('procAlert','alert-red','⚠️ Fill all fields to generate slip');return;}
-  const rate=getRateFromTable(fat,snf);
+  const rr=getProcRate(supplier,fat,snf);
+  if(!supplier||!qty||(rr.method!=='fixed'&&(!fat||!snf))){showAlert('procAlert','alert-red','⚠️ Fill all fields to generate slip');return;}
+  const rate=rr.rate;
   const total=(qty*rate).toFixed(2);
-  const dec=fat>=4&&snf>=8.3?'GOOD BUY':fat>=3.8&&snf>=8.1?'SAFE BUY':'POOR QUALITY';
+  const dec=rr.method==='fixed'?'FIXED RATE':fat>=4&&snf>=8.3?'GOOD BUY':fat>=3.8&&snf>=8.1?'SAFE BUY':'POOR QUALITY';
   const slipNo='#'+Date.now().toString().slice(-6);
   currentSlipData={supplier,qty,fat,snf,date,rate,total,dec,slipNo};
   document.getElementById('slipContent').innerHTML=`
@@ -1643,8 +1751,8 @@ function showSlip(){
     <hr class="slip-divider"/>
     <div class="slip-row"><span class="slip-row-label">Supplier</span><span class="slip-row-val">${supplier}</span></div>
     <div class="slip-row"><span class="slip-row-label">Milk Qty</span><span class="slip-row-val">${qty} L</span></div>
-    <div class="slip-row"><span class="slip-row-label">Fat %</span><span class="slip-row-val">${fat}%</span></div>
-    <div class="slip-row"><span class="slip-row-label">SNF %</span><span class="slip-row-val">${snf}%</span></div>
+    <div class="slip-row"><span class="slip-row-label">Fat %</span><span class="slip-row-val">${fat?fat+'%':'—'}</span></div>
+    <div class="slip-row"><span class="slip-row-label">SNF %</span><span class="slip-row-val">${snf?snf+'%':'—'}</span></div>
     <div class="slip-row"><span class="slip-row-label">Rate</span><span class="slip-row-val">₹${rate}/L</span></div>
     <div class="slip-row"><span class="slip-row-label">Quality</span><span class="slip-row-val">${dec}</span></div>
     <hr class="slip-divider"/>
@@ -1676,8 +1784,8 @@ function buildThermalText(d){
     dash,
     tw('Supplier:',d.supplier),
     tw('Milk Qty:',d.qty+' L'),
-    tw('Fat %:',d.fat+'%'),
-    tw('SNF %:',d.snf+'%'),
+    tw('Fat %:',d.fat?d.fat+'%':'-'),
+    tw('SNF %:',d.snf?d.snf+'%':'-'),
     tw('Rate:','Rs.'+d.rate+'/L'),
     tw('Quality:',d.dec),
     line,
@@ -3890,7 +3998,7 @@ function clearCipRecords(){if(confirm('Delete ALL CIP records?')){cipLogs=[];sto
 // ═══ FIREBASE CLOUD SYNC ═══
 var _fb=null,_fbReady=false,_fbListening=false;
 var _syncKeys=['records','distRecords','testRecords','productionBatches','cipLogs',
-  'users','settings','savedSuppliers','savedDistributors','attRecords',
+  'users','settings','savedSuppliers','savedDistributors','supplierRates','attRecords',
   'invEntries','invOpening','returnsLog','paymentsLog','auditLog'];
 
 function _initFB(){
@@ -3961,6 +4069,7 @@ function _listen(){
 function _refreshUI(){
   try{
     if(typeof renderAllRecords==='function')renderAllRecords();
+    if(typeof renderSupplierRates==='function')renderSupplierRates();
     if(typeof renderDistRecords==='function')renderDistRecords();
     if(typeof renderStockDashboard==='function')renderStockDashboard();
     if(typeof renderBatchList==='function')renderBatchList();
@@ -4194,7 +4303,8 @@ function exportAllData(){
     records:records,distRecords:distRecords,testRecords:testRecords,
     productionBatches:productionBatches,cipLogs:cipLogs,attRecords:attRecords,
     invEntries:invEntries,invOpening:invOpening,returnsLog:returnsLog,
-    paymentsLog:paymentsLog,auditLog:auditLog,settings:settings,users:users
+    paymentsLog:paymentsLog,auditLog:auditLog,settings:settings,users:users,
+    supplierRates:supplierRates
   };
   var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   var url=URL.createObjectURL(blob);
@@ -4280,6 +4390,7 @@ doLogin = function(){
   setToday();loadSettings();
   if(!isRider){
     try{renderUsers();}catch(e){}
+    try{renderSupplierRates();}catch(e){}
     try{renderAllRecords();}catch(e){}
     try{renderDistRecords();}catch(e){}
     try{renderTestHistory();}catch(e){}
