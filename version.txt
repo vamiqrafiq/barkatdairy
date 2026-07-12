@@ -1,1 +1,1 @@
-2026-07-12 · v72 (batch rename + remembered culture & pasteurization defaults)
+2026-07-12 · v73 (fix: new/renamed batches get permanent internal id — no longer vanish when reusing a renamed/deleted batch name)

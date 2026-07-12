@@ -2687,7 +2687,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-12 · v72 (batch rename + remembered culture & pasteurization defaults)';
+var APP_BUILD='2026-07-12 · v73 (fix: new/renamed batches get permanent internal id — no longer vanish when reusing a renamed/deleted batch name)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -6584,6 +6584,10 @@ function createBatch(){
   const batchId='BDP-'+suffix;
   if(productionBatches.some(b=>b&&b.batchId===batchId)){showAlert('newBatchAlert','alert-red','⚠️ Batch ID '+batchId+' already exists — choose another suffix');return;}
   const batch={
+    // Permanent internal id: sync identity (_rid) uses it, so the visible batchId
+    // is a pure label — reusable even if that name was tombstoned by an old
+    // rename/delete, and renames never risk the record being pruned.
+    id:_uid(),
     batchId, status:'active', date:g('nb-date')||now.toISOString().split('T')[0],
     createdAt:now.toISOString(), createdBy:currentUser?currentUser.name:'Staff',
     procIds, linkedLots:lots, linkedLotId:lots.join(', '), linkedSupplier:Array.from(new Set(suppliers)).join(', '),
@@ -6656,8 +6660,9 @@ function batchCardHTML(b){
 }
 function deleteBatchById(id){
   if(!confirm('Permanently delete batch '+id+'? This cannot be undone.'))return;
-  productionBatches=productionBatches.filter(b=>b&&b.batchId!==id);
-  _markDeleted('productionBatches',id);
+  const b=productionBatches.find(x=>x&&x.batchId===id);
+  productionBatches=productionBatches.filter(x=>x&&x.batchId!==id);
+  _markDeleted('productionBatches',b?_rid(b):id); // tombstone the sync identity (internal id if present)
   store('productionBatches',productionBatches);
   renderBatchList();renderColdStore();
 }
@@ -6712,9 +6717,13 @@ function renameBatch(id){
   if(!next||next===cur)return;
   if(!/^[A-Za-z0-9][A-Za-z0-9_-]{0,29}$/.test(next)){alert('Batch ID can only use letters, numbers, dash or underscore (max 30 chars).');return;}
   if(productionBatches.some(x=>x&&x.batchId===next)){alert('Batch ID '+next+' already exists — choose another.');return;}
-  if(_isDeleted('productionBatches',next)){alert('Batch ID '+next+' belonged to a deleted batch and cannot be reused.');return;}
-  // batchId is the sync key — tombstone the old one so other devices drop the old copy
-  _markDeleted('productionBatches',cur);
+  if(b.id==null){
+    // Legacy batch: its sync identity WAS the name. Give it a permanent id so the
+    // name becomes a pure label, and tombstone the old name once so other devices
+    // drop their stale copy (the id-bearing record is immune to name tombstones).
+    b.id=_uid();
+    _markDeleted('productionBatches',cur);
+  }
   b.batchId=next;
   // Keep dispatch records pointing at the renamed batch (cold-store cup counts depend on this)
   let distChanged=false;
@@ -7138,7 +7147,7 @@ function deleteBatch(){
   const b=productionBatches.find(x=>x.batchId===currentBatchId);if(!b)return;
   if(!confirm('Delete batch '+b.batchId+'? This cannot be undone.'))return;
   productionBatches=productionBatches.filter(x=>x.batchId!==currentBatchId);
-  _markDeleted('productionBatches',currentBatchId);
+  _markDeleted('productionBatches',_rid(b)); // tombstone the sync identity (internal id if present)
   store('productionBatches',productionBatches);
   document.getElementById('batchModal').classList.remove('open');
   clearInterval(window._incubTimer);
