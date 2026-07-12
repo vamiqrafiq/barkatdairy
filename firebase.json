@@ -22,7 +22,7 @@
         ]
       },
       {
-        "source": "**/*.png",
+        "source": "**/*.@(png|ico)",
         "headers": [
           {
             "key": "Cache-Control",

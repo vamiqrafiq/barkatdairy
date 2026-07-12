@@ -1,1 +1,1 @@
-2026-07-12 · v74 (favicon + home-screen icons from the badge logo)
+2026-07-12 · v75 (favicon.ico at root so tabs/bookmarks show the logo)
