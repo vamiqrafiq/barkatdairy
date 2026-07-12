@@ -7,7 +7,7 @@
       "database.rules.json",
       "README.md",
       "web.html",
-      "*.png",
+      "ChatGPT*.png",
       "logo_b64.txt",
       ".git/**"
     ],
@@ -18,6 +18,15 @@
           {
             "key": "Cache-Control",
             "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "**/*.png",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=604800"
           }
         ]
       }

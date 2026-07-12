@@ -1,1 +1,1 @@
-2026-07-12 · v73 (fix: new/renamed batches get permanent internal id — no longer vanish when reusing a renamed/deleted batch name)
+2026-07-12 · v74 (favicon + home-screen icons from the badge logo)
