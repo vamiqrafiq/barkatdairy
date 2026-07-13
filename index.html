@@ -2695,7 +2695,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-13 · v79 (procurement & billing audit: double-count/duplicate/negative-amount guards, lot-ID fix, batch-link delete warning)';
+var APP_BUILD='2026-07-13 · v80 (bills: loose cups on their own line with value; bill note printed on all formats)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -4122,8 +4122,17 @@ function billParts(r){
   if(cr2===0&&ex2===0&&(r.c200||0)>0) del2=(r.c200||0)+ret2;
   if(cr4===0&&ex4===0&&(r.c400||0)>0) del4=(r.c400||0)+ret4;
   const items=[], returns=[];
-  if(del2>0) items.push({label:'200g Yogurt Cups',crates:cr2,extra:ex2,cups:del2,rate:p200,amount:del2*p200});
-  if(del4>0) items.push({label:'400g Yogurt Cups',crates:cr4,extra:ex4,cups:del4,rate:p400,amount:del4*p400});
+  // Loose (extra) cups get their OWN line with count and value, so a bill like
+  // "3 crates + 10 loose" shows both parts separately; the total includes both.
+  const crateOnly2=cr2*CPC200, crateOnly4=cr4*CPC400;
+  if(cr2>0&&ex2>0){
+    items.push({label:'200g Yogurt Cups',crates:cr2,extra:0,cups:crateOnly2,rate:p200,amount:crateOnly2*p200});
+    items.push({label:'200g Loose Cups',crates:0,extra:0,cups:ex2,rate:p200,amount:ex2*p200,loose:true});
+  }else if(del2>0) items.push({label:ex2>0&&cr2===0?'200g Loose Cups':'200g Yogurt Cups',crates:cr2,extra:0,cups:del2,rate:p200,amount:del2*p200,loose:ex2>0&&cr2===0});
+  if(cr4>0&&ex4>0){
+    items.push({label:'400g Yogurt Cups',crates:cr4,extra:0,cups:crateOnly4,rate:p400,amount:crateOnly4*p400});
+    items.push({label:'400g Loose Cups',crates:0,extra:0,cups:ex4,rate:p400,amount:ex4*p400,loose:true});
+  }else if(del4>0) items.push({label:ex4>0&&cr4===0?'400g Loose Cups':'400g Yogurt Cups',crates:cr4,extra:0,cups:del4,rate:p400,amount:del4*p400,loose:ex4>0&&cr4===0});
   if(ret2>0) returns.push({label:'200g',cups:ret2,rate:p200,amount:ret2*p200});
   if(ret4>0) returns.push({label:'400g',cups:ret4,rate:p400,amount:ret4*p400});
   const gross=items.reduce((s,x)=>s+x.amount,0);
@@ -4144,7 +4153,9 @@ function buildBillText(r){
   const B=billNumbers(r);
   const P=billParts(r);
   const L=['*BARKAT DAIRY PLANT*','Watlar, Ganderbal, Kashmir','_Pure Goodness, Blessed by Quality_','------------------------',
-    'Bill To: '+r.dist,'Date: '+r.date,'Bill No: DB-'+String(r.id).slice(-6),'------------------------'];
+    'Bill To: '+r.dist,'Date: '+r.date,'Bill No: DB-'+String(r.id).slice(-6)];
+  if(r.note&&!(P.opening>0))L.push('Note: '+r.note);
+  L.push('------------------------');
   P.items.forEach(function(x){
     L.push(x.label+': '+_qtyText(x)+' × Rs.'+x.rate+'/cup = Rs.'+x.amount.toFixed(0));
   });
@@ -4212,6 +4223,7 @@ function showDistBill(id,keepMode){
       <div><b>Bill To:</b> ${_esc(r.dist)}</div>
       <div><b>Date:</b> ${r.date}<br/><b>Bill No:</b> ${billNo}</div>
     </div>
+    ${(r.note&&!(P.opening>0))?`<div style="font-size:11px;color:var(--gray);padding:2px 12px 6px;font-style:italic">📝 ${_esc(r.note)}</div>`:''}
     <table class="dist-bill-table">
       <thead><tr><th>Item</th><th>Quantity</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
       <tbody>${itemRows}${openingRow}</tbody>
@@ -4977,6 +4989,10 @@ function buildBillPDF(r){
     ops.push({t:'text',x:cX.item,y:y+4,txt:String(P.note||'Opening balance / brought forward').slice(0,55),s:8,color:'#1e293b'});
     ops.push({t:'text',x:cX.amt,y:y+4,txt:'Rs.'+P.opening.toFixed(0),s:9,color:'#1e293b'});
     y+=22;
+  }
+  if(r.note&&!(P.opening>0)){
+    ops.push({t:'text',x:cX.item,y:y+2,txt:('Note: '+r.note).slice(0,80),s:8,color:'#6b7280'});
+    y+=16;
   }
 
   y+=4;

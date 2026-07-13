@@ -1,1 +1,1 @@
-2026-07-13 · v79 (procurement & billing audit: double-count/duplicate/negative-amount guards, lot-ID fix, batch-link delete warning)
+2026-07-13 · v80 (bills: loose cups on their own line with value; bill note printed on all formats)
