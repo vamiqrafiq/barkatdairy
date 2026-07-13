@@ -2365,6 +2365,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     return _origGetById(id) || _dummy;
   };
 })();
+// getElementById above NEVER returns null (missing ids get a shared hidden dummy
+// div whose .value is undefined). Use _elById wherever existence actually matters.
+function _elById(id){var e=document.getElementById(id);return (e&&e.id===id)?e:null;}
 function _esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 // Supports both legacy role:string and new roles:array
 function _hasRole(user,role){if(!user)return false;if(Array.isArray(user.roles))return user.roles.includes(role);return user.role===role;}
@@ -2692,7 +2695,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-13 · v77 (fix: editing cup-based bills no longer zeroes them — 27 Jun Shafi bill restored)';
+var APP_BUILD='2026-07-13 · v78 (bill edit fixed on today’s entries + loose cups & note fields; edit panels survive sync)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3582,6 +3585,11 @@ function renderDistBatchPicker(){
     </div>`;
   }).join('');
 }
+// Restored/legacy bills store cups directly with crates=0 — their edit panels
+// must show cup inputs, not crate inputs (see 27 Jun Shafi incident, v77).
+function _isCupBasedBill(r){
+  return (r.crates200||0)===0&&(r.crates400||0)===0&&(r.extra200||0)===0&&(r.extra400||0)===0&&((r.c200||0)>0||(r.c400||0)>0);
+}
 // ── Batch picker inside a bill's ✏️ edit panel: retro-tag which batches went
 // out on an already-saved bill (traceability + cold-store subtraction). ──
 function _bpRows(sel){
@@ -3604,7 +3612,7 @@ function _bpToggle(row){
   if(chk){chk.style.background=on?'var(--teal)':'#fff';chk.style.borderColor=on?'var(--teal)':'#cbd5e1';chk.textContent=on?'✓':'';}
 }
 function _bpRead(containerId){
-  const el=document.getElementById(containerId);if(!el)return null;
+  const el=_elById(containerId);if(!el)return null;
   return Array.prototype.map.call(el.querySelectorAll('[data-id]'),function(x){return x.dataset.on==='1'?x.dataset.id:null;}).filter(Boolean).join(',');
 }
 var _distBatchSel={};
@@ -3640,7 +3648,7 @@ function renderDistRecords(){
   document.getElementById('distTodayTotal').textContent=todayRecs.length?`${todayCups} cups · ₹${todayBill.toFixed(0)}`:'';
   const todayEl=document.getElementById('distTodayList');
   if(todayRecs.length===0){todayEl.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No entries today</div></div>';}
-  else todayEl.innerHTML=todayRecs.map(r=>distRecordHTML(r)).join('');
+  else todayEl.innerHTML=todayRecs.map(r=>distRecordHTML(r,'t_')).join('');
 
   // Distributor Balances — use getDistBalance for accuracy (includes Payments tab)
   const balEl=document.getElementById('distBalances');
@@ -3680,12 +3688,18 @@ function renderDistRecords(){
     </div>`;
   }).join('');
 }
-function distRecordHTML(r){
+function distRecordHTML(r,ctx){
   const paid=r.paid||0;
+  // Today's bills render twice (Today section + date history) — ctx prefixes the
+  // edit-panel DOM ids so the two copies don't collide (duplicate ids made ✏️
+  // open the OTHER copy's hidden panel — "edit does nothing" on today's entries).
+  const K=(ctx||'')+r.id;
   // Live current balance (billed − paid − logged payments) so a cleared account
   // actually reads as cleared; the stored r.balance is a stale snapshot.
   const liveBal=getDistBalance(r.dist);
   const balColor=liveBal>0.5?'var(--red)':'var(--green)';
+  // Restored/legacy bills store cups directly (crates 0) → edit cups, not crates
+  const cupBased=_isCupBasedBill(r);
   return`<div class="dist-record">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
       <div>
@@ -3711,56 +3725,73 @@ function distRecordHTML(r){
       <button class="btn btn-sm btn-teal" style="flex:1" onclick="showDistBill(${r.id})">📄 Bill</button>
       <button class="btn btn-sm" style="flex-shrink:0;background:#0f766e;color:#fff;border:none" onclick="openDistLedger('${_esc(r.dist).replace(/'/g,"\\'")}')">📒</button>
       <button class="btn btn-sm" style="flex-shrink:0;background:#25D366;color:#fff;border:none" onclick="whatsappBill(${r.id})">📲</button>
-      <button class="btn btn-sm btn-outline" style="flex-shrink:0" onclick="toggleDistEdit(${r.id})">✏️</button>
+      <button class="btn btn-sm btn-outline" style="flex-shrink:0" onclick="toggleDistEdit('${K}')">✏️</button>
       <button class="btn btn-sm btn-red" style="flex-shrink:0" onclick="deleteDistRecord(${r.id})">🗑</button>
     </div>
-    <div id="distEdit-${r.id}" style="display:none;margin-top:8px;padding:8px;background:var(--light);border-radius:9px">
+    <div id="distEdit-${K}" style="display:none;margin-top:8px;padding:8px;background:var(--light);border-radius:9px">
+      ${cupBased?`
+      <div style="font-size:10px;color:var(--gray);margin-bottom:6px">📦 This bill was saved with cup totals (no crate split) — edit the cups directly.</div>
       <div class="grid2" style="margin-bottom:6px">
-        <div><label class="inp-label">200g crates</label><input type="number" id="de-cr200-${r.id}" step="1" value="${r.crates200!=null?r.crates200:''}" placeholder="0"/></div>
-        <div><label class="inp-label">400g crates</label><input type="number" id="de-cr400-${r.id}" step="1" value="${r.crates400!=null?r.crates400:''}" placeholder="0"/></div>
+        <div><label class="inp-label">200g cups (total)</label><input type="number" id="de-c200-${K}" step="1" value="${r.c200||0}"/></div>
+        <div><label class="inp-label">400g cups (total)</label><input type="number" id="de-c400-${K}" step="1" value="${r.c400||0}"/></div>
+      </div>`:`
+      <div class="grid2" style="margin-bottom:6px">
+        <div><label class="inp-label">200g crates</label><input type="number" id="de-cr200-${K}" step="1" value="${r.crates200!=null?r.crates200:''}" placeholder="0"/></div>
+        <div><label class="inp-label">400g crates</label><input type="number" id="de-cr400-${K}" step="1" value="${r.crates400!=null?r.crates400:''}" placeholder="0"/></div>
       </div>
       <div class="grid2" style="margin-bottom:6px">
-        <div><label class="inp-label">200g returned</label><input type="number" id="de-ret200-${r.id}" step="1" value="${r.ret200||0}"/></div>
-        <div><label class="inp-label">400g returned</label><input type="number" id="de-ret400-${r.id}" step="1" value="${r.ret400||0}"/></div>
+        <div><label class="inp-label">200g loose cups</label><input type="number" id="de-ex200-${K}" step="1" value="${r.extra200||0}"/></div>
+        <div><label class="inp-label">400g loose cups</label><input type="number" id="de-ex400-${K}" step="1" value="${r.extra400||0}"/></div>
       </div>
       <div class="grid2" style="margin-bottom:6px">
-        <div><label class="inp-label">200g rate</label><input type="number" id="de-r200-${r.id}" step="0.5" value="${r.rate200!=null?r.rate200:(settings.p200||18)}"/></div>
-        <div><label class="inp-label">400g rate</label><input type="number" id="de-r400-${r.id}" step="0.5" value="${r.rate400!=null?r.rate400:(settings.p400||34)}"/></div>
+        <div><label class="inp-label">200g returned</label><input type="number" id="de-ret200-${K}" step="1" value="${r.ret200||0}"/></div>
+        <div><label class="inp-label">400g returned</label><input type="number" id="de-ret400-${K}" step="1" value="${r.ret400||0}"/></div>
+      </div>`}
+      <div class="grid2" style="margin-bottom:6px">
+        <div><label class="inp-label">200g rate</label><input type="number" id="de-r200-${K}" step="0.5" value="${r.rate200!=null?r.rate200:(settings.p200||18)}"/></div>
+        <div><label class="inp-label">400g rate</label><input type="number" id="de-r400-${K}" step="0.5" value="${r.rate400!=null?r.rate400:(settings.p400||34)}"/></div>
       </div>
-      <div style="margin-bottom:6px"><label class="inp-label">Paid (₹)</label><input type="number" id="de-paid-${r.id}" value="${r.paid||0}"/></div>
+      <div style="margin-bottom:6px"><label class="inp-label">Paid (₹)</label><input type="number" id="de-paid-${K}" value="${r.paid||0}"/></div>
+      <div style="margin-bottom:6px"><label class="inp-label">📝 Note / description (shows on the bill card)</label><input type="text" id="de-note-${K}" value="${_esc(r.note||'')}" placeholder="e.g. +1 crate 400g added in evening"/></div>
       <div style="margin-bottom:6px"><label class="inp-label">🧫 Batches in this bill (tick one or more)</label>
-        <div id="de-batches-${r.id}" style="max-height:130px;overflow-y:auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px">${_bpRows(r.batchIds)}</div></div>
-      <button class="btn btn-primary btn-sm btn-full" onclick="saveDistEdit(${r.id})">💾 Save changes</button>
+        <div id="de-batches-${K}" style="max-height:130px;overflow-y:auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px">${_bpRows(r.batchIds)}</div></div>
+      <button class="btn btn-primary btn-sm btn-full" onclick="saveDistEdit('${K}')">💾 Save changes</button>
     </div>
   </div>`;
 }
-function toggleDistEdit(id){const f=document.getElementById('distEdit-'+id);if(f)f.style.display=f.style.display==='none'?'block':'none';}
+function toggleDistEdit(id){_toggleEditPanel('distEdit-'+id);}
 function saveDistEdit(id){
-  const r=distRecords.find(x=>String(x.id)===String(id));if(!r)return;
+  // id may carry the Today-section DOM prefix ('t_<recordId>') — strip for lookup,
+  // keep the full key for reading this panel's inputs.
+  const r=distRecords.find(x=>String(x.id)===String(id).replace(/^t_/,''));if(!r)return;
   const oldAmount=r.amount||0,oldPaid=r.paid||0;
   const num=eid=>{const e=document.getElementById(eid);return e?(parseFloat(e.value)||0):0;};
-  r.crates200=num('de-cr200-'+id);r.crates400=num('de-cr400-'+id);
-  r.ret200=num('de-ret200-'+id);r.ret400=num('de-ret400-'+id);
+  if(_elById('de-c200-'+id)){
+    // Cup-based bill panel: cups edited directly, crate fields untouched
+    r.c200=Math.max(0,num('de-c200-'+id));r.c400=Math.max(0,num('de-c400-'+id));
+  }else{
+    r.crates200=num('de-cr200-'+id);r.crates400=num('de-cr400-'+id);
+    r.extra200=num('de-ex200-'+id);r.extra400=num('de-ex400-'+id);
+    r.ret200=num('de-ret200-'+id);r.ret400=num('de-ret400-'+id);
+    const nc200=Math.max(0,r.crates200*CPC200+r.extra200-r.ret200);
+    const nc400=Math.max(0,r.crates400*CPC400+r.extra400-r.ret400);
+    // Backstop: never let empty crate inputs zero a bill that has cups.
+    if(!(nc200===0&&nc400===0&&((r.c200||0)>0||(r.c400||0)>0))){r.c200=nc200;r.c400=nc400;}
+    r.crates=r.crates200+r.crates400;
+  }
   r.rate200=num('de-r200-'+id);r.rate400=num('de-r400-'+id);
   r.paid=num('de-paid-'+id);
-  // include extra cups (this panel has no extras fields — keep the stored ones,
-  // otherwise editing a bill with extras would silently shrink its amount)
-  const nc200=Math.max(0,r.crates200*CPC200+(r.extra200||0)-r.ret200);
-  const nc400=Math.max(0,r.crates400*CPC400+(r.extra400||0)-r.ret400);
-  // Cup-based bills (restored/legacy records store cups directly, crates 0):
-  // recomputing from empty crate inputs would zero them — keep stored cups.
-  if(!(nc200===0&&nc400===0&&((r.c200||0)>0||(r.c400||0)>0))){r.c200=nc200;r.c400=nc400;}
-  r.crates=r.crates200+r.crates400;
+  const noteEl=_elById('de-note-'+id);if(noteEl)r.note=noteEl.value.trim();
   r.amount=r.c200*r.rate200+r.c400*r.rate400;
   r.balance=(r.prevBalance||0)+r.amount-r.paid;
   const nb=_bpRead('de-batches-'+id);
   if(nb!==null&&nb!==(r.batchIds||'')){
-    _audit('distribution','edit-batches',id,r.batchIds||'—',nb||'—','Bill batches edited · '+r.dist+' · '+(r.date||'no date'));
+    _audit('distribution','edit-batches',r.id,r.batchIds||'—',nb||'—','Bill batches edited · '+r.dist+' · '+(r.date||'no date'));
     r.batchIds=nb;
   }
   store('distRecords',distRecords);
   if(r.amount!==oldAmount||r.paid!==oldPaid)
-    _audit('distribution','edit',id,'₹'+oldAmount.toFixed(0)+' paid ₹'+oldPaid.toFixed(0),'₹'+r.amount.toFixed(0)+' paid ₹'+r.paid.toFixed(0),'Bill edited · '+r.dist+' · '+(r.date||'no date'));
+    _audit('distribution','edit',r.id,'₹'+oldAmount.toFixed(0)+' paid ₹'+oldPaid.toFixed(0),'₹'+r.amount.toFixed(0)+' paid ₹'+r.paid.toFixed(0),'Bill edited · '+r.dist+' · '+(r.date||'no date'));
   renderDistRecords();
   try{renderColdStore();}catch(e){}
   showAlert('distAlert','alert-green','✅ Bill updated');
@@ -3801,10 +3832,14 @@ function renderDistLedger(){
           <button class="btn btn-sm btn-red" onclick="deleteDistRecord(${r.id});renderDistLedger()">🗑</button>
         </div>
         <div id="ledDe-${r.id}" style="display:none;margin-top:6px;background:var(--light);padding:8px;border-radius:8px">
+          ${_isCupBasedBill(r)?`
+          <div style="font-size:10px;color:var(--gray);margin-bottom:5px">📦 This bill was saved with cup totals (no crate split) — edit the cups directly.</div>
+          <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g cups (total)</label><input type="number" id="lde-c200-${r.id}" value="${r.c200||0}"/></div><div><label class="inp-label">400g cups (total)</label><input type="number" id="lde-c400-${r.id}" value="${r.c400||0}"/></div></div>`:`
           <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g crates</label><input type="number" id="lde-cr200-${r.id}" value="${r.crates200!=null?r.crates200:''}" placeholder="0"/></div><div><label class="inp-label">400g crates</label><input type="number" id="lde-cr400-${r.id}" value="${r.crates400!=null?r.crates400:''}" placeholder="0"/></div></div>
-          <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g extra cups</label><input type="number" id="lde-ex200-${r.id}" value="${r.extra200||0}"/></div><div><label class="inp-label">400g extra cups</label><input type="number" id="lde-ex400-${r.id}" value="${r.extra400||0}"/></div></div>
-          <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g returned</label><input type="number" id="lde-ret200-${r.id}" value="${r.ret200||0}"/></div><div><label class="inp-label">400g returned</label><input type="number" id="lde-ret400-${r.id}" value="${r.ret400||0}"/></div></div>
+          <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g loose cups</label><input type="number" id="lde-ex200-${r.id}" value="${r.extra200||0}"/></div><div><label class="inp-label">400g loose cups</label><input type="number" id="lde-ex400-${r.id}" value="${r.extra400||0}"/></div></div>
+          <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g returned</label><input type="number" id="lde-ret200-${r.id}" value="${r.ret200||0}"/></div><div><label class="inp-label">400g returned</label><input type="number" id="lde-ret400-${r.id}" value="${r.ret400||0}"/></div></div>`}
           <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g rate</label><input type="number" id="lde-r200-${r.id}" step="0.5" value="${r.rate200!=null?r.rate200:(settings.p200||18)}"/></div><div><label class="inp-label">400g rate</label><input type="number" id="lde-r400-${r.id}" step="0.5" value="${r.rate400!=null?r.rate400:(settings.p400||34)}"/></div></div>
+          <div style="margin-bottom:5px"><label class="inp-label">📝 Note / description</label><input type="text" id="lde-note-${r.id}" value="${_esc(r.note||'')}" placeholder="e.g. +1 crate 400g added in evening"/></div>
           <div style="margin-bottom:5px"><label class="inp-label">🧫 Batches in this bill (tick one or more)</label>
             <div id="lde-batches-${r.id}" style="max-height:130px;overflow-y:auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px">${_bpRows(r.batchIds)}</div></div>
           <div style="font-size:10px;color:var(--gray);margin-bottom:6px">💡 To record a payment, use "＋ Record payment received" at the top — each payment is its own entry so they add up.</div>
@@ -3874,7 +3909,7 @@ function savePaymentFor(){
   try{_audit('payments','add',rec.id,'','₹'+amt+' from '+dist,'Payment (ledger)');}catch(e){}
   _reRenderDistAll();
 }
-function togglePayEdit(id){const f=document.getElementById('payEdit-'+id);if(f)f.style.display=f.style.display==='none'?'block':'none';}
+function togglePayEdit(id){_toggleEditPanel('payEdit-'+id);}
 function savePaymentEdit(id){
   const p=paymentsLog.find(x=>String(x.id)===String(id));if(!p)return;
   const oldAmount=p.amount||0,oldDate=p.date||'';
@@ -3896,21 +3931,26 @@ function deletePayment(id){
   _audit('payments','delete',id,'₹'+(p.amount||0).toFixed(0)+' from '+(p.dist||'?')+' · '+(p.date||'no date'),'','Payment deleted');
   _reRenderDistAll();
 }
-function toggleLedgerDe(id){const f=document.getElementById('ledDe-'+id);if(f)f.style.display=f.style.display==='none'?'block':'none';}
+function toggleLedgerDe(id){_toggleEditPanel('ledDe-'+id);}
 function saveLedgerDe(id){
   const r=distRecords.find(x=>String(x.id)===String(id));if(!r)return;
   const oldAmount=r.amount||0;
   const num=eid=>{const e=document.getElementById(eid);return e?(parseFloat(e.value)||0):0;};
-  r.crates200=num('lde-cr200-'+id);r.crates400=num('lde-cr400-'+id);
-  r.extra200=num('lde-ex200-'+id);r.extra400=num('lde-ex400-'+id);
-  r.ret200=num('lde-ret200-'+id);r.ret400=num('lde-ret400-'+id);
+  if(_elById('lde-c200-'+id)){
+    // Cup-based bill panel: cups edited directly, crate fields untouched
+    r.c200=Math.max(0,num('lde-c200-'+id));r.c400=Math.max(0,num('lde-c400-'+id));
+  }else{
+    r.crates200=num('lde-cr200-'+id);r.crates400=num('lde-cr400-'+id);
+    r.extra200=num('lde-ex200-'+id);r.extra400=num('lde-ex400-'+id);
+    r.ret200=num('lde-ret200-'+id);r.ret400=num('lde-ret400-'+id);
+    const nc200=Math.max(0,r.crates200*CPC200+r.extra200-r.ret200);
+    const nc400=Math.max(0,r.crates400*CPC400+r.extra400-r.ret400);
+    // Backstop: never let empty crate inputs zero a bill that has cups.
+    if(!(nc200===0&&nc400===0&&((r.c200||0)>0||(r.c400||0)>0))){r.c200=nc200;r.c400=nc400;}
+    r.crates=r.crates200+r.crates400;
+  }
   r.rate200=num('lde-r200-'+id);r.rate400=num('lde-r400-'+id);
-  const nc200=Math.max(0,r.crates200*CPC200+r.extra200-r.ret200);
-  const nc400=Math.max(0,r.crates400*CPC400+r.extra400-r.ret400);
-  // Cup-based bills (restored/legacy records store cups directly, crates 0):
-  // recomputing from empty crate inputs would zero them — keep stored cups.
-  if(!(nc200===0&&nc400===0&&((r.c200||0)>0||(r.c400||0)>0))){r.c200=nc200;r.c400=nc400;}
-  r.crates=r.crates200+r.crates400;
+  const lnEl=_elById('lde-note-'+id);if(lnEl)r.note=lnEl.value.trim();
   r.amount=r.c200*r.rate200+r.c400*r.rate400;
   const nb=_bpRead('lde-batches-'+id);
   if(nb!==null&&nb!==(r.batchIds||'')){
@@ -6735,7 +6775,7 @@ function _obTime(label,b,field){
 function _readBatchInputs(b){
   const g=id=>{const e=document.getElementById(id);return e?e.value:undefined;};
   const num=id=>{const e=document.getElementById(id);return e?(e.value!==''?(parseFloat(e.value)||0):0):b[id];};
-  if(!document.getElementById('ob-water'))return;
+  if(!_elById('ob-water'))return; // legacy-batch modal renders no inputs — don't zero fields
   b.waterAdded=num('ob-water');b.smpAdded=num('ob-smp');b.finalVol=num('ob-fvol');b.finalFat=num('ob-ffat');b.finalSnf=num('ob-fsnf');
   b.cultureBrand=(g('ob-cbrand')||'').trim();b.cultureExpiry=g('ob-cexp')||'';b.cultureMl=num('ob-cml');
   b.pasteurized=g('ob-pdone')||'Yes';b.homogenized=g('ob-homog')||'Yes';b.pastTemp=num('ob-ptemp');b.pastTime=num('ob-ptime');b.finalTempPack=num('ob-ftemp');
@@ -8079,7 +8119,25 @@ function _listen(){
     });
   });
 }
+// True while a bill/payment ✏️ edit panel is open and visible — a sync-driven
+// re-render would wipe it mid-typing (the "can't edit today's entries" bug:
+// busy-day sync events re-rendered the list every few seconds).
+function _editPanelOpen(){
+  try{
+    return Array.prototype.some.call(
+      document.querySelectorAll('[id^="distEdit-"],[id^="ledDe-"],[id^="payEdit-"]'),
+      function(el){return el.style.display!=='none'&&el.offsetParent!==null;});
+  }catch(e){return false;}
+}
+// Close an edit panel; if a cloud refresh was deferred while it was open, run it now.
+function _toggleEditPanel(elId){
+  const f=document.getElementById(elId);if(!f)return;
+  f.style.display=f.style.display==='none'?'block':'none';
+  if(f.style.display==='none'&&window._uiDirty){window._uiDirty=false;_refreshUI();}
+}
 function _refreshUI(){
+  if(_editPanelOpen()){window._uiDirty=true;return;} // don't wipe an open edit form
+  window._uiDirty=false;
   try{
     if(typeof renderUsers==='function')renderUsers();
     if(typeof renderSupplierRates==='function')renderSupplierRates();
