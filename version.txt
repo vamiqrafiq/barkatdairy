@@ -1,1 +1,1 @@
-2026-07-13 · v78 (bill edit fixed on today’s entries + loose cups & note fields; edit panels survive sync)
+2026-07-13 · v79 (procurement & billing audit: double-count/duplicate/negative-amount guards, lot-ID fix, batch-link delete warning)

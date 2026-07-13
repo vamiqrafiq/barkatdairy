@@ -2695,7 +2695,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-13 · v78 (bill edit fixed on today’s entries + loose cups & note fields; edit panels survive sync)';
+var APP_BUILD='2026-07-13 · v79 (procurement & billing audit: double-count/duplicate/negative-amount guards, lot-ID fix, batch-link delete warning)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3204,6 +3204,11 @@ function saveProc(){
   if(!supplier||!qty||!date||(rr.method!=='fixed'&&(!fat||!snf))){
     showAlert('procAlert','alert-red','⚠️ Please fill all fields');return;
   }
+  // Double-tap / duplicate guard: an identical entry inflates milk cost silently
+  const dupProc=records.find(r=>r&&r.supplier===supplier&&r.date===date&&(parseFloat(r.qty)||0)===qty);
+  if(dupProc&&!confirm('An entry for '+supplier+' on '+date+' with '+qty+'L already exists ('+(dupProc.lotId||'no lot')+', ₹'+(dupProc.total||0).toFixed(0)+').\n\nSave ANOTHER identical entry?')){
+    showAlert('procAlert','alert-red','Not saved — identical entry already exists.');return;
+  }
   const rate=rr.rate;
   const total=qty*rate;
   const lotId=genLotId(date);
@@ -3233,7 +3238,9 @@ function saveProc(){
 }
 function deleteProcRecord(id){
   const r=records.find(x=>String(x.id)===String(id));if(!r)return;
-  if(!confirm('Delete procurement entry for '+(r.supplier||'')+' ('+(r.qty||0)+'L)? This cannot be undone.'))return;
+  const linked=(Array.isArray(productionBatches)?productionBatches:[]).filter(b=>b&&Array.isArray(b.procIds)&&b.procIds.some(pid=>String(pid)===String(id)));
+  const linkTxt=linked.length?'\n\n⚠️ This lot is the milk source of batch '+linked.map(b=>b.batchId).join(', ')+' — deleting it breaks that batch\'s trace.':'';
+  if(!confirm('Delete procurement entry for '+(r.supplier||'')+' ('+(r.qty||0)+'L)?'+linkTxt+'\n\nThis cannot be undone.'))return;
   records=records.filter(x=>String(x.id)!==String(id));
   _markDeleted('records',id);
   store('records',records);
@@ -3460,8 +3467,8 @@ function calcDist(){
   const distName0=document.getElementById('d-dist').value.trim();
   const lr=_lastRates(distName0);
   const r200el=document.getElementById('d-rate200'),r400el=document.getElementById('d-rate400');
-  const p200=(r200el&&r200el.value!=='')?(parseFloat(r200el.value)||0):lr.r200;
-  const p400=(r400el&&r400el.value!=='')?(parseFloat(r400el.value)||0):lr.r400;
+  const p200=(r200el&&r200el.value!=='')?Math.max(0,parseFloat(r200el.value)||0):lr.r200;
+  const p400=(r400el&&r400el.value!=='')?Math.max(0,parseFloat(r400el.value)||0):lr.r400;
   const amt200=net200*p200;
   const amt400=net400*p400;
   const total=amt200+amt400;
@@ -3503,7 +3510,9 @@ function _dupPayCheck(dist,amount,date){
   return true;
 }
 function saveDist(){
-  const g=id=>parseFloat((document.getElementById(id)||{}).value)||0;
+  // quantities/paid can never be negative — a stray minus sign corrupts the
+  // amount, the balance and the crate inventory in one go
+  const g=id=>Math.max(0,parseFloat((document.getElementById(id)||{}).value)||0);
   const dist=document.getElementById('d-dist').value.trim();
   const date=document.getElementById('d-date').value;
   const cr200=g('d-crates200'), cr400=g('d-crates400');
@@ -3521,8 +3530,8 @@ function saveDist(){
   if(paid>0&&!_dupPayCheck(dist,paid,date)){showAlert('distAlert','alert-red','Not saved — the ₹'+paid.toFixed(0)+' payment looked already recorded. Set "Paid" to 0 and save again if the rider already collected it.');return;}
   const lr=_lastRates(dist);
   const r200el=document.getElementById('d-rate200'),r400el=document.getElementById('d-rate400');
-  const p200=(r200el&&r200el.value!=='')?(parseFloat(r200el.value)||0):lr.r200;
-  const p400=(r400el&&r400el.value!=='')?(parseFloat(r400el.value)||0):lr.r400;
+  const p200=(r200el&&r200el.value!=='')?Math.max(0,parseFloat(r200el.value)||0):lr.r200;
+  const p400=(r400el&&r400el.value!=='')?Math.max(0,parseFloat(r400el.value)||0):lr.r400;
   const amount=(c200*p200)+(c400*p400);
   const crates=cr200+cr400; // total physical crates (for inventory)
   // Carry-forward = this distributor's current outstanding (billed − paid-at-billing
@@ -3781,6 +3790,17 @@ function saveDistEdit(id){
   }
   r.rate200=num('de-r200-'+id);r.rate400=num('de-r400-'+id);
   r.paid=num('de-paid-'+id);
+  // Payments are their own ledger entries — increasing the bill's Paid box when a
+  // payment is already recorded deducts the same money TWICE from the balance.
+  if(r.paid>oldPaid){
+    const sameDay=(Array.isArray(paymentsLog)?paymentsLog:[]).filter(p=>p&&p.dist===r.dist&&p.date===r.date&&!p.pending);
+    if(sameDay.length){
+      const tot=sameDay.reduce((s,p)=>s+(p.amount||0),0);
+      if(!confirm('⚠️ ₹'+tot.toFixed(0)+' from '+r.dist+' on '+(r.date||'?')+' is ALREADY recorded in Payments.\n\nThe "Paid" box on this bill is a SECOND deduction — if it is the same money, press Cancel (the balance already includes it).\n\nIncrease this bill\'s Paid field anyway?')){
+        r.paid=oldPaid;
+      }
+    }
+  }
   const noteEl=_elById('de-note-'+id);if(noteEl)r.note=noteEl.value.trim();
   r.amount=r.c200*r.rate200+r.c400*r.rate400;
   r.balance=(r.prevBalance||0)+r.amount-r.paid;
@@ -3901,7 +3921,7 @@ function savePaymentFor(){
   const date=(document.getElementById('ld-pay-date')||{}).value||_today();
   const mode=(document.getElementById('ld-pay-mode')||{}).value||'Cash';
   const a=document.getElementById('ld-pay-alert');
-  if(!amt){if(a)a.innerHTML='<div class="alert alert-red">Enter an amount</div>';return;}
+  if(!(amt>0)){if(a)a.innerHTML='<div class="alert alert-red">Enter a valid amount above 0</div>';return;}
   if(!_dupPayCheck(dist,amt,date))return;
   const rec={id:_uid(),dist:dist,amount:amt,date:date,mode:mode,by:'',savedBy:currentUser?currentUser.name:'Staff'};
   paymentsLog.unshift(rec);
@@ -3957,6 +3977,7 @@ function saveLedgerDe(id){
     _audit('distribution','edit-batches',id,r.batchIds||'—',nb||'—','Bill batches edited (ledger) · '+r.dist+' · '+(r.date||'no date'));
     r.batchIds=nb;
   }
+  r.balance=(r.prevBalance||0)+r.amount-(r.paid||0); // keep the stored snapshot consistent
   store('distRecords',distRecords);
   if(r.amount!==oldAmount)
     _audit('distribution','edit',id,'₹'+oldAmount.toFixed(0),'₹'+r.amount.toFixed(0),'Delivery edited (ledger) · '+r.dist+' · '+(r.date||'no date'));
@@ -6438,8 +6459,11 @@ let cipLogs = load('cipLogs', []);
 function todayStr(){ return _today().replace(/-/g,''); }
 function genLotId(date){
   const d=(date||_today()).replace(/-/g,'');
-  const n=String(records.filter(r=>r.lotId&&r.lotId.startsWith('RM-'+d)).length+1).padStart(3,'0');
-  return 'RM-'+d+'-'+n;
+  // Highest existing suffix + 1 (count-based numbering reused a lot ID whenever
+  // an earlier entry of the day was deleted — duplicate lot IDs break tracing).
+  let max=0;
+  records.forEach(r=>{const m=r&&r.lotId&&String(r.lotId).match(new RegExp('^RM-'+d+'-0*(\\d+)$'));if(m){const n=parseInt(m[1],10);if(n>max)max=n;}});
+  return 'RM-'+d+'-'+String(max+1).padStart(3,'0');
 }
 function genBatchId(){
   // Sequential BDP-NNN, continuing from BDP-004 onwards.
@@ -8483,8 +8507,9 @@ function savePayment(){
   var mode=document.getElementById('pay-mode').value;
   var by=document.getElementById('pay-by').value.trim();
   if(!dist||!amount||!date){showAlert('payAlert','alert-red','⚠️ Select distributor, amount and date');return;}
+  if(!(amount>0)){showAlert('payAlert','alert-red','⚠️ Enter a valid amount above 0');return;}
   if(!_dupPayCheck(dist,amount,date))return;
-  var rec={id:Date.now(),dist:dist,amount:amount,date:date,mode:mode,by:by,
+  var rec={id:_uid(),dist:dist,amount:amount,date:date,mode:mode,by:by,
     savedBy:currentUser?currentUser.name:'Staff'};
   paymentsLog.unshift(rec);
   store('paymentsLog',paymentsLog);
