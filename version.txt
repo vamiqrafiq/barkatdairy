@@ -1,1 +1,1 @@
-2026-08-03 · v83 (tracker: ✏️ date correction on rider logs — deliveries, crates back, rider payments, fuel)
+2026-08-03 · v84 (rider logs: backdate missed entries + manual crates-with-distributor counts)

@@ -1514,6 +1514,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
   <div class="section" style="margin-bottom:10px">
     <div class="sec-title">📦 Record Delivery</div>
     <div style="margin-bottom:6px"><label class="inp-label">Distributor</label><select id="rd-dist"></select></div>
+    <div style="margin-bottom:6px"><label class="inp-label">Date <span style="font-weight:400;color:var(--gray)">— change only when adding a missed earlier entry</span></label><input type="date" id="rd-date"/></div>
     <div class="grid2" style="margin-bottom:6px">
       <div><label class="inp-label">200g crates (filled)</label><input type="number" id="rd-cr200" min="0" step="1" placeholder="0" oninput="riderDropCalc()"/></div>
       <div><label class="inp-label">400g crates (filled)</label><input type="number" id="rd-cr400" min="0" step="1" placeholder="0" oninput="riderDropCalc()"/></div>
@@ -1533,10 +1534,27 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
   <div class="section" style="margin-bottom:10px">
     <div class="sec-title">🧺 Crates Received Back</div>
     <div style="margin-bottom:6px"><label class="inp-label">From whom (distributor)</label><select id="rc-dist"></select></div>
-    <div style="margin-bottom:8px"><label class="inp-label">Crates received</label><input type="number" id="rc-crates" min="0" step="1" placeholder="0"/></div>
+    <div class="grid2" style="margin-bottom:8px">
+      <div><label class="inp-label">Crates received</label><input type="number" id="rc-crates" min="0" step="1" placeholder="0"/></div>
+      <div><label class="inp-label">Date <span style="font-weight:400;color:var(--gray)">— for missed entries</span></label><input type="date" id="rc-date"/></div>
+    </div>
     <div id="riderCrateAlert"></div>
     <button class="btn btn-full" style="background:#0f766e;color:#fff;border:none" onclick="riderSaveCrate()">💾 Save Crates Received</button>
     <div id="riderCrateList" style="margin-top:10px"></div>
+  </div>
+
+  <!-- Manual count: crates currently held by a distributor -->
+  <div class="section" style="margin-bottom:10px">
+    <div class="sec-title">📊 Crates With Distributor</div>
+    <div style="font-size:10px;color:var(--gray);margin-bottom:8px">Physically counted crates a distributor is holding right now. Saving a new count for the same distributor replaces the old one.</div>
+    <div style="margin-bottom:6px"><label class="inp-label">Distributor</label><select id="rcc-dist"></select></div>
+    <div class="grid2" style="margin-bottom:8px">
+      <div><label class="inp-label">Crates with him (counted)</label><input type="number" id="rcc-crates" min="0" step="1" placeholder="0"/></div>
+      <div><label class="inp-label">Date <span style="font-weight:400;color:var(--gray)">— for missed entries</span></label><input type="date" id="rcc-date"/></div>
+    </div>
+    <div id="riderCrateCountAlert"></div>
+    <button class="btn btn-full" style="background:#4f46e5;color:#fff;border:none" onclick="saveCrateCount('r')">💾 Save Crate Count</button>
+    <div id="riderCrateCountList" style="margin-top:10px"></div>
   </div>
 
   <!-- Payment collected from distributor -->
@@ -1547,6 +1565,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <div><label class="inp-label">Amount (₹)</label><input type="number" id="rp-amount" min="0" step="1" placeholder="0"/></div>
       <div><label class="inp-label">Mode of payment</label><select id="rp-mode"><option>Cash</option><option>UPI</option><option>Bank</option><option>Cheque</option></select></div>
     </div>
+    <div style="margin-bottom:8px"><label class="inp-label">Date <span style="font-weight:400;color:var(--gray)">— change only when adding a missed earlier collection</span></label><input type="date" id="rp-date"/></div>
     <div id="riderPayAlert"></div>
     <button class="btn btn-full" style="background:#15803d;color:#fff;border:none" onclick="riderSavePayment()">💾 Save Payment</button>
     <div id="riderPayList" style="margin-top:10px"></div>
@@ -1559,6 +1578,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <div><label class="inp-label">Amount (₹)</label><input type="number" id="rf-amount" min="0" step="1" placeholder="0"/></div>
       <div><label class="inp-label">Note (optional)</label><input type="text" id="rf-note" placeholder="e.g. petrol 2L"/></div>
     </div>
+    <div style="margin-bottom:6px"><label class="inp-label">Date <span style="font-weight:400;color:var(--gray)">— for missed entries</span></label><input type="date" id="rf-date"/></div>
     <div id="riderFuelAlert"></div>
     <button class="btn btn-full" style="background:#b45309;color:#fff;border:none" onclick="riderSaveFuel()">💾 Save Fuel Expense</button>
     <div id="riderFuelList" style="margin-top:10px"></div>
@@ -1634,6 +1654,20 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
   <div class="section">
     <div class="sec-title">🧺 Crates Received Back</div>
     <div id="trackerCrateLogs"></div>
+  </div>
+
+  <!-- Manual crate counts per distributor (all riders) -->
+  <div class="section">
+    <div class="sec-title">📊 Crates With Distributors</div>
+    <div style="font-size:10px;color:var(--gray);margin-bottom:8px">Latest physically-counted crates each distributor is holding. A new count for the same distributor replaces the old one.</div>
+    <div style="margin-bottom:6px"><label class="inp-label">Distributor</label><select id="tcc-dist"></select></div>
+    <div class="grid2" style="margin-bottom:8px">
+      <div><label class="inp-label">Crates with him (counted)</label><input type="number" id="tcc-crates" min="0" step="1" placeholder="0"/></div>
+      <div><label class="inp-label">Date</label><input type="date" id="tcc-date"/></div>
+    </div>
+    <div id="trackerCrateCountAlert"></div>
+    <button class="btn btn-full" style="background:#4f46e5;color:#fff;border:none;margin-bottom:8px" onclick="saveCrateCount('t')">💾 Save Crate Count</button>
+    <div id="trackerCrateCounts"></div>
   </div>
 
   <!-- Payments collected by riders -->
@@ -2622,6 +2656,7 @@ let savedSuppliers=load('savedSuppliers',[]);
 let savedDistributors=load('savedDistributors',[]);
 let riderDropLogs=load('riderDropLogs',[]);
 let riderCrateReturns=load('riderCrateReturns',[]);
+let distCrateCounts=load('distCrateCounts',[]);   // manual "crates with distributor" counts (latest per distributor wins)
 let fuelLog=load('fuelLog',[]);
 let attRecords=load('attRecords',[]);
 // Deletion tombstones: { syncKey: { recordId: timestamp } }. A deleted id is
@@ -2751,7 +2786,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-08-03 · v83 (tracker: ✏️ date correction on rider logs — deliveries, crates back, rider payments, fuel)';
+var APP_BUILD='2026-08-03 · v84 (rider logs: backdate missed entries + manual crates-with-distributor counts)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -5902,6 +5937,21 @@ function riderDropCalc(){
   if(el)el.innerHTML='200g: '+cr2+' cr'+(ex2?' + '+ex2+' loose cups':'')+' · 400g: '+cr4+' cr'+(ex4?' + '+ex4+' loose cups':'')+
     ' · loose cr: '+loose+' → <span style="color:var(--teal)">TOTAL '+(cr2+cr4+loose)+' CRATES</span>';
 }
+// Backdate support for rider entries: the date field defaults to today; picking
+// an earlier date records a MISSED entry on its real date (clock time stays the
+// entry time, and the audit line says it was backdated). Future dates need an
+// explicit confirm. Returns the date to store, or null to abort the save.
+function _riderEntryDate(inputId,S){
+  const el=document.getElementById(inputId);
+  const v=(el&&el.value)?el.value:'';
+  if(!v||v===S.date)return S.date;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v))return S.date;
+  if(v>S.date&&!confirm('⚠️ The date '+v+' is in the FUTURE. Save anyway?'))return null;
+  return v;
+}
+// After a save, snap the date field back to today so the next entry cannot
+// silently inherit a backdate.
+function _resetEntryDate(inputId,S){const el=document.getElementById(inputId);if(el)el.value=S.date;}
 function riderSaveDrop(){
   const n=id=>{const e=document.getElementById(id);return e?(parseInt(e.value)||0):0;};
   const sel=document.getElementById('rd-dist');
@@ -5910,16 +5960,19 @@ function riderSaveDrop(){
   if(!dist){showAlert('riderDropAlert','alert-red','⚠️ Select a distributor');return;}
   if(cr2+cr4+ex2+ex4===0){showAlert('riderDropAlert','alert-red','⚠️ Enter crates or loose cups');return;}
   const S=_istStamp();
+  const d=_riderEntryDate('rd-date',S);if(d===null)return;
   const rec={id:_uid(),rider:currentUser?currentUser.username:'',riderName:currentUser?currentUser.name:'Rider',
     dist:dist,crates200:cr2,crates400:cr4,extra200:ex2,extra400:ex4,looseCrates:loose,
     totalCrates:cr2+cr4+loose,cups200:cr2*CPC200+ex2,cups400:cr4*CPC400+ex4,
-    date:S.date,time:S.time,ts:S.ts};
+    date:d,time:S.time,ts:S.ts};
+  if(d!==S.date)rec.enteredOn=S.date;
   riderDropLogs.unshift(rec);
   store('riderDropLogs',riderDropLogs);
-  _audit('riderlog','add',rec.id,'',rec.totalCrates+' crates to '+dist+' by '+rec.riderName,'Rider delivery log');
+  _audit('riderlog','add',rec.id,'',rec.totalCrates+' crates to '+dist+' by '+rec.riderName+(d!==S.date?' (backdated to '+d+', entered '+S.date+')':''),'Rider delivery log');
   ['rd-cr200','rd-cr400','rd-ex200','rd-ex400','rd-loose'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
+  _resetEntryDate('rd-date',S);
   riderDropCalc();
-  showAlert('riderDropAlert','alert-green','✅ Saved — '+S.date+' · '+S.time+' IST');
+  showAlert('riderDropAlert','alert-green','✅ Saved — '+d+(d!==S.date?' (backdated)':'')+' · '+S.time+' IST');
   renderRiderLogs();
 }
 function riderDeleteDrop(id){
@@ -5939,13 +5992,16 @@ function riderSaveCrate(){
   if(!dist){showAlert('riderCrateAlert','alert-red','⚠️ Select a distributor');return;}
   if(crates<=0){showAlert('riderCrateAlert','alert-red','⚠️ Enter how many crates');return;}
   const S=_istStamp();
+  const d=_riderEntryDate('rc-date',S);if(d===null)return;
   const rec={id:_uid(),rider:currentUser?currentUser.username:'',riderName:currentUser?currentUser.name:'Rider',
-    dist:dist,crates:crates,totalCrates:crates,date:S.date,time:S.time,ts:S.ts};
+    dist:dist,crates:crates,totalCrates:crates,date:d,time:S.time,ts:S.ts};
+  if(d!==S.date)rec.enteredOn=S.date;
   riderCrateReturns.unshift(rec);
   store('riderCrateReturns',riderCrateReturns);
-  _audit('riderlog','add',rec.id,'',crates+' crates back from '+dist+' by '+rec.riderName,'Crates received back');
+  _audit('riderlog','add',rec.id,'',crates+' crates back from '+dist+' by '+rec.riderName+(d!==S.date?' (backdated to '+d+', entered '+S.date+')':''),'Crates received back');
   if(el)el.value='';
-  showAlert('riderCrateAlert','alert-green','✅ Saved — '+S.date+' · '+S.time+' IST');
+  _resetEntryDate('rc-date',S);
+  showAlert('riderCrateAlert','alert-green','✅ Saved — '+d+(d!==S.date?' (backdated)':'')+' · '+S.time+' IST');
   renderRiderLogs();
 }
 // Rider-collected payment goes into paymentsLog flagged pending:true — it is
@@ -5962,16 +6018,19 @@ function riderSavePayment(){
   if(!dist){showAlert('riderPayAlert','alert-red','⚠️ Select a distributor');return;}
   if(amount<=0){showAlert('riderPayAlert','alert-red','⚠️ Enter the amount received');return;}
   const S=_istStamp();
-  const rec={id:_uid(),dist:dist,amount:amount,date:S.date,mode:mode,
+  const d=_riderEntryDate('rp-date',S);if(d===null)return;
+  const rec={id:_uid(),dist:dist,amount:amount,date:d,mode:mode,
     by:'Collected by '+(currentUser?currentUser.name:'Rider'),
     collectedBy:currentUser?currentUser.username:'',time:S.time,ts:S.ts,
     pending:true,
     savedBy:currentUser?currentUser.name:'Rider'};
+  if(d!==S.date)rec.enteredOn=S.date;
   paymentsLog.unshift(rec);
   store('paymentsLog',paymentsLog);
-  _audit('payments','add',rec.id,'','₹'+amount+' from '+dist+' ('+mode+') collected by '+rec.savedBy,'Payment collected by rider — pending handover, not yet in account');
+  _audit('payments','add',rec.id,'','₹'+amount+' from '+dist+' ('+mode+') collected by '+rec.savedBy+(d!==S.date?' (backdated to '+d+', entered '+S.date+')':''),'Payment collected by rider — pending handover, not yet in account');
   if(amtEl)amtEl.value='';
-  showAlert('riderPayAlert','alert-green','✅ ₹'+amount.toFixed(0)+' ('+mode+') saved — '+S.date+' · '+S.time+' IST. Will apply to the account once the owner confirms handover.');
+  _resetEntryDate('rp-date',S);
+  showAlert('riderPayAlert','alert-green','✅ ₹'+amount.toFixed(0)+' ('+mode+') saved — '+d+(d!==S.date?' (backdated)':'')+' · '+S.time+' IST. Will apply to the account once the owner confirms handover.');
   renderRiderLogs();
 }
 // Owner confirms the rider handed over the cash — only then it hits the account.
@@ -6028,13 +6087,16 @@ function riderSaveFuel(){
   const amount=amtEl?(parseFloat(amtEl.value)||0):0;
   if(amount<=0){showAlert('riderFuelAlert','alert-red','⚠️ Enter the fuel amount (₹)');return;}
   const S=_istStamp();
+  const d=_riderEntryDate('rf-date',S);if(d===null)return;
   const rec={id:_uid(),rider:currentUser?currentUser.username:'',riderName:currentUser?currentUser.name:'Rider',
-    amount:amount,note:noteEl?noteEl.value.trim():'',date:S.date,time:S.time,ts:S.ts};
+    amount:amount,note:noteEl?noteEl.value.trim():'',date:d,time:S.time,ts:S.ts};
+  if(d!==S.date)rec.enteredOn=S.date;
   fuelLog.unshift(rec);
   store('fuelLog',fuelLog);
-  _audit('fuel','add',rec.id,'','₹'+amount+' fuel by '+rec.riderName,'Fuel expense');
+  _audit('fuel','add',rec.id,'','₹'+amount+' fuel by '+rec.riderName+(d!==S.date?' (backdated to '+d+')':''),'Fuel expense');
   if(amtEl)amtEl.value='';if(noteEl)noteEl.value='';
-  showAlert('riderFuelAlert','alert-green','✅ ₹'+amount.toFixed(0)+' fuel saved — '+S.date+' · '+S.time+' IST');
+  _resetEntryDate('rf-date',S);
+  showAlert('riderFuelAlert','alert-green','✅ ₹'+amount.toFixed(0)+' fuel saved — '+d+(d!==S.date?' (backdated)':'')+' · '+S.time+' IST');
   renderRiderLogs();
 }
 function riderDeleteFuel(id){
@@ -6044,6 +6106,48 @@ function riderDeleteFuel(id){
   _markDeleted('fuelLog',r.id);
   store('fuelLog',fuelLog);
   _audit('fuel','delete',r.id,'₹'+r.amount+' by '+(r.riderName||r.rider),'','Fuel entry deleted');
+  renderRiderLogs();
+}
+// ── Manual "crates with distributor" counts. Each save is its own record; the
+//    NEWEST record per distributor (by save timestamp) is the current count, so
+//    a fresh count simply supersedes the old one and history stays auditable. ──
+function _latestCrateCounts(){
+  const latest={};
+  (Array.isArray(distCrateCounts)?distCrateCounts:[]).forEach(function(c){
+    if(!c||!c.dist)return;
+    if(!latest[c.dist]||String(c.ts||'')>String(latest[c.dist].ts||''))latest[c.dist]=c;
+  });
+  return latest;
+}
+function saveCrateCount(ctx){
+  const pre=ctx==='t'?'tcc':'rcc', alertId=ctx==='t'?'trackerCrateCountAlert':'riderCrateCountAlert';
+  const sel=document.getElementById(pre+'-dist');
+  const dist=sel?sel.value:'';
+  const el=document.getElementById(pre+'-crates');
+  if(!dist){showAlert(alertId,'alert-red','⚠️ Select a distributor');return;}
+  if(!el||el.value===''){showAlert(alertId,'alert-red','⚠️ Enter the counted number of crates (0 is allowed)');return;}
+  const crates=Math.max(0,parseInt(el.value)||0);
+  const S=_istStamp();
+  const d=_riderEntryDate(pre+'-date',S);if(d===null)return;
+  const prev=_latestCrateCounts()[dist];
+  const rec={id:_uid(),rider:currentUser?currentUser.username:'',riderName:currentUser?currentUser.name:'Staff',
+    dist:dist,crates:crates,date:d,time:S.time,ts:S.ts};
+  if(d!==S.date)rec.enteredOn=S.date;
+  distCrateCounts.unshift(rec);
+  store('distCrateCounts',distCrateCounts);
+  _audit('riderlog','add',rec.id,prev?(prev.crates+' crates ('+prev.date+')'):'—',crates+' crates with '+dist,'Crates-with-distributor count'+(d!==S.date?' (backdated to '+d+')':''));
+  if(el)el.value='';
+  _resetEntryDate(pre+'-date',S);
+  showAlert(alertId,'alert-green','✅ '+dist+' now holds '+crates+' crates (counted '+d+')');
+  renderRiderLogs();
+}
+function deleteCrateCount(id){
+  const r=distCrateCounts.find(x=>String(x.id)===String(id));if(!r)return;
+  if(!confirm('Delete the crate count for '+r.dist+' ('+r.crates+' crates, '+r.date+')?\n\nThe previous count for this distributor (if any) becomes current again.'))return;
+  distCrateCounts=distCrateCounts.filter(x=>String(x.id)!==String(id));
+  _markDeleted('distCrateCounts',r.id);
+  store('distCrateCounts',distCrateCounts);
+  _audit('riderlog','delete',r.id,r.crates+' crates with '+r.dist+' ('+r.date+')','','Crates-with-distributor count deleted');
   renderRiderLogs();
 }
 // ── Date correction for tracker/rider logs (delivery, crates back, rider
@@ -6056,7 +6160,8 @@ const _LOGDATE_KINDS={
   drop: {arr:function(){return riderDropLogs;},   key:'riderDropLogs',    mod:'riderlog', what:function(r){return 'Delivery log · '+(r.dist||'?');}},
   crate:{arr:function(){return riderCrateReturns;},key:'riderCrateReturns',mod:'riderlog', what:function(r){return 'Crates-back log · '+(r.dist||'?');}},
   pay:  {arr:function(){return paymentsLog;},     key:'paymentsLog',      mod:'payments', what:function(p){return 'Rider payment ₹'+((p.amount||0).toFixed(0))+' · '+(p.dist||'?');}},
-  fuel: {arr:function(){return fuelLog;},         key:'fuelLog',          mod:'fuel',     what:function(r){return 'Fuel ₹'+((r.amount||0).toFixed(0))+' · '+(r.riderName||r.rider||'?');}}
+  fuel: {arr:function(){return fuelLog;},         key:'fuelLog',          mod:'fuel',     what:function(r){return 'Fuel ₹'+((r.amount||0).toFixed(0))+' · '+(r.riderName||r.rider||'?');}},
+  ccount:{arr:function(){return distCrateCounts;},key:'distCrateCounts',  mod:'riderlog', what:function(r){return 'Crate count '+(r.crates||0)+' · '+(r.dist||'?');}}
 };
 function _logDateUI(kind,ctx,r){
   const K=kind+'-'+ctx+r.id;
@@ -6095,13 +6200,18 @@ function saveLogDate(kind,ctx,id){
   }
 }
 function renderRiderLogs(){
-  ['rd-dist','rc-dist','rp-dist'].forEach(function(sid){
+  ['rd-dist','rc-dist','rp-dist','rcc-dist','tcc-dist'].forEach(function(sid){
     const sel=document.getElementById(sid);
     if(sel){
       const cur=sel.value;
       sel.innerHTML='<option value="">— Select distributor —</option>'+
         _riderDistOptions().map(n=>'<option value="'+_esc(n)+'"'+(n===cur?' selected':'')+'>'+_esc(n)+'</option>').join('');
     }
+  });
+  // Entry-date fields default to today (IST); riders change them only to add a missed entry.
+  const _S0=_istStamp();
+  ['rd-date','rc-date','rp-date','rf-date','rcc-date','tcc-date'].forEach(function(did){
+    const el=document.getElementById(did);if(el&&!el.value)el.value=_S0.date;
   });
   const me=currentUser?currentUser.username:'';
   const isAdmin=currentUser&&_hasRole(currentUser,'admin');
@@ -6196,6 +6306,27 @@ function renderRiderLogs(){
     aFuelEl.innerHTML=(fuels.length?'<div style="font-size:11px;font-weight:700;color:#b45309;margin-bottom:4px">All riders this month: ₹'+mTotal.toFixed(0)+'</div>':'')+
       (fuels.slice(0,40).map(r=>fuelRow(r,true)).join('')||empty('No fuel entries recorded'));
   }
+  // Crates-with-distributor counts: latest per distributor, in both tabs.
+  const ccRow=(r,showRider)=>{
+    const canFix=isAdmin||r.rider===me, ui=canFix?_logDateUI('ccount',showRider?'a':'m',r):null;
+    return `<div style="border-bottom:1px solid #eef2f6;padding:8px 0;display:flex;justify-content:space-between;align-items:center;gap:8px">
+    <div>
+      <div style="font-size:12px;font-weight:700;color:var(--dark)">📦 ${_esc(r.dist)}${showRider?' · <span style="color:#ea580c">'+_esc(r.riderName||r.rider||'')+'</span>':''}</div>
+      <div style="font-size:10px;color:var(--gray);margin-top:2px">counted ${r.date}${r.time?' · '+r.time+' IST':''}</div>
+    </div>
+    <div style="text-align:right;flex-shrink:0">
+      <div style="font-size:15px;font-weight:700;color:#4f46e5">${r.crates||0} crates</div>
+      ${canFix?ui.btn+`<button class="btn btn-sm btn-red" style="margin-top:4px;margin-left:4px" onclick="deleteCrateCount('${r.id}')">🗑</button>`:''}
+    </div>
+  </div>`+(canFix?ui.panel:'');};
+  const latest=_latestCrateCounts();
+  const latestRows=Object.keys(latest).sort();
+  const ccTotal=latestRows.reduce((s,k)=>s+(latest[k].crates||0),0);
+  const ccHead=latestRows.length?'<div style="font-size:11px;font-weight:700;color:#4f46e5;margin-bottom:4px">Total with distributors: '+ccTotal+' crates</div>':'';
+  const myCcEl=document.getElementById('riderCrateCountList');
+  if(myCcEl)myCcEl.innerHTML=ccHead+(latestRows.map(k=>ccRow(latest[k],false)).join('')||empty('No crate counts yet'));
+  const aCcEl=document.getElementById('trackerCrateCounts');
+  if(aCcEl)aCcEl.innerHTML=ccHead+(latestRows.map(k=>ccRow(latest[k],true)).join('')||empty('No crate counts yet'));
 }
 
 // ══════════════════════════════════════════
@@ -8381,7 +8512,7 @@ var _fb=null,_fbReady=false,_fbListening=false,_fbAuthed=false,_syncReady=false;
 var _syncKeys=['records','distRecords','testRecords','productionBatches','cipLogs',
   'users','settings','savedSuppliers','savedDistributors','attRecords',
   'invEntries','invOpening','returnsLog','paymentsLog','supplierPayments','auditLog','rateOverride','supplierRates',
-  'riderDropLogs','riderCrateReturns','fuelLog','deletedIds'];
+  'riderDropLogs','riderCrateReturns','distCrateCounts','fuelLog','deletedIds'];
 
 // ── Deletion tombstones ───────────────────────────────────────────────────
 // Natural key for a record (matches the merge logic in _syncDown).
@@ -8509,6 +8640,7 @@ function _setGlobal(k,v){
     case 'supplierRates':supplierRates=v;break;
     case 'riderDropLogs':riderDropLogs=v;break;
     case 'riderCrateReturns':riderCrateReturns=v;break;
+    case 'distCrateCounts':distCrateCounts=v;break;
     case 'fuelLog':fuelLog=v;break;
     case 'deletedIds':deletedIds=v;break;
     default: try{window[k]=v;}catch(e){}
