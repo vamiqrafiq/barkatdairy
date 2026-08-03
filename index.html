@@ -2751,7 +2751,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-08-03 · v82 (new billing products: paneer by kg + toned milk 500ml/1L packets on distribution bills)';
+var APP_BUILD='2026-08-03 · v83 (tracker: ✏️ date correction on rider logs — deliveries, crates back, rider payments, fuel)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -6046,6 +6046,54 @@ function riderDeleteFuel(id){
   _audit('fuel','delete',r.id,'₹'+r.amount+' by '+(r.riderName||r.rider),'','Fuel entry deleted');
   renderRiderLogs();
 }
+// ── Date correction for tracker/rider logs (delivery, crates back, rider
+//    payment, fuel). Only the date changes — amounts, quantities and the IST
+//    clock time stay untouched, and every correction is written to the audit
+//    log. Rendered for admin or the rider who saved the entry (same gate as
+//    delete). ctx prefixes the DOM ids because the same record renders in both
+//    the rider's own list and the admin Tracker list. ──
+const _LOGDATE_KINDS={
+  drop: {arr:function(){return riderDropLogs;},   key:'riderDropLogs',    mod:'riderlog', what:function(r){return 'Delivery log · '+(r.dist||'?');}},
+  crate:{arr:function(){return riderCrateReturns;},key:'riderCrateReturns',mod:'riderlog', what:function(r){return 'Crates-back log · '+(r.dist||'?');}},
+  pay:  {arr:function(){return paymentsLog;},     key:'paymentsLog',      mod:'payments', what:function(p){return 'Rider payment ₹'+((p.amount||0).toFixed(0))+' · '+(p.dist||'?');}},
+  fuel: {arr:function(){return fuelLog;},         key:'fuelLog',          mod:'fuel',     what:function(r){return 'Fuel ₹'+((r.amount||0).toFixed(0))+' · '+(r.riderName||r.rider||'?');}}
+};
+function _logDateUI(kind,ctx,r){
+  const K=kind+'-'+ctx+r.id;
+  return {
+    btn:`<button class="btn btn-sm btn-outline" style="margin-top:4px" title="Fix date" onclick="toggleLogDate('${kind}','${ctx}','${r.id}')">✏️</button>`,
+    panel:`<div id="logDate-${K}" style="display:none;background:var(--light);border-radius:9px;padding:8px;margin:2px 0 8px">
+      <label class="inp-label">📅 Correct date — was ${r.date||'?'}${r.time?' · '+_esc(r.time)+' IST (time stays)':''}</label>
+      <div style="display:flex;gap:6px">
+        <input type="date" id="logDateInp-${K}" value="${r.date||''}" style="flex:1"/>
+        <button class="btn btn-sm btn-primary" style="flex-shrink:0" onclick="saveLogDate('${kind}','${ctx}','${r.id}')">💾 Save</button>
+      </div>
+    </div>`};
+}
+function toggleLogDate(kind,ctx,id){_toggleEditPanel('logDate-'+kind+'-'+ctx+id);}
+function saveLogDate(kind,ctx,id){
+  const cfg=_LOGDATE_KINDS[kind];if(!cfg)return;
+  const arr=cfg.arr();
+  const r=(Array.isArray(arr)?arr:[]).find(x=>x&&String(x.id)===String(id));if(!r)return;
+  const inp=document.getElementById('logDateInp-'+kind+'-'+ctx+id);if(!inp)return;
+  const nd=inp.value;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(nd)){alert('⚠️ Pick a valid date.');return;}
+  const old=r.date||'';
+  if(nd===old){toggleLogDate(kind,ctx,id);return;}
+  const today=_istStamp().date;
+  if(nd>today&&!confirm('⚠️ The new date '+nd+' is in the FUTURE. Save anyway?'))return;
+  r.date=nd;
+  store(cfg.key,arr);
+  _audit(cfg.mod,'edit-date',id,old||'—',nd,cfg.what(r)+' — date corrected');
+  renderRiderLogs();
+  // A payment's date drives bill "payment received" lines and ledger order —
+  // refresh those views so the correction shows everywhere at once.
+  if(kind==='pay'){
+    try{renderPayments();}catch(e){}
+    try{renderDistRecords();}catch(e){}
+    try{const m=document.getElementById('distLedgerModal');if(m&&m.classList.contains('open'))renderDistLedger();}catch(e){}
+  }
+}
 function renderRiderLogs(){
   ['rd-dist','rc-dist','rp-dist'].forEach(function(sid){
     const sel=document.getElementById(sid);
@@ -6060,17 +6108,21 @@ function renderRiderLogs(){
   const drops=Array.isArray(riderDropLogs)?riderDropLogs:[];
   const crates=Array.isArray(riderCrateReturns)?riderCrateReturns:[];
   const fuels=Array.isArray(fuelLog)?fuelLog:[];
-  const crateRow=(r,showRider)=>`<div style="border-bottom:1px solid #eef2f6;padding:8px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+  const crateRow=(r,showRider)=>{
+    const canFix=isAdmin||r.rider===me, ui=canFix?_logDateUI('crate',showRider?'a':'m',r):null;
+    return `<div style="border-bottom:1px solid #eef2f6;padding:8px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
     <div>
       <div style="font-size:12px;font-weight:700;color:var(--dark)">🧺 ${_esc(r.dist)}${showRider?' · <span style="color:#ea580c">'+_esc(r.riderName||r.rider||'')+'</span>':''}</div>
       <div style="font-size:10px;color:var(--gray);margin-top:2px">${r.date} · ${r.time} IST</div>
     </div>
     <div style="text-align:right;flex-shrink:0">
       <div style="font-size:14px;font-weight:700;color:#0f766e">${r.crates!=null?r.crates:(r.totalCrates||0)} crates</div>
-      ${(isAdmin||r.rider===me)?`<button class="btn btn-sm btn-red" style="margin-top:4px" onclick="riderDeleteCrate(${r.id})">🗑</button>`:''}
+      ${canFix?ui.btn+`<button class="btn btn-sm btn-red" style="margin-top:4px;margin-left:4px" onclick="riderDeleteCrate(${r.id})">🗑</button>`:''}
     </div>
-  </div>`;
-  const payRow=(p,showRider)=>`<div style="border-bottom:1px solid #eef2f6;padding:8px 0;display:flex;justify-content:space-between;align-items:center;gap:8px">
+  </div>`+(canFix?ui.panel:'');};
+  const payRow=(p,showRider)=>{
+    const canFix=isAdmin||p.collectedBy===me, ui=canFix?_logDateUI('pay',showRider?'a':'m',p):null;
+    return `<div style="border-bottom:1px solid #eef2f6;padding:8px 0;display:flex;justify-content:space-between;align-items:center;gap:8px">
     <div>
       <div style="font-size:12px;font-weight:700;color:var(--dark)">💰 ${_esc(p.dist)}${showRider?' · <span style="color:#ea580c">'+_esc(p.savedBy||'')+'</span>':''}</div>
       <div style="font-size:10px;color:var(--gray);margin-top:2px">${p.date}${p.time?' · '+p.time+' IST':''} · ${_esc(p.mode||'Cash')}</div>
@@ -6078,10 +6130,12 @@ function renderRiderLogs(){
     <div style="text-align:right;flex-shrink:0">
       <div style="font-size:14px;font-weight:700;color:${p.pending?'#b45309':'var(--green)'}">₹${(p.amount||0).toFixed(0)}</div>
       ${p.pending?'<div style="font-size:9px;font-weight:700;color:#b45309">🟡 awaiting handover</div>':(p.confirmedBy?'<div style="font-size:9px;color:var(--green)">✓ received</div>':'')}
-      ${(isAdmin||p.collectedBy===me)?`<button class="btn btn-sm btn-red" style="margin-top:4px" onclick="riderDeletePayment(${p.id})">🗑</button>`:''}
+      ${canFix?ui.btn+`<button class="btn btn-sm btn-red" style="margin-top:4px;margin-left:4px" onclick="riderDeletePayment(${p.id})">🗑</button>`:''}
     </div>
-  </div>`;
-  const dropRow=(r,showRider)=>`<div style="border-bottom:1px solid #eef2f6;padding:8px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+  </div>`+(canFix?ui.panel:'');};
+  const dropRow=(r,showRider)=>{
+    const canFix=isAdmin||r.rider===me, ui=canFix?_logDateUI('drop',showRider?'a':'m',r):null;
+    return `<div style="border-bottom:1px solid #eef2f6;padding:8px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
     <div>
       <div style="font-size:12px;font-weight:700;color:var(--dark)">🚚 ${_esc(r.dist)}${showRider?' · <span style="color:#ea580c">'+_esc(r.riderName||r.rider||'')+'</span>':''}</div>
       <div style="font-size:10px;color:var(--gray);margin-top:2px">${r.date} · ${r.time} IST</div>
@@ -6089,16 +6143,18 @@ function renderRiderLogs(){
     </div>
     <div style="text-align:right;flex-shrink:0">
       <div style="font-size:14px;font-weight:700;color:var(--teal)">${r.totalCrates||0} crates</div>
-      ${(isAdmin||r.rider===me)?`<button class="btn btn-sm btn-red" style="margin-top:4px" onclick="riderDeleteDrop(${r.id})">🗑</button>`:''}
+      ${canFix?ui.btn+`<button class="btn btn-sm btn-red" style="margin-top:4px;margin-left:4px" onclick="riderDeleteDrop(${r.id})">🗑</button>`:''}
     </div>
-  </div>`;
-  const fuelRow=(r,showRider)=>`<div style="border-bottom:1px solid #eef2f6;padding:8px 0;display:flex;justify-content:space-between;align-items:center;gap:8px">
+  </div>`+(canFix?ui.panel:'');};
+  const fuelRow=(r,showRider)=>{
+    const canFix=isAdmin||r.rider===me, ui=canFix?_logDateUI('fuel',showRider?'a':'m',r):null;
+    return `<div style="border-bottom:1px solid #eef2f6;padding:8px 0;display:flex;justify-content:space-between;align-items:center;gap:8px">
     <div>
       <div style="font-size:12px;font-weight:700;color:var(--dark)">⛽ ₹${(r.amount||0).toFixed(0)}${showRider?' · <span style="color:#ea580c">'+_esc(r.riderName||r.rider||'')+'</span>':''}${r.note?' · <span style="font-weight:400;color:var(--gray)">'+_esc(r.note)+'</span>':''}</div>
       <div style="font-size:10px;color:var(--gray);margin-top:2px">${r.date} · ${r.time} IST</div>
     </div>
-    ${(isAdmin||r.rider===me)?`<button class="btn btn-sm btn-red" style="flex-shrink:0" onclick="riderDeleteFuel(${r.id})">🗑</button>`:''}
-  </div>`;
+    ${canFix?`<div style="flex-shrink:0;display:flex;gap:4px">`+ui.btn.replace('margin-top:4px','')+`<button class="btn btn-sm btn-red" onclick="riderDeleteFuel(${r.id})">🗑</button></div>`:''}
+  </div>`+(canFix?ui.panel:'');};
   const empty=t=>'<div class="empty" style="padding:10px 0"><div class="empty-text">'+t+'</div></div>';
   const month=_istStamp().date.slice(0,7);
   // Rider's own lists
@@ -8539,7 +8595,7 @@ function _listen(){
 function _editPanelOpen(){
   try{
     return Array.prototype.some.call(
-      document.querySelectorAll('[id^="distEdit-"],[id^="ledDe-"],[id^="payEdit-"],[id^="spEdit-"]'),
+      document.querySelectorAll('[id^="distEdit-"],[id^="ledDe-"],[id^="payEdit-"],[id^="spEdit-"],[id^="logDate-"]'),
       function(el){return el.style.display!=='none'&&el.offsetParent!==null;});
   }catch(e){return false;}
 }
