@@ -1,1 +1,1 @@
-2026-07-16 · v81 (supplier accounts: till-date milk totals + payments-made ledger in Procurement)
+2026-08-03 · v82 (new billing products: paneer by kg + toned milk 500ml/1L packets on distribution bills)

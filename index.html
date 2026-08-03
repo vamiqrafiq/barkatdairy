@@ -856,6 +856,21 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <div><label class="inp-label">400g rate (₹/cup)</label><input type="number" id="d-rate400" step="0.5" placeholder="default" oninput="calcDist()"/></div>
     </div>
 
+    <!-- Other products: paneer (kg) + toned milk (500ml / 1L packets) -->
+    <div style="font-size:9px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.8px;margin:12px 0 8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">②b Other Products <span style="font-weight:400;color:var(--gray);text-transform:none">(optional — leave 0 if none)</span></div>
+    <div class="grid2" style="margin-bottom:6px">
+      <div><label class="inp-label">🧀 Paneer (kg)</label><input type="number" id="d-xq-paneerQty" placeholder="0" min="0" step="0.25" oninput="calcDist()"/></div>
+      <div><label class="inp-label">Paneer rate (₹/kg)</label><input type="number" id="d-xr-paneerQty" step="1" min="0" placeholder="₹/kg" oninput="calcDist()"/></div>
+    </div>
+    <div class="grid2" style="margin-bottom:6px">
+      <div><label class="inp-label">🥛 Toned Milk 500ml (pkts)</label><input type="number" id="d-xq-tm500Qty" placeholder="0" min="0" step="1" oninput="calcDist()"/></div>
+      <div><label class="inp-label">500ml rate (₹/pkt)</label><input type="number" id="d-xr-tm500Qty" step="0.5" min="0" placeholder="₹/pkt" oninput="calcDist()"/></div>
+    </div>
+    <div class="grid2" style="margin-bottom:12px">
+      <div><label class="inp-label">🥛 Toned Milk 1L (pkts)</label><input type="number" id="d-xq-tm1000Qty" placeholder="0" min="0" step="1" oninput="calcDist()"/></div>
+      <div><label class="inp-label">1L rate (₹/pkt)</label><input type="number" id="d-xr-tm1000Qty" step="0.5" min="0" placeholder="₹/pkt" oninput="calcDist()"/></div>
+    </div>
+
     <!-- Which batches these cups came from -->
     <div style="font-size:9px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">②a Batches dispatched (tick one or more)</div>
     <div id="d-batchList" style="max-height:130px;overflow-y:auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:4px;margin-bottom:12px"></div>
@@ -868,9 +883,19 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray);margin-bottom:4px">
         <span id="d-lbl200">200g</span><span id="d-amt200" style="font-weight:600;color:var(--dark)">₹0</span>
       </div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray);margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #e2e8f0">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray);margin-bottom:4px">
         <span id="d-lbl400">400g</span><span id="d-amt400" style="font-weight:600;color:var(--dark)">₹0</span>
       </div>
+      <div id="d-xrow-paneerQty" style="display:none;justify-content:space-between;font-size:12px;color:var(--gray);margin-bottom:4px">
+        <span id="d-xlbl-paneerQty">Paneer</span><span id="d-xamt-paneerQty" style="font-weight:600;color:var(--dark)">₹0</span>
+      </div>
+      <div id="d-xrow-tm500Qty" style="display:none;justify-content:space-between;font-size:12px;color:var(--gray);margin-bottom:4px">
+        <span id="d-xlbl-tm500Qty">Toned Milk 500ml</span><span id="d-xamt-tm500Qty" style="font-weight:600;color:var(--dark)">₹0</span>
+      </div>
+      <div id="d-xrow-tm1000Qty" style="display:none;justify-content:space-between;font-size:12px;color:var(--gray);margin-bottom:4px">
+        <span id="d-xlbl-tm1000Qty">Toned Milk 1L</span><span id="d-xamt-tm1000Qty" style="font-weight:600;color:var(--dark)">₹0</span>
+      </div>
+      <div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #e2e8f0"></div>
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:13px;font-weight:700;color:var(--dark)">Total Bill</span>
         <span id="d-total" style="font-size:20px;font-weight:700;color:var(--teal)">₹0</span>
@@ -1204,7 +1229,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <div class="grid2" style="margin-bottom:12px">
       <div><label class="inp-label">200g Cup (₹)</label><input type="number" id="a-p200" value="18" oninput="saveSettings()"/></div>
       <div><label class="inp-label">400g Cup (₹)</label><input type="number" id="a-p400" value="34" oninput="saveSettings()"/></div>
+      <div><label class="inp-label">🧀 Paneer (₹/kg)</label><input type="number" id="a-pPaneer" value="0" min="0" oninput="saveSettings()"/></div>
+      <div><label class="inp-label">🥛 Toned Milk 500ml (₹/pkt)</label><input type="number" id="a-pTm500" value="0" min="0" step="0.5" oninput="saveSettings()"/></div>
+      <div><label class="inp-label">🥛 Toned Milk 1L (₹/pkt)</label><input type="number" id="a-pTm1000" value="0" min="0" step="0.5" oninput="saveSettings()"/></div>
     </div>
+    <div style="font-size:9px;color:var(--gray);margin:-6px 0 12px">Paneer / toned-milk rate 0 = no default — the bill form will ask for the rate the first time each distributor buys that product, then remember it per distributor.</div>
 
     <!-- Input costs -->
     <div style="font-size:9px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Input Costs</div>
@@ -2148,6 +2177,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
           <option value="200g">🥛 200g Cups</option>
           <option value="400g">🫙 400g Cups</option>
           <option value="milk">🐄 Milk (L)</option>
+          <option value="paneer">🧀 Paneer (kg)</option>
+          <option value="tm500">🥛 Toned Milk 500ml (pkt)</option>
+          <option value="tm1000">🥛 Toned Milk 1L (pkt)</option>
         </select>
       </div>
       <div><label class="inp-label">Quantity</label><input type="number" id="ret-qty" placeholder="0" style="font-size:18px;font-weight:700;padding:10px 12px"/></div>
@@ -2566,7 +2598,10 @@ const DEFAULT_USERS=[
 ];
 // Seed credentials shipped in source — warn anyone still using them to change it.
 const DEFAULT_CREDS={admin:'barkat2024',ops1:'ops123',proc1:'proc123',rider1:'rider123'};
-const DEFAULT_SETTINGS={smp:305,cult:133,fix:5100,p200:18,p400:34,r200:0.6,r400:0.4,pk200:2.7,pk400:4.1,tsnf:9.0,
+// pPaneer/pTm500/pTm1000: default selling rates for the extra billed products.
+// 0 = "no default set" — the bill form then REQUIRES a typed rate the first
+// time a product is sold to a distributor (never bills at a guessed price).
+const DEFAULT_SETTINGS={smp:305,cult:133,fix:5100,p200:18,p400:34,pPaneer:0,pTm500:0,pTm1000:0,r200:0.6,r400:0.4,pk200:2.7,pk400:4.1,tsnf:9.0,
   // ── Standardisation model (owner-adopted ideal mass balance, 2026-07-09) ──
   // kFat    : final Fat = kFat * (qty*rawFat)/finalVol   (fat retained vs ideal)
   // kSmpVol : litres of final volume added per kg of SMP dissolved
@@ -2716,7 +2751,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-07-16 · v81 (supplier accounts: till-date milk totals + payments-made ledger in Procurement)';
+var APP_BUILD='2026-08-03 · v82 (new billing products: paneer by kg + toned milk 500ml/1L packets on distribution bills)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2825,14 +2860,14 @@ document.addEventListener('click',e=>{
 // ══════════════════════════════════════════
 function loadSettings(){
   const s=settings;
-  ['smp','cult','fix','p200','p400','r200','r400','pk200','pk400','tsnf','kFat','kSmpVol','kSmpSnf'].forEach(k=>{
+  ['smp','cult','fix','p200','p400','pPaneer','pTm500','pTm1000','r200','r400','pk200','pk400','tsnf','kFat','kSmpVol','kSmpSnf'].forEach(k=>{
     const el=document.getElementById('a-'+k);
     if(el&&s[k]!==undefined)el.value=s[k];
   
   var clEl2=document.getElementById('a-creditLimit');if(clEl2&&settings.creditLimit)clEl2.value=settings.creditLimit;});
 }
 function saveSettings(){
-  ['smp','cult','fix','p200','p400','r200','r400','pk200','pk400','tsnf','creditLimit','kFat','kSmpVol','kSmpSnf'].forEach(k=>{
+  ['smp','cult','fix','p200','p400','pPaneer','pTm500','pTm1000','r200','r400','pk200','pk400','tsnf','creditLimit','kFat','kSmpVol','kSmpSnf'].forEach(k=>{
     const el=document.getElementById('a-'+k);
     if(el)settings[k]=parseFloat(el.value)||DEFAULT_SETTINGS[k]||(k==='creditLimit'?20000:0);
   });
@@ -3635,16 +3670,52 @@ function fallbackCopy(){
 // ══════════════════════════════════════════
 // DISTRIBUTION BILLING
 // ══════════════════════════════════════════
+// ── Extra billed products (beyond dahi cups): paneer by kg, toned milk by
+//    packet. Their qty/rate fields exist ONLY on bills that sold them — old
+//    records simply lack the fields and every read below is (r.x||0), so
+//    historical bills and balances are untouched. ──
+const XPRODS=[
+  {qty:'paneerQty', rate:'paneerRate', set:'pPaneer', label:'Paneer',            unit:'kg',  icon:'🧀', step:'0.25'},
+  {qty:'tm500Qty',  rate:'tm500Rate',  set:'pTm500',  label:'Toned Milk 500ml',  unit:'pkt', icon:'🥛', step:'1'},
+  {qty:'tm1000Qty', rate:'tm1000Rate', set:'pTm1000', label:'Toned Milk 1L',     unit:'pkt', icon:'🥛', step:'1'}
+];
+// Money from extra products on a bill (0 for all old records).
+function _xAmt(r){return XPRODS.reduce(function(s,p){return s+(parseFloat(r[p.qty])||0)*(parseFloat(r[p.rate])||0);},0);}
+// Total extra-product quantity (used to tell a real bill from an opening-balance adjustment).
+function _xQtyTotal(r){return XPRODS.reduce(function(s,p){return s+(parseFloat(r[p.qty])||0);},0);}
+// Trim float noise on kg quantities: 2.50 → "2.5", 3 → "3".
+function _xq(n){return String(parseFloat((parseFloat(n)||0).toFixed(3)));}
+// Short "🧀 2.5kg · 🥛 3×500ml" summary for cards/ledger lines ('' when none).
+function _xSummary(r){
+  const parts=[];
+  XPRODS.forEach(function(p){
+    const q=parseFloat(r[p.qty])||0;
+    if(q>0)parts.push(p.icon+' '+(p.unit==='kg'?_xq(q)+'kg':_xq(q)+'×'+p.label.replace('Toned Milk ','')));
+  });
+  return parts.length?' · '+parts.join(' · '):'';
+}
 // Rate "meter": remember each distributor's last-used rates. When you pick a
 // distributor, the rate fields prefill with their previous rates; change only if needed.
 function _lastRates(dist){
   const def={r200:(settings.p200||18), r400:(settings.p400||34)};
+  XPRODS.forEach(function(p){def[p.rate]=parseFloat(settings[p.set])||0;});
   if(!dist||!Array.isArray(distRecords))return def;
+  const out=Object.assign({},def);
   const bills=distRecords.filter(r=>r&&r.dist===dist&&(r.rate200!=null||r.rate400!=null))
     .sort((a,b)=>(b.id||0)-(a.id||0));
-  if(!bills.length)return def;
-  const b=bills[0];
-  return {r200:(b.rate200!=null?b.rate200:def.r200), r400:(b.rate400!=null?b.rate400:def.r400)};
+  if(bills.length){
+    const b=bills[0];
+    out.r200=(b.rate200!=null?b.rate200:def.r200);
+    out.r400=(b.rate400!=null?b.rate400:def.r400);
+  }
+  // Each extra product remembers its own last-used rate for this distributor
+  // (a later cup-only bill must not forget the paneer rate).
+  XPRODS.forEach(function(p){
+    const bx=distRecords.filter(r=>r&&r.dist===dist&&r[p.rate]!=null&&(parseFloat(r[p.qty])||0)>0)
+      .sort((a,b)=>(b.id||0)-(a.id||0));
+    if(bx.length)out[p.rate]=parseFloat(bx[0][p.rate])||0;
+  });
+  return out;
 }
 // Fill the rate boxes from the distributor's meter (only if the user hasn't typed a rate).
 function _applyRateMeter(){
@@ -3654,6 +3725,10 @@ function _applyRateMeter(){
   const r2=document.getElementById('d-rate200'), r4=document.getElementById('d-rate400');
   if(r2&&r2.value==='')r2.placeholder='meter ₹'+lr.r200;
   if(r4&&r4.value==='')r4.placeholder='meter ₹'+lr.r400;
+  XPRODS.forEach(function(p){
+    const el=document.getElementById('d-xr-'+p.qty);
+    if(el&&el.value==='')el.placeholder=(lr[p.rate]>0?'meter ₹'+lr[p.rate]:'₹/'+p.unit);
+  });
 }
 function calcDist(){
   const g=id=>parseFloat((document.getElementById(id)||{}).value)||0;
@@ -3672,7 +3747,22 @@ function calcDist(){
   const p400=(r400el&&r400el.value!=='')?Math.max(0,parseFloat(r400el.value)||0):lr.r400;
   const amt200=net200*p200;
   const amt400=net400*p400;
-  const total=amt200+amt400;
+  // Extra products (paneer / toned milk) — typed rate wins, else the meter.
+  let xTotal=0;
+  XPRODS.forEach(function(p){
+    const q=Math.max(0,g('d-xq-'+p.qty));
+    const rEl=document.getElementById('d-xr-'+p.qty);
+    const rate=(rEl&&rEl.value!=='')?Math.max(0,parseFloat(rEl.value)||0):(lr[p.rate]||0);
+    const amt=q*rate;
+    xTotal+=amt;
+    const row=document.getElementById('d-xrow-'+p.qty);
+    if(row)row.style.display=q>0?'flex':'none';
+    const lbl=document.getElementById('d-xlbl-'+p.qty);
+    if(lbl)lbl.textContent=p.label+' · '+_xq(q)+' '+p.unit+' @ ₹'+rate+'/'+p.unit;
+    const amtEl=document.getElementById('d-xamt-'+p.qty);
+    if(amtEl)amtEl.textContent='₹'+amt.toFixed(0);
+  });
+  const total=amt200+amt400+xTotal;
   // Live cup readouts under the crate inputs
   const qd=(cr,ex,del)=>(cr?cr+' crate'+(cr===1?'':'s')+(ex?' + '+ex+' extra':'')+' = '+del+' cups':(del+' cups'));
   const d2=document.getElementById('d-cups200-disp');if(d2)d2.textContent=qd(cr200,ex200,del200)+(ret200?(' − '+ret200+' returned = '+net200):'');
@@ -3724,16 +3814,30 @@ function saveDist(){
   const phone=(document.getElementById('d-phone')||{}).value.replace(/[^0-9]/g,'');
   const paid=g('d-paid');
   const payMode=(document.getElementById('d-pay-mode')||{}).value||'Credit';
+  // Extra products (paneer / toned milk): quantity + effective rate per product.
+  const lr0=_lastRates(dist);
+  const xIn=XPRODS.map(function(p){
+    const q=g('d-xq-'+p.qty);
+    const rEl=document.getElementById('d-xr-'+p.qty);
+    const rate=(rEl&&rEl.value!=='')?Math.max(0,parseFloat(rEl.value)||0):(lr0[p.rate]||0);
+    return {p:p,q:q,rate:rate};
+  });
+  const xQty=xIn.reduce(function(s,x){return s+x.q;},0);
   if(!dist||!date){showAlert('distAlert','alert-red','⚠️ Enter distributor name and date');return;}
-  if(!cr200&&!cr400&&!ex200&&!ex400&&!ret200&&!ret400){showAlert('distAlert','alert-red','⚠️ Enter at least one crate or cup quantity');return;}
+  if(!cr200&&!cr400&&!ex200&&!ex400&&!ret200&&!ret400&&!xQty){showAlert('distAlert','alert-red','⚠️ Enter at least one crate, cup or product quantity');return;}
+  // A product with quantity but no rate would silently bill ₹0 — refuse instead.
+  for(const x of xIn){
+    if(x.q>0&&!(x.rate>0)){showAlert('distAlert','alert-red','⚠️ Enter a rate for '+x.p.label+' (₹/'+x.p.unit+') — no saved rate exists yet for this distributor');return;}
+  }
   const dupBill=distRecords.find(x=>x&&x.dist===dist&&x.date===date);
   if(dupBill&&!confirm('A bill for '+dist+' dated '+date+' already exists (₹'+(dupBill.amount||0).toFixed(0)+').\n\nSave ANOTHER bill for the same day?')){showAlert('distAlert','alert-red','Not saved — a bill for '+_esc(dist)+' on '+date+' already exists.');return;}
   if(paid>0&&!_dupPayCheck(dist,paid,date)){showAlert('distAlert','alert-red','Not saved — the ₹'+paid.toFixed(0)+' payment looked already recorded. Set "Paid" to 0 and save again if the rider already collected it.');return;}
-  const lr=_lastRates(dist);
+  const lr=lr0;
   const r200el=document.getElementById('d-rate200'),r400el=document.getElementById('d-rate400');
   const p200=(r200el&&r200el.value!=='')?Math.max(0,parseFloat(r200el.value)||0):lr.r200;
   const p400=(r400el&&r400el.value!=='')?Math.max(0,parseFloat(r400el.value)||0):lr.r400;
-  const amount=(c200*p200)+(c400*p400);
+  const xAmount=xIn.reduce(function(s,x){return s+x.q*x.rate;},0);
+  const amount=(c200*p200)+(c400*p400)+xAmount;
   const crates=cr200+cr400; // total physical crates (for inventory)
   // Carry-forward = this distributor's current outstanding (billed − paid-at-billing
   // − payments logged in the Payments tab). Using getDistBalance keeps it identical
@@ -3744,6 +3848,8 @@ function saveDist(){
   // Payment is stored as its OWN ledger entry (never on the bill's single field),
   // so multiple payments always add up instead of overwriting each other.
   const rec={id:_uid(),dist,date,phone,crates200:cr200,crates400:cr400,extra200:ex200,extra400:ex400,ret200,ret400,c200,c400,crates,amount,paid:0,payMode,batchIds,rider,rate200:p200,rate400:p400,prevBalance:prevBal,balance:prevBal+amount,savedBy:currentUser?currentUser.name:'Staff'};
+  // Extra product fields exist only on bills that actually sold them.
+  xIn.forEach(function(x){ if(x.q>0){rec[x.p.qty]=x.q;rec[x.p.rate]=x.rate;} });
   distRecords.unshift(rec);
   store('distRecords',distRecords);
   if(paid>0){
@@ -3764,6 +3870,7 @@ function saveDist(){
     +'<button class="btn btn-sm btn-outline" onclick="showDistBill('+rec.id+')">📄 View Bill</button></div>';
   // Reset entry fields
   ['d-crates200','d-crates400','d-extra200','d-extra400','d-ret200','d-ret400','d-paid','d-rate200','d-rate400','d-phone'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  XPRODS.forEach(function(p){['d-xq-'+p.qty,'d-xr-'+p.qty].forEach(function(id){const e=document.getElementById(id);if(e)e.value='';});});
   const dpm=document.getElementById('d-pay-mode');if(dpm)dpm.selectedIndex=0;
   _distBatchSel={};
   calcDist();
@@ -3799,6 +3906,38 @@ function renderDistBatchPicker(){
 // must show cup inputs, not crate inputs (see 27 Jun Shafi incident, v77).
 function _isCupBasedBill(r){
   return (r.crates200||0)===0&&(r.crates400||0)===0&&(r.extra200||0)===0&&(r.extra400||0)===0&&((r.c200||0)>0||(r.c400||0)>0);
+}
+// ── Extra-product inputs inside a bill's ✏️ edit panel (shared by the records
+//    list panel and the ledger panel). ──
+function _xEditRows(pref,K,r){
+  return XPRODS.map(function(p){
+    return '<div class="grid2" style="margin-bottom:5px">'
+      +'<div><label class="inp-label">'+p.icon+' '+p.label+' ('+p.unit+')</label><input type="number" id="'+pref+'-xq-'+p.qty+'-'+K+'" min="0" step="'+p.step+'" value="'+(r[p.qty]!=null?r[p.qty]:0)+'"/></div>'
+      +'<div><label class="inp-label">Rate (₹/'+p.unit+')</label><input type="number" id="'+pref+'-xr-'+p.qty+'-'+K+'" min="0" step="0.5" value="'+(r[p.rate]!=null?r[p.rate]:'')+'" placeholder="₹/'+p.unit+'"/></div>'
+      +'</div>';
+  }).join('');
+}
+// Read the extra-product inputs of an edit panel back onto the record.
+// Two-phase: validate EVERYTHING first, only then mutate r — a validation error
+// must never leave a half-edited record in memory. Returns '' on success, an
+// error message on bad input, or null when the panel has no product inputs.
+function _xEditRead(pref,K,r){
+  const vals=[];
+  for(var i=0;i<XPRODS.length;i++){
+    const p=XPRODS[i];
+    const qEl=document.getElementById(pref+'-xq-'+p.qty+'-'+K);
+    if(!qEl)return null;
+    const q=Math.max(0,parseFloat(qEl.value)||0);
+    const rEl=document.getElementById(pref+'-xr-'+p.qty+'-'+K);
+    const rate=(rEl&&rEl.value!=='')?Math.max(0,parseFloat(rEl.value)||0):(parseFloat(r[p.rate])||0);
+    if(q>0&&!(rate>0))return 'Enter a rate for '+p.label+' (₹/'+p.unit+')';
+    vals.push({p:p,q:q,rate:rate});
+  }
+  vals.forEach(function(x){
+    if(x.q>0){r[x.p.qty]=x.q;r[x.p.rate]=x.rate;}
+    else{delete r[x.p.qty];delete r[x.p.rate];}
+  });
+  return '';
 }
 // ── Batch picker inside a bill's ✏️ edit panel: retro-tag which batches went
 // out on an already-saved bill (traceability + cold-store subtraction). ──
@@ -3924,6 +4063,7 @@ function distRecordHTML(r,ctx){
     <div class="proc-details" style="margin-bottom:8px">
       <div class="proc-detail"><div class="proc-detail-label">200g${r.crates200?' ('+r.crates200+'cr)':''}</div><div class="proc-detail-val">${r.c200||0}${r.ret200?` <span style="font-size:9px;color:var(--red)">↩${r.ret200}</span>`:''}</div></div>
       <div class="proc-detail"><div class="proc-detail-label">400g${r.crates400?' ('+r.crates400+'cr)':''}</div><div class="proc-detail-val">${r.c400||0}${r.ret400?` <span style="font-size:9px;color:var(--red)">↩${r.ret400}</span>`:''}</div></div>
+      ${XPRODS.filter(p=>(parseFloat(r[p.qty])||0)>0).map(p=>`<div class="proc-detail"><div class="proc-detail-label">${p.icon} ${p.label}</div><div class="proc-detail-val">${_xq(r[p.qty])} ${p.unit}</div></div>`).join('')}
       <div class="proc-detail" style="${liveBal>0.5?'background:#fff1f2':'background:#f0fdf4'}">
         <div class="proc-detail-label">Acct Balance</div>
         <div class="proc-detail-val" style="color:${balColor}">${liveBal>0.5?'₹'+liveBal.toFixed(0):'✅ Clear'}</div>
@@ -3961,6 +4101,7 @@ function distRecordHTML(r,ctx){
         <div><label class="inp-label">200g rate</label><input type="number" id="de-r200-${K}" step="0.5" value="${r.rate200!=null?r.rate200:(settings.p200||18)}"/></div>
         <div><label class="inp-label">400g rate</label><input type="number" id="de-r400-${K}" step="0.5" value="${r.rate400!=null?r.rate400:(settings.p400||34)}"/></div>
       </div>
+      ${_xEditRows('de',K,r)}
       <div style="margin-bottom:6px"><label class="inp-label">Paid (₹)</label><input type="number" id="de-paid-${K}" value="${r.paid||0}"/></div>
       <div style="margin-bottom:6px"><label class="inp-label">📝 Note / description (shows on the bill card)</label><input type="text" id="de-note-${K}" value="${_esc(r.note||'')}" placeholder="e.g. +1 crate 400g added in evening"/></div>
       <div style="margin-bottom:6px"><label class="inp-label">🧫 Batches in this bill (tick one or more)</label>
@@ -3975,6 +4116,13 @@ function saveDistEdit(id){
   // keep the full key for reading this panel's inputs.
   const r=distRecords.find(x=>String(x.id)===String(id).replace(/^t_/,''));if(!r)return;
   const oldAmount=r.amount||0,oldPaid=r.paid||0;
+  // Did the record hold ANY quantities before this edit? (Adjustment/opening
+  // records hold an amount with no quantities — recomputing would zero them.)
+  const hadQty=((r.c200||0)+(r.c400||0)+_xQtyTotal(r))>0;
+  // Extra products: validate + apply FIRST (two-phase, so a bad rate aborts
+  // before anything on the record has been touched).
+  const xErr=_xEditRead('de',id,r);
+  if(xErr){alert('⚠️ '+xErr+' — changes not saved.');return;}
   const num=eid=>{const e=document.getElementById(eid);return e?(parseFloat(e.value)||0):0;};
   if(_elById('de-c200-'+id)){
     // Cup-based bill panel: cups edited directly, crate fields untouched
@@ -4003,7 +4151,13 @@ function saveDistEdit(id){
     }
   }
   const noteEl=_elById('de-note-'+id);if(noteEl)r.note=noteEl.value.trim();
-  r.amount=r.c200*r.rate200+r.c400*r.rate400;
+  const nowQty=((r.c200||0)+(r.c400||0)+_xQtyTotal(r))>0;
+  if(!hadQty&&!nowQty&&oldAmount>0){
+    // Opening-balance / adjustment record (amount, no quantities) — keep the
+    // stored amount; a recompute from all-zero quantities would wipe it.
+  }else{
+    r.amount=r.c200*r.rate200+r.c400*r.rate400+_xAmt(r);
+  }
   r.balance=(r.prevBalance||0)+r.amount-r.paid;
   const nb=_bpRead('de-batches-'+id);
   if(nb!==null&&nb!==(r.batchIds||'')){
@@ -4043,7 +4197,7 @@ function renderDistLedger(){
       const r=t.rec, cups=(r.c200||0)+(r.c400||0);
       return `<div style="border-bottom:1px solid #eef2f6;padding:9px 0">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div><div style="font-size:10px;color:var(--gray)">${t.date}</div><div style="font-size:12px;font-weight:600;color:var(--dark)">🚚 ${r.note?_esc(r.note):('Delivery · '+cups+' cups')}${r.paid?` · paid ₹${(r.paid).toFixed(0)}`:''}</div></div>
+          <div><div style="font-size:10px;color:var(--gray)">${t.date}</div><div style="font-size:12px;font-weight:600;color:var(--dark)">🚚 ${r.note?_esc(r.note):('Delivery · '+cups+' cups'+_xSummary(r))}${r.paid?` · paid ₹${(r.paid).toFixed(0)}`:''}</div></div>
           <div style="text-align:right"><div style="font-weight:700;color:var(--teal)">+₹${(t.amount).toFixed(0)}</div><div style="font-size:10px;color:var(--gray)">balance ₹${t.run.toFixed(0)}</div></div>
         </div>
         <div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap">
@@ -4060,6 +4214,7 @@ function renderDistLedger(){
           <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g loose cups</label><input type="number" id="lde-ex200-${r.id}" value="${r.extra200||0}"/></div><div><label class="inp-label">400g loose cups</label><input type="number" id="lde-ex400-${r.id}" value="${r.extra400||0}"/></div></div>
           <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g returned</label><input type="number" id="lde-ret200-${r.id}" value="${r.ret200||0}"/></div><div><label class="inp-label">400g returned</label><input type="number" id="lde-ret400-${r.id}" value="${r.ret400||0}"/></div></div>`}
           <div class="grid2" style="margin-bottom:5px"><div><label class="inp-label">200g rate</label><input type="number" id="lde-r200-${r.id}" step="0.5" value="${r.rate200!=null?r.rate200:(settings.p200||18)}"/></div><div><label class="inp-label">400g rate</label><input type="number" id="lde-r400-${r.id}" step="0.5" value="${r.rate400!=null?r.rate400:(settings.p400||34)}"/></div></div>
+          ${_xEditRows('lde',r.id,r)}
           <div style="margin-bottom:5px"><label class="inp-label">📝 Note / description</label><input type="text" id="lde-note-${r.id}" value="${_esc(r.note||'')}" placeholder="e.g. +1 crate 400g added in evening"/></div>
           <div style="margin-bottom:5px"><label class="inp-label">🧫 Batches in this bill (tick one or more)</label>
             <div id="lde-batches-${r.id}" style="max-height:130px;overflow-y:auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px">${_bpRows(r.batchIds)}</div></div>
@@ -4156,6 +4311,10 @@ function toggleLedgerDe(id){_toggleEditPanel('ledDe-'+id);}
 function saveLedgerDe(id){
   const r=distRecords.find(x=>String(x.id)===String(id));if(!r)return;
   const oldAmount=r.amount||0;
+  const hadQty=((r.c200||0)+(r.c400||0)+_xQtyTotal(r))>0;
+  // Extra products: validate + apply first (aborts before touching the record).
+  const xErr=_xEditRead('lde',id,r);
+  if(xErr){alert('⚠️ '+xErr+' — changes not saved.');return;}
   const num=eid=>{const e=document.getElementById(eid);return e?(parseFloat(e.value)||0):0;};
   if(_elById('lde-c200-'+id)){
     // Cup-based bill panel: cups edited directly, crate fields untouched
@@ -4172,7 +4331,12 @@ function saveLedgerDe(id){
   }
   r.rate200=num('lde-r200-'+id);r.rate400=num('lde-r400-'+id);
   const lnEl=_elById('lde-note-'+id);if(lnEl)r.note=lnEl.value.trim();
-  r.amount=r.c200*r.rate200+r.c400*r.rate400;
+  const nowQty=((r.c200||0)+(r.c400||0)+_xQtyTotal(r))>0;
+  if(!hadQty&&!nowQty&&oldAmount>0){
+    // Opening-balance / adjustment record — keep the stored amount (see saveDistEdit).
+  }else{
+    r.amount=r.c200*r.rate200+r.c400*r.rate400+_xAmt(r);
+  }
   const nb=_bpRead('lde-batches-'+id);
   if(nb!==null&&nb!==(r.batchIds||'')){
     _audit('distribution','edit-batches',id,r.batchIds||'—',nb||'—','Bill batches edited (ledger) · '+r.dist+' · '+(r.date||'no date'));
@@ -4334,16 +4498,27 @@ function billParts(r){
     items.push({label:'400g Yogurt Cups',crates:cr4,extra:0,cups:crateOnly4,rate:p400,amount:crateOnly4*p400});
     items.push({label:'400g Loose Cups',crates:0,extra:0,cups:ex4,rate:p400,amount:ex4*p400,loose:true});
   }else if(del4>0) items.push({label:ex4>0&&cr4===0?'400g Loose Cups':'400g Yogurt Cups',crates:cr4,extra:0,cups:del4,rate:p400,amount:del4*p400,loose:ex4>0&&cr4===0});
+  // Extra products (paneer / toned milk) — one line each, own unit + rate.
+  XPRODS.forEach(function(p){
+    const q=parseFloat(r[p.qty])||0;
+    if(q>0){
+      const rt=parseFloat(r[p.rate])||0;
+      items.push({label:p.label,cups:0,qty:q,unit:p.unit,rateUnit:p.unit,rate:rt,amount:q*rt});
+    }
+  });
   if(ret2>0) returns.push({label:'200g',cups:ret2,rate:p200,amount:ret2*p200});
   if(ret4>0) returns.push({label:'400g',cups:ret4,rate:p400,amount:ret4*p400});
   const gross=items.reduce((s,x)=>s+x.amount,0);
   const returnsVal=returns.reduce((s,x)=>s+x.amount,0);
-  // Opening-balance / adjustment record: an amount with no cups (e.g. brought-forward dues).
-  const opening=(del2+del4===0 && (r.amount||0)>0) ? (r.amount||0) : 0;
+  // Opening-balance / adjustment record: an amount with NO quantities of any
+  // product (e.g. brought-forward dues). A paneer-only bill has quantities, so
+  // it must NOT be double-counted as an opening amount here.
+  const opening=(del2+del4===0 && _xQtyTotal(r)===0 && (r.amount||0)>0) ? (r.amount||0) : 0;
   return {items,returns,gross,returnsVal,opening,note:r.note||''};
 }
 // Plain-language quantity, e.g. "3 crates + 6 extra = 90 cups" — clear for laymen.
 function _qtyText(x){
+  if(x.unit) return _xq(x.qty)+' '+x.unit;   // extra products: "2.5 kg" / "3 pkt"
   const cr=x.crates||0, ex=x.extra||0;
   if(cr&&ex) return cr+' crate'+(cr===1?'':'s')+' + '+ex+' extra = '+x.cups+' cups';
   if(cr) return cr+' crate'+(cr===1?'':'s')+' = '+x.cups+' cups';
@@ -4356,7 +4531,7 @@ function buildBillText(r){
   const L=['*BARKAT DAIRY PLANT*','Watlar, Ganderbal, Kashmir','_Pure Goodness, Blessed by Quality_','------------------------',
     'Bill To: '+r.dist,'Date: '+r.date,'Bill No: DB-'+String(r.id).slice(-6),'------------------------'];
   P.items.forEach(function(x){
-    L.push(x.label+': '+_qtyText(x)+' × Rs.'+x.rate+'/cup = Rs.'+x.amount.toFixed(0));
+    L.push(x.label+': '+_qtyText(x)+' × Rs.'+x.rate+'/'+(x.rateUnit||'cup')+' = Rs.'+x.amount.toFixed(0));
   });
   if(P.opening>0) L.push((P.note||'Opening balance')+': Rs.'+P.opening.toFixed(0));
   L.push('------------------------');
@@ -4403,7 +4578,7 @@ function showDistBill(id,keepMode){
   const B=billNumbers(r);  // live previous/current/total (payments already applied)
   const P=billParts(r);
   const itemRows=P.items.map(function(x){
-    return `<tr><td>${x.label}</td><td style="font-size:11px">${_qtyText(x)}</td><td style="text-align:right">₹${x.rate}/cup</td><td style="text-align:right">₹${x.amount.toFixed(0)}</td></tr>`;
+    return `<tr><td>${x.label}</td><td style="font-size:11px">${_qtyText(x)}</td><td style="text-align:right">₹${x.rate}/${x.rateUnit||'cup'}</td><td style="text-align:right">₹${x.amount.toFixed(0)}</td></tr>`;
   }).join('');
   const openingRow=P.opening>0?`<tr><td colspan="3">${_esc(P.note||'Opening balance / brought forward')}</td><td style="text-align:right">₹${P.opening.toFixed(0)}</td></tr>`:'';
   const returnLines=P.returns.map(function(x){
@@ -4541,7 +4716,7 @@ function buildBillBodyHTML(r){
   const B=billNumbers(r);
   const P=billParts(r);
   const rows=P.items.map(function(x){
-    return '<tr><td style="padding:8px 12px">'+x.label+'</td><td style="padding:8px 12px">'+_qtyText(x)+'</td><td style="padding:8px 12px;text-align:right">&#8377;'+x.rate+'/cup</td><td style="padding:8px 12px;text-align:right">&#8377;'+x.amount.toFixed(0)+'</td></tr>';
+    return '<tr><td style="padding:8px 12px">'+x.label+'</td><td style="padding:8px 12px">'+_qtyText(x)+'</td><td style="padding:8px 12px;text-align:right">&#8377;'+x.rate+'/'+(x.rateUnit||'cup')+'</td><td style="padding:8px 12px;text-align:right">&#8377;'+x.amount.toFixed(0)+'</td></tr>';
   }).join('')
   + (P.opening>0?'<tr><td colspan="3" style="padding:8px 12px">'+_esc(P.note||'Opening balance / brought forward')+'</td><td style="padding:8px 12px;text-align:right">&#8377;'+P.opening.toFixed(0)+'</td></tr>':'');
   const pline=function(lbl,val,color,sign){return '<div style="display:flex;justify-content:space-between;padding:6px 16px;font-size:13px;color:'+color+'"><span>'+lbl+'</span><span>'+sign+' &#8377;'+Math.abs(val).toFixed(0)+'</span></div>';};
@@ -5178,7 +5353,7 @@ function buildBillPDF(r){
     if(rowIdx++%2===0) ops.push({t:'rect',x:margin,y,w:textW,h:18,fill:'#f8faff'});
     ops.push({t:'text',x:cX.item,y:y+4,txt:x.label,s:9,color:'#1e293b'});
     ops.push({t:'text',x:cX.qty,y:y+4,txt:_qtyText(x),s:8,color:'#1e293b'});
-    ops.push({t:'text',x:cX.rate,y:y+4,txt:'Rs.'+x.rate,s:8,color:'#1e293b'});
+    ops.push({t:'text',x:cX.rate,y:y+4,txt:'Rs.'+x.rate+'/'+(x.rateUnit||'cup'),s:8,color:'#1e293b'});
     ops.push({t:'text',x:cX.amt,y:y+4,txt:'Rs.'+x.amount.toFixed(0),s:9,color:'#1e293b'});
     y+=22;
   });
@@ -5691,7 +5866,7 @@ function renderRiderView(){
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
             <div>
               <div style="font-size:13px;font-weight:700;color:var(--dark)">${_esc(r.dist)}</div>
-              <div style="font-size:10px;color:var(--gray);margin-top:1px">${r.c200} × 200g · ${r.c400} × 400g</div>
+              <div style="font-size:10px;color:var(--gray);margin-top:1px">${r.c200} × 200g · ${r.c400} × 400g${_xSummary(r)}</div>
             </div>
             <div style="text-align:right">
               <div style="font-size:15px;font-weight:700;color:var(--teal)">₹${r.amount.toFixed(0)}</div>
@@ -8832,9 +9007,10 @@ function exportExcel(){
   });
   rows.push('');
   rows.push('=== DISTRIBUTION ===');
-  rows.push('Date,Distributor,200g,400g,Amount,Paid,Balance');
+  rows.push('Date,Distributor,200g,400g,Paneer(kg),TM 500ml,TM 1L,Amount,Paid,Balance');
   distRecords.forEach(function(r){
     rows.push([csvField(r.date),csvField(r.dist),csvField(r.c200),csvField(r.c400),
+      csvField(r.paneerQty||0),csvField(r.tm500Qty||0),csvField(r.tm1000Qty||0),
       csvField(r.amount),csvField(r.paid),csvField(r.balance)].join(','));
   });
   rows.push('');
