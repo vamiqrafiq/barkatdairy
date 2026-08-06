@@ -1524,6 +1524,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <div><label class="inp-label">Extra 400g cups (loose)</label><input type="number" id="rd-ex400" min="0" step="1" placeholder="0" oninput="riderDropCalc()"/></div>
     </div>
     <div style="margin-bottom:6px"><label class="inp-label">Crates carrying loose cups</label><input type="number" id="rd-loose" min="0" step="1" placeholder="0" oninput="riderDropCalc()"/></div>
+    <div class="grid3" style="margin-bottom:6px">
+      <div><label class="inp-label">🧀 Paneer (kg)</label><input type="number" id="rd-paneer" min="0" step="0.1" placeholder="0" oninput="riderDropCalc()"/></div>
+      <div><label class="inp-label">🥛 Toned 500ml</label><input type="number" id="rd-tm500" min="0" step="1" placeholder="0" oninput="riderDropCalc()"/></div>
+      <div><label class="inp-label">🥛 Toned 1L</label><input type="number" id="rd-tm1000" min="0" step="1" placeholder="0" oninput="riderDropCalc()"/></div>
+    </div>
     <div id="rd-total" style="background:var(--light);border-radius:9px;padding:9px 11px;font-size:12px;font-weight:700;color:var(--dark);margin-bottom:8px">Total: 0 crates</div>
     <div id="riderDropAlert"></div>
     <button class="btn btn-primary btn-full" onclick="riderSaveDrop()">💾 Save Delivery</button>
@@ -1803,12 +1808,22 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <div id="newBatchForm" style="display:none;background:var(--light);border-radius:14px;padding:14px;margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:10px">🧫 New Batch</div>
 
+      <!-- Product type: curd (full flow) / paneer / toned milk -->
+      <div style="margin-bottom:12px">
+        <label class="inp-label">Product</label>
+        <div id="nb-type-row" style="display:flex;gap:6px">
+          <button type="button" data-t="curd" onclick="setNbType('curd')" style="flex:1;padding:9px 4px;border:1.5px solid var(--blue);border-radius:10px;background:var(--blue);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🫙 Curd</button>
+          <button type="button" data-t="paneer" onclick="setNbType('paneer')" style="flex:1;padding:9px 4px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;color:var(--dark);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🧀 Paneer</button>
+          <button type="button" data-t="toned" onclick="setNbType('toned')" style="flex:1;padding:9px 4px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;color:var(--dark);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🥛 Toned Milk</button>
+        </div>
+      </div>
+
       <!-- Batch ID + Date -->
       <div class="grid2" style="margin-bottom:12px">
         <div>
           <label class="inp-label">Batch ID</label>
           <div style="display:flex;align-items:center;gap:5px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:0 10px">
-            <span style="font-size:14px;font-weight:700;color:var(--blue)">BDP-</span>
+            <span style="font-size:14px;font-weight:700;color:var(--blue)" id="nb-idprefix">BDP-D-</span>
             <input type="text" id="nb-idsuffix" placeholder="004" autocomplete="off" style="border:none;padding:10px 0;flex:1;background:transparent"/>
           </div>
         </div>
@@ -1816,14 +1831,17 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       </div>
 
       <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">① Milk used</div>
-      <label class="inp-label">Tap the procured milk used (one or more)</label>
+      <label class="inp-label">Tap the procured milk used (one or more) <span style="font-weight:400;color:var(--gray)">— for tagging/trace</span></label>
       <div id="nb-procList" style="max-height:150px;overflow-y:auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:4px;margin-bottom:8px"></div>
+      <div style="font-size:10px;color:var(--gray);margin-bottom:6px">Qty / Fat / SNF auto-fill from the tapped lots — edit them manually if needed.</div>
       <div class="grid3" style="margin-bottom:12px">
-        <div class="stat"><div class="stat-label">Raw Qty</div><div class="stat-val" id="nb-rawqty" style="font-size:16px">0</div><div class="stat-sub">L</div></div>
-        <div class="stat"><div class="stat-label">Avg Fat</div><div class="stat-val" id="nb-rawfat" style="font-size:16px">0</div><div class="stat-sub">%</div></div>
-        <div class="stat"><div class="stat-label">Avg SNF</div><div class="stat-val" id="nb-rawsnf" style="font-size:16px">0</div><div class="stat-sub">%</div></div>
+        <div><label class="inp-label">Raw Qty (L)</label><input type="number" id="nb-rawqty" step="0.1" placeholder="0" oninput="calcBatchStd()"/></div>
+        <div><label class="inp-label">Avg Fat %</label><input type="number" id="nb-rawfat" step="0.1" placeholder="0" oninput="calcBatchStd()"/></div>
+        <div><label class="inp-label">Avg SNF %</label><input type="number" id="nb-rawsnf" step="0.1" placeholder="0" oninput="calcBatchStd()"/></div>
       </div>
 
+      <!-- ══ CURD-ONLY sections (hidden for paneer / toned milk) ══ -->
+      <div id="nb-curd-sec">
       <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">② Target → auto plan</div>
       <div class="grid3" style="margin-bottom:8px">
         <div><label class="inp-label">Target Fat %</label><input type="number" id="nb-tfat" value="2.5" step="0.1" oninput="calcBatchStd()"/></div>
@@ -1901,6 +1919,48 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
         <div><label class="inp-label">Time into cold</label><input type="time" id="nb-coldtime"/></div>
       </div>
       <div style="margin-bottom:12px"><label class="inp-label">Use-by date</label><input type="date" id="nb-useby"/></div>
+      </div><!-- /nb-curd-sec -->
+
+      <!-- ══ PANEER batch fields ══ -->
+      <div id="nb-paneer-sec" style="display:none">
+        <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">② Raw milk for paneer <span style="font-weight:400;color:var(--gray);text-transform:none">(auto-filled from tapped lots — edit if needed)</span></div>
+        <div class="grid3" style="margin-bottom:12px">
+          <div><label class="inp-label">Raw milk (L)</label><input type="number" id="nbp-rawqty" step="0.1" placeholder="0"/></div>
+          <div><label class="inp-label">Fat %</label><input type="number" id="nbp-rawfat" step="0.1" placeholder="0"/></div>
+          <div><label class="inp-label">SNF %</label><input type="number" id="nbp-rawsnf" step="0.1" placeholder="0"/></div>
+        </div>
+        <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">③ Heating &amp; coagulation</div>
+        <div class="grid2" style="margin-bottom:8px">
+          <div><label class="inp-label">Heating temp (°C)</label><input type="number" id="nbp-heat" step="1" placeholder="e.g. 90"/></div>
+          <div><label class="inp-label">Temp at coagulation (°C)</label><input type="number" id="nbp-coag" step="1" placeholder="e.g. 75"/></div>
+        </div>
+        <div class="grid2" style="margin-bottom:12px">
+          <div><label class="inp-label">Citric acid used (g)</label><input type="number" id="nbp-citric" step="1" placeholder="0"/></div>
+          <div><label class="inp-label">Paneer yield (kg)</label><input type="number" id="nbp-yield" step="0.1" placeholder="0"/></div>
+        </div>
+        <div style="margin-bottom:12px"><label class="inp-label">Use-by date</label><input type="date" id="nbp-useby"/></div>
+      </div>
+
+      <!-- ══ TONED MILK batch fields ══ -->
+      <div id="nb-toned-sec" style="display:none">
+        <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">② Raw milk <span style="font-weight:400;color:var(--gray);text-transform:none">(auto-filled from tapped lots — edit if needed)</span></div>
+        <div class="grid3" style="margin-bottom:12px">
+          <div><label class="inp-label">Raw milk (L)</label><input type="number" id="nbt-rawqty" step="0.1" placeholder="0"/></div>
+          <div><label class="inp-label">Raw Fat %</label><input type="number" id="nbt-rawfat" step="0.1" placeholder="0"/></div>
+          <div><label class="inp-label">Raw SNF %</label><input type="number" id="nbt-rawsnf" step="0.1" placeholder="0"/></div>
+        </div>
+        <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">③ Final (after standardisation)</div>
+        <div class="grid3" style="margin-bottom:8px">
+          <div><label class="inp-label">Final Vol (L)</label><input type="number" id="nbt-fvol" step="0.1" placeholder="0"/></div>
+          <div><label class="inp-label">Final Fat %</label><input type="number" id="nbt-ffat" step="0.1" placeholder="e.g. 3.0"/></div>
+          <div><label class="inp-label">Final SNF %</label><input type="number" id="nbt-fsnf" step="0.1" placeholder="e.g. 8.5"/></div>
+        </div>
+        <div class="grid2" style="margin-bottom:12px">
+          <div><label class="inp-label">500ml packs <span style="font-weight:400;color:var(--gray)">optional</span></label><input type="number" id="nbt-p500" step="1" placeholder="0"/></div>
+          <div><label class="inp-label">1L packs <span style="font-weight:400;color:var(--gray)">optional</span></label><input type="number" id="nbt-p1000" step="1" placeholder="0"/></div>
+        </div>
+        <div style="margin-bottom:12px"><label class="inp-label">Use-by date</label><input type="date" id="nbt-useby"/></div>
+      </div>
 
       <div style="display:flex;gap:8px">
         <button class="btn btn-primary" style="flex:2" onclick="createBatch()">✅ Save Batch</button>
@@ -2786,7 +2846,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-08-03 · v84 (rider logs: backdate missed entries + manual crates-with-distributor counts)';
+var APP_BUILD='2026-08-06 · v85 (paneer/toned batches BDP-D/T/P; manual raw qty-fat-snf; rider logs carry paneer/toned)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -5932,10 +5992,13 @@ function _riderDistOptions(){
 }
 function riderDropCalc(){
   const n=id=>{const e=document.getElementById(id);return e?(parseInt(e.value)||0):0;};
+  const f=id=>{const e=document.getElementById(id);return e?(parseFloat(e.value)||0):0;};
   const cr2=n('rd-cr200'),cr4=n('rd-cr400'),ex2=n('rd-ex200'),ex4=n('rd-ex400'),loose=n('rd-loose');
+  const pk=f('rd-paneer'),t5=n('rd-tm500'),t10=n('rd-tm1000');
   const el=document.getElementById('rd-total');
   if(el)el.innerHTML='200g: '+cr2+' cr'+(ex2?' + '+ex2+' loose cups':'')+' · 400g: '+cr4+' cr'+(ex4?' + '+ex4+' loose cups':'')+
-    ' · loose cr: '+loose+' → <span style="color:var(--teal)">TOTAL '+(cr2+cr4+loose)+' CRATES</span>';
+    ' · loose cr: '+loose+' → <span style="color:var(--teal)">TOTAL '+(cr2+cr4+loose)+' CRATES</span>'+
+    (pk?' · 🧀 '+pk+' kg paneer':'')+(t5?' · 🥛 '+t5+'×500ml':'')+(t10?' · 🥛 '+t10+'×1L':'');
 }
 // Backdate support for rider entries: the date field defaults to today; picking
 // an earlier date records a MISSED entry on its real date (clock time stays the
@@ -5954,22 +6017,26 @@ function _riderEntryDate(inputId,S){
 function _resetEntryDate(inputId,S){const el=document.getElementById(inputId);if(el)el.value=S.date;}
 function riderSaveDrop(){
   const n=id=>{const e=document.getElementById(id);return e?(parseInt(e.value)||0):0;};
+  const f=id=>{const e=document.getElementById(id);return e?(parseFloat(e.value)||0):0;};
   const sel=document.getElementById('rd-dist');
   const dist=sel?sel.value:'';
   const cr2=n('rd-cr200'),cr4=n('rd-cr400'),ex2=n('rd-ex200'),ex4=n('rd-ex400'),loose=n('rd-loose');
+  const pk=f('rd-paneer'),t5=n('rd-tm500'),t10=n('rd-tm1000');
   if(!dist){showAlert('riderDropAlert','alert-red','⚠️ Select a distributor');return;}
-  if(cr2+cr4+ex2+ex4===0){showAlert('riderDropAlert','alert-red','⚠️ Enter crates or loose cups');return;}
+  if(cr2+cr4+ex2+ex4===0&&pk<=0&&t5+t10===0){showAlert('riderDropAlert','alert-red','⚠️ Enter crates, loose cups, paneer or toned milk');return;}
   const S=_istStamp();
   const d=_riderEntryDate('rd-date',S);if(d===null)return;
   const rec={id:_uid(),rider:currentUser?currentUser.username:'',riderName:currentUser?currentUser.name:'Rider',
     dist:dist,crates200:cr2,crates400:cr4,extra200:ex2,extra400:ex4,looseCrates:loose,
     totalCrates:cr2+cr4+loose,cups200:cr2*CPC200+ex2,cups400:cr4*CPC400+ex4,
+    paneerKg:pk,tm500:t5,tm1000:t10,
     date:d,time:S.time,ts:S.ts};
   if(d!==S.date)rec.enteredOn=S.date;
   riderDropLogs.unshift(rec);
   store('riderDropLogs',riderDropLogs);
-  _audit('riderlog','add',rec.id,'',rec.totalCrates+' crates to '+dist+' by '+rec.riderName+(d!==S.date?' (backdated to '+d+', entered '+S.date+')':''),'Rider delivery log');
-  ['rd-cr200','rd-cr400','rd-ex200','rd-ex400','rd-loose'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
+  const extras=(pk?' + '+pk+'kg paneer':'')+(t5?' + '+t5+'×500ml toned':'')+(t10?' + '+t10+'×1L toned':'');
+  _audit('riderlog','add',rec.id,'',rec.totalCrates+' crates'+extras+' to '+dist+' by '+rec.riderName+(d!==S.date?' (backdated to '+d+', entered '+S.date+')':''),'Rider delivery log');
+  ['rd-cr200','rd-cr400','rd-ex200','rd-ex400','rd-loose','rd-paneer','rd-tm500','rd-tm1000'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
   _resetEntryDate('rd-date',S);
   riderDropCalc();
   showAlert('riderDropAlert','alert-green','✅ Saved — '+d+(d!==S.date?' (backdated)':'')+' · '+S.time+' IST');
@@ -6250,6 +6317,7 @@ function renderRiderLogs(){
       <div style="font-size:12px;font-weight:700;color:var(--dark)">🚚 ${_esc(r.dist)}${showRider?' · <span style="color:#ea580c">'+_esc(r.riderName||r.rider||'')+'</span>':''}</div>
       <div style="font-size:10px;color:var(--gray);margin-top:2px">${r.date} · ${r.time} IST</div>
       <div style="font-size:11px;color:var(--dark);margin-top:2px">${r.crates200||0} cr 200g${r.extra200?' +'+r.extra200+' cups':''} · ${r.crates400||0} cr 400g${r.extra400?' +'+r.extra400+' cups':''}${r.looseCrates?' · '+r.looseCrates+' loose cr':''}</div>
+      ${(r.paneerKg||r.tm500||r.tm1000)?`<div style="font-size:11px;color:#7a5a00;margin-top:2px">${r.paneerKg?'🧀 '+r.paneerKg+' kg paneer':''}${r.tm500?(r.paneerKg?' · ':'')+'🥛 '+r.tm500+'×500ml toned':''}${r.tm1000?((r.paneerKg||r.tm500)?' · ':'')+'🥛 '+r.tm1000+'×1L toned':''}</div>`:''}
     </div>
     <div style="text-align:right;flex-shrink:0">
       <div style="font-size:14px;font-weight:700;color:var(--teal)">${r.totalCrates||0} crates</div>
@@ -7096,9 +7164,10 @@ function initBatchTab(){
       </div>`).join('');
     }
   }
-  // Defaults: next BDP number + today's date
+  // Defaults: next batch number (per product prefix) + today's date
   const suf=document.getElementById('nb-idsuffix');
-  if(suf&&!suf.value){let max=3;productionBatches.forEach(b=>{const m=b&&b.batchId&&String(b.batchId).match(/BDP-0*(\d+)/);if(m){const n=parseInt(m[1],10);if(n>max)max=n;}});suf.value=String(max+1).padStart(3,'0');}
+  if(suf&&!suf.value)suf.value=_nextBatchSuffix(_nbType);
+  setNbType(_nbType,true); // sync section visibility + prefix without resetting the suffix
   const dt=document.getElementById('nb-date');if(dt&&!dt.value)dt.value=_today();
   // Culture brand/expiry + process temps: prefill from the last batch's values
   // (synced via settings; temps fall back to plant defaults 85°C / 20 min / 45°C)
@@ -7108,6 +7177,36 @@ function initBatchTab(){
   const pm=document.getElementById('nb-ptime');if(pm&&!pm.value)pm.value=settings.pastTime||20;
   const ft=document.getElementById('nb-ftemp');if(ft&&!ft.value)ft.value=settings.finalTempPack||45;
   calcBatchStd();
+}
+// ── Product type for a new batch: 'curd' (full flow) / 'paneer' / 'toned' ──
+var _nbType='curd';
+function _batchPrefix(t){return t==='paneer'?'BDP-P-':t==='toned'?'BDP-T-':'BDP-D-';}
+function _nextBatchSuffix(t){
+  const pre=_batchPrefix(t);let max=0;
+  const rx=new RegExp('^'+pre+'0*(\\d+)$');
+  productionBatches.forEach(b=>{
+    if(!b||!b.batchId)return;
+    const s=String(b.batchId);
+    let m=s.match(rx);
+    if(!m&&t==='curd')m=s.match(/^BDP-0*(\d+)$/); // old plain BDP- dahi ids continue the same count
+    if(m){const n=parseInt(m[1],10);if(n>max)max=n;}
+  });
+  if(t==='curd'&&max<3)max=3;
+  return String(max+1).padStart(3,'0');
+}
+function setNbType(t,keepSuffix){
+  _nbType=t;
+  const pref=document.getElementById('nb-idprefix');if(pref)pref.textContent=_batchPrefix(t);
+  const show=(id,on)=>{const e=document.getElementById(id);if(e)e.style.display=on?'block':'none';};
+  show('nb-curd-sec',t==='curd');show('nb-paneer-sec',t==='paneer');show('nb-toned-sec',t==='toned');
+  document.querySelectorAll('#nb-type-row button').forEach(btn=>{
+    const on=btn.dataset.t===t;
+    btn.style.background=on?'var(--blue)':'#fff';
+    btn.style.color=on?'#fff':'var(--dark)';
+    btn.style.borderColor=on?'var(--blue)':'#e2e8f0';
+  });
+  if(!keepSuffix){const suf=document.getElementById('nb-idsuffix');if(suf)suf.value=_nextBatchSuffix(t);}
+  recalcBatchRaw();
 }
 function toggleNbProc(id){
   if(_nbSel[id])delete _nbSel[id];else _nbSel[id]=1;
@@ -7125,8 +7224,13 @@ function recalcBatchRaw(){
     if(_nbSel[row.dataset.id]){const qty=parseFloat(row.dataset.qty)||0;q+=qty;fw+=qty*(parseFloat(row.dataset.fat)||0);sw+=qty*(parseFloat(row.dataset.snf)||0);}
   });
   const fat=q?fw/q:0,snf=q?sw/q:0;
-  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
-  set('nb-rawqty',q.toFixed(1));set('nb-rawfat',fat.toFixed(2));set('nb-rawsnf',snf.toFixed(2));
+  // Auto-fill the raw milk fields from the tapped lots (all editable — lots are for tagging)
+  if(q>0){
+    const fill=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
+    fill('nb-rawqty',q.toFixed(1));fill('nb-rawfat',fat.toFixed(2));fill('nb-rawsnf',snf.toFixed(2));
+    if(_nbType==='paneer'){fill('nbp-rawqty',q.toFixed(1));fill('nbp-rawfat',fat.toFixed(2));fill('nbp-rawsnf',snf.toFixed(2));}
+    if(_nbType==='toned'){fill('nbt-rawqty',q.toFixed(1));fill('nbt-rawfat',fat.toFixed(2));fill('nbt-rawsnf',snf.toFixed(2));}
+  }
   calcBatchStd();
 }
 // Standardisation calculator merged from Operations: from selected milk + targets
@@ -7207,9 +7311,9 @@ function calcRate(){
   el.textContent='₹'+getRateFromTable(fat,snf).toFixed(2);
 }
 function calcBatchStd(){
-  const qty=parseFloat((document.getElementById('nb-rawqty')||{}).textContent)||0;
-  const fat=parseFloat((document.getElementById('nb-rawfat')||{}).textContent)||0;
-  const snf=parseFloat((document.getElementById('nb-rawsnf')||{}).textContent)||0;
+  const qty=parseFloat((document.getElementById('nb-rawqty')||{}).value)||0;
+  const fat=parseFloat((document.getElementById('nb-rawfat')||{}).value)||0;
+  const snf=parseFloat((document.getElementById('nb-rawsnf')||{}).value)||0;
   const setT=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
   const fill=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
   if(!qty||!fat||!snf){['nbr-water','nbr-smp','nbr-vol','nbr-ffat','nbr-fsnf','nbr-qual','nbr-c200','nbr-c400','nbr-ctotal'].forEach(id=>setT(id,'—'));const o=document.getElementById('nbr-opt');if(o)o.innerHTML='💡 Tap milk lots above to see the plan.';return;}
@@ -7260,8 +7364,17 @@ function showNewBatchForm(){
 function prefillFromProc(){/* legacy no-op (single-select removed) */}
 
 function createBatch(){
+  const g=id=>{const e=document.getElementById(id);return e?e.value:'';};
+  const num=id=>parseFloat(g(id))||0;
+  const T=_nbType||'curd';
   const selIds=Object.keys(_nbSel);
-  if(!selIds.length){showAlert('newBatchAlert','alert-red','⚠️ Tap at least one procured lot this batch is made from');return;}
+  // Lot selection is for tagging/trace; qty/fat/SNF are manual (prefilled from lots).
+  // Any type may skip lots if the raw milk qty is typed in manually.
+  const manualRaw=T==='paneer'?num('nbp-rawqty'):T==='toned'?num('nbt-rawqty'):num('nb-rawqty');
+  if(!selIds.length&&!(manualRaw>0)){
+    showAlert('newBatchAlert','alert-red','⚠️ Tap a procured lot or enter the raw milk quantity');
+    return;
+  }
   const procIds=[],lots=[],suppliers=[];
   let q=0,fw=0,sw=0;
   selIds.forEach(idStr=>{
@@ -7269,38 +7382,56 @@ function createBatch(){
     if(rec){procIds.push(rec.id);lots.push(rec.lotId||('#'+rec.id));if(rec.supplier)suppliers.push(rec.supplier);
       const qty=parseFloat(rec.qty)||0;q+=qty;fw+=qty*(parseFloat(rec.fat)||0);sw+=qty*(parseFloat(rec.snf)||0);}
   });
-  const g=id=>{const e=document.getElementById(id);return e?e.value:'';};
-  const num=id=>parseFloat(g(id))||0;
   const now=new Date();
-  // Batch ID: BDP- + editable suffix (auto next number if blank)
+  // Batch ID: product prefix + editable suffix (auto next number if blank)
   let suffix=(g('nb-idsuffix')||'').trim();
-  if(!suffix){let max=3;productionBatches.forEach(b=>{const m=b&&b.batchId&&String(b.batchId).match(/BDP-0*(\d+)/);if(m){const n=parseInt(m[1],10);if(n>max)max=n;}});suffix=String(max+1).padStart(3,'0');}
-  const batchId='BDP-'+suffix;
+  if(!suffix)suffix=_nextBatchSuffix(T);
+  const batchId=_batchPrefix(T)+suffix;
   if(productionBatches.some(b=>b&&b.batchId===batchId)){showAlert('newBatchAlert','alert-red','⚠️ Batch ID '+batchId+' already exists — choose another suffix');return;}
-  const batch={
+  const rawVol=q?+q.toFixed(1):0, rawFat=q?+(fw/q).toFixed(2):0, rawSnf=q?+(sw/q).toFixed(2):0;
+  const head={
     // Permanent internal id: sync identity (_rid) uses it, so the visible batchId
     // is a pure label — reusable even if that name was tombstoned by an old
     // rename/delete, and renames never risk the record being pruned.
     id:_uid(),
-    batchId, status:'active', date:g('nb-date')||now.toISOString().split('T')[0],
+    batchId, ptype:T, status:'active', date:g('nb-date')||now.toISOString().split('T')[0],
     createdAt:now.toISOString(), createdBy:currentUser?currentUser.name:'Staff',
-    procIds, linkedLots:lots, linkedLotId:lots.join(', '), linkedSupplier:Array.from(new Set(suppliers)).join(', '),
-    rawVol:+q.toFixed(1), rawFat:q?+(fw/q).toFixed(2):0, rawSnf:q?+(sw/q).toFixed(2):0,
-    waterAdded:num('nb-water'), smpAdded:num('nb-smp'),
-    finalVol:num('nb-fvol'), finalFat:num('nb-ffat'), finalSnf:num('nb-fsnf'),
-    cultureBrand:g('nb-cbrand').trim(), cultureExpiry:g('nb-cexp'), cultureMl:num('nb-cml'), cultureTime:g('nb-ctime'),
-    pasteurized:g('nb-pdone')||'Yes', pastTemp:num('nb-ptemp'), pastTime:num('nb-ptime'),
-    homogenized:g('nb-homog')||'Yes', finalTempPack:num('nb-ftemp'),
-    cups200:num('nb-c200'), cups400:num('nb-c400'),
-    incubTime:g('nb-inctime'), coldTime:g('nb-coldtime'), useBy:g('nb-useby')
+    procIds, linkedLots:lots, linkedLotId:lots.join(', '), linkedSupplier:Array.from(new Set(suppliers)).join(', ')
   };
+  let batch;
+  if(T==='paneer'){
+    batch=Object.assign(head,{
+      rawVol:num('nbp-rawqty')||rawVol, rawFat:num('nbp-rawfat')||rawFat, rawSnf:num('nbp-rawsnf')||rawSnf,
+      heatTemp:num('nbp-heat'), coagTemp:num('nbp-coag'), citricG:num('nbp-citric'),
+      yieldKg:num('nbp-yield'), useBy:g('nbp-useby')
+    });
+  }else if(T==='toned'){
+    batch=Object.assign(head,{
+      rawVol:num('nbt-rawqty')||rawVol, rawFat:num('nbt-rawfat')||rawFat, rawSnf:num('nbt-rawsnf')||rawSnf,
+      finalVol:num('nbt-fvol'), finalFat:num('nbt-ffat'), finalSnf:num('nbt-fsnf'),
+      packs500:num('nbt-p500'), packs1000:num('nbt-p1000'), useBy:g('nbt-useby')
+    });
+  }else{
+    batch=Object.assign(head,{
+      rawVol:num('nb-rawqty')||rawVol, rawFat:num('nb-rawfat')||rawFat, rawSnf:num('nb-rawsnf')||rawSnf,
+      waterAdded:num('nb-water'), smpAdded:num('nb-smp'),
+      finalVol:num('nb-fvol'), finalFat:num('nb-ffat'), finalSnf:num('nb-fsnf'),
+      cultureBrand:g('nb-cbrand').trim(), cultureExpiry:g('nb-cexp'), cultureMl:num('nb-cml'), cultureTime:g('nb-ctime'),
+      pasteurized:g('nb-pdone')||'Yes', pastTemp:num('nb-ptemp'), pastTime:num('nb-ptime'),
+      homogenized:g('nb-homog')||'Yes', finalTempPack:num('nb-ftemp'),
+      cups200:num('nb-c200'), cups400:num('nb-c400'),
+      incubTime:g('nb-inctime'), coldTime:g('nb-coldtime'), useBy:g('nb-useby')
+    });
+  }
   productionBatches.unshift(batch);
   store('productionBatches',productionBatches);
-  _rememberBatchDefaults(batch);
+  if(T==='curd')_rememberBatchDefaults(batch);
   document.getElementById('newBatchForm').style.display='none';
   showAlert('newBatchAlert','alert-green','✅ Batch saved: '+batch.batchId);
   _nbSel={};
-  ['nb-idsuffix','nb-water','nb-smp','nb-fvol','nb-ffat','nb-fsnf','nb-cbrand','nb-cexp','nb-cml','nb-ctime','nb-ptemp','nb-ptime','nb-ftemp','nb-c200','nb-c400','nb-inctime','nb-coldtime','nb-useby'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['nb-idsuffix','nb-rawqty','nb-rawfat','nb-rawsnf','nb-water','nb-smp','nb-fvol','nb-ffat','nb-fsnf','nb-cbrand','nb-cexp','nb-cml','nb-ctime','nb-ptemp','nb-ptime','nb-ftemp','nb-c200','nb-c400','nb-inctime','nb-coldtime','nb-useby',
+   'nbp-rawqty','nbp-rawfat','nbp-rawsnf','nbp-heat','nbp-coag','nbp-citric','nbp-yield','nbp-useby',
+   'nbt-rawqty','nbt-rawfat','nbt-rawsnf','nbt-fvol','nbt-ffat','nbt-fsnf','nbt-p500','nbt-p1000','nbt-useby'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   initBatchTab();
   openBatch(batch.batchId);
 }
@@ -7331,23 +7462,37 @@ function incubElapsed(startTime){
   return(Date.now()-start.getTime())/3600000;
 }
 function batchCardHTML(b){
-  const c2=b.cups200!=null?(parseInt(b.cups200)||0):0;
-  const c4=b.cups400!=null?(parseInt(b.cups400)||0):0;
   const lot=b.linkedLotId||(b.linkedLots?b.linkedLots.join(', '):'');
   const statusBadge=b.status==='completed'?'<span style="font-size:9px;font-weight:700;color:var(--green)">✅ complete</span>':'<span style="font-size:9px;font-weight:700;color:#b45309">⏳ in progress</span>';
+  const typeBadge=b.ptype==='paneer'?'<span style="font-size:9px;font-weight:700;color:#7a5a00;background:#fff8e7;padding:1px 6px;border-radius:6px">🧀 PANEER</span> '
+    :b.ptype==='toned'?'<span style="font-size:9px;font-weight:700;color:#0f766e;background:#e8f7f4;padding:1px 6px;border-radius:6px">🥛 TONED</span> ':'';
+  // Right-hand quantity + bottom summary depend on the product type
+  let qtyMain,qtySub,summary;
+  if(b.ptype==='paneer'){
+    qtyMain=(b.yieldKg||0)+' kg';qtySub='paneer made';
+    summary='Raw '+(b.rawVol||0)+'L ('+(b.rawFat||0)+'%F '+(b.rawSnf||0)+'%S) · 🔥 '+(b.heatTemp||'—')+'°C · coag '+(b.coagTemp||'—')+'°C · citric '+(b.citricG||0)+'g';
+  }else if(b.ptype==='toned'){
+    qtyMain=(b.finalVol||0)+' L';qtySub=((b.packs500||0)+' ×500ml · '+(b.packs1000||0)+' ×1L');
+    summary='Raw '+(b.rawVol||0)+'L ('+(b.rawFat||0)+'%F '+(b.rawSnf||0)+'%S) → Final '+(b.finalFat||0)+'%F '+(b.finalSnf||0)+'%S';
+  }else{
+    const c2=b.cups200!=null?(parseInt(b.cups200)||0):0;
+    const c4=b.cups400!=null?(parseInt(b.cups400)||0):0;
+    qtyMain=(c2+c4)+' cups';qtySub=c2+'×200g · '+c4+'×400g';
+    summary='Raw '+(b.rawVol||0)+'L → Final '+(b.finalVol||0)+'L ('+(b.finalFat||0)+'%F '+(b.finalSnf||0)+'%S)';
+  }
   return `<div class="batch-card" style="background:#fff;border:1px solid #eef0f6;border-radius:12px;padding:12px;margin-bottom:8px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;cursor:pointer" onclick="openBatch('${_esc(b.batchId)}')">
       <div>
-        <div class="batch-id">${_esc(b.batchId)} ${statusBadge}</div>
+        <div class="batch-id">${typeBadge}${_esc(b.batchId)} ${statusBadge}</div>
         <div style="font-size:10px;color:var(--gray);margin-top:2px">${b.date} · ${_esc(b.createdBy||'Staff')}${lot?' · '+_esc(lot):''}</div>
       </div>
       <div style="text-align:right">
-        <div style="font-size:15px;font-weight:700;color:var(--dark)">${c2+c4} cups</div>
-        <div style="font-size:9px;color:var(--gray)">${c2}×200g · ${c4}×400g</div>
+        <div style="font-size:15px;font-weight:700;color:var(--dark)">${qtyMain}</div>
+        <div style="font-size:9px;color:var(--gray)">${qtySub}</div>
       </div>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-      <div style="font-size:10px;color:var(--gray)">Raw ${b.rawVol||0}L → Final ${b.finalVol||0}L (${b.finalFat||0}%F ${b.finalSnf||0}%S)</div>
+      <div style="font-size:10px;color:var(--gray)">${summary}</div>
       <button class="btn btn-red btn-sm" style="flex-shrink:0" onclick="deleteBatchById('${_esc(b.batchId)}')">🗑</button>
     </div>
   </div>`;
@@ -7375,7 +7520,23 @@ function _obTime(label,b,field){
 function _readBatchInputs(b){
   const g=id=>{const e=document.getElementById(id);return e?e.value:undefined;};
   const num=id=>{const e=document.getElementById(id);return e?(e.value!==''?(parseFloat(e.value)||0):0):b[id];};
+  if(b.ptype==='paneer'){
+    if(!_elById('pb-heat'))return; // paneer inputs not on screen — don't zero fields
+    b.rawVol=num('pb-rawvol');b.rawFat=num('pb-rawfat');b.rawSnf=num('pb-rawsnf');
+    b.heatTemp=num('pb-heat');b.coagTemp=num('pb-coag');b.citricG=num('pb-citric');b.yieldKg=num('pb-yield');
+    b.useBy=g('pb-useby')||'';
+    return;
+  }
+  if(b.ptype==='toned'){
+    if(!_elById('tm-ffat'))return; // toned inputs not on screen — don't zero fields
+    b.rawVol=num('tm-rawvol');b.rawFat=num('tm-rawfat');b.rawSnf=num('tm-rawsnf');
+    b.finalVol=num('tm-fvol');b.finalFat=num('tm-ffat');b.finalSnf=num('tm-fsnf');
+    b.packs500=num('tm-p500');b.packs1000=num('tm-p1000');
+    b.useBy=g('tm-useby')||'';
+    return;
+  }
   if(!_elById('ob-water'))return; // legacy-batch modal renders no inputs — don't zero fields
+  if(_elById('ob-rawvol')){b.rawVol=num('ob-rawvol');b.rawFat=num('ob-rawfat');b.rawSnf=num('ob-rawsnf');}
   b.waterAdded=num('ob-water');b.smpAdded=num('ob-smp');b.finalVol=num('ob-fvol');b.finalFat=num('ob-ffat');b.finalSnf=num('ob-fsnf');
   b.cultureBrand=(g('ob-cbrand')||'').trim();b.cultureExpiry=g('ob-cexp')||'';b.cultureMl=num('ob-cml');
   b.pasteurized=g('ob-pdone')||'Yes';b.homogenized=g('ob-homog')||'Yes';b.pastTemp=num('ob-ptemp');b.pastTime=num('ob-ptime');b.finalTempPack=num('ob-ftemp');
@@ -7458,6 +7619,33 @@ function openBatch(batchId){
   const I=_obI;
   let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="display:flex;align-items:center;gap:7px"><div class="batch-id">${_esc(b.batchId)}</div><button class="btn btn-outline btn-sm" style="padding:3px 9px;font-size:10px" onclick="renameBatch('${_esc(b.batchId)}')">✏️ Rename</button></div><span style="font-size:11px;color:var(--gray)">${b.date||''} · ${b.status==='completed'?'✅ complete':'⏳ in progress'}</span></div>`;
   h+='<div style="font-size:11px;color:var(--gray);margin-bottom:6px">Log each step as you do it and tap 💾 Save (times have a 🕒 Now button).</div>';
+  // ── Paneer / Toned-milk batches: their own detail form ──
+  if(b.ptype==='paneer'||b.ptype==='toned'){
+    h+=sec('① Milk source (from procurement)');
+    h+=R('Lots used', b.linkedLotId||(b.linkedLots?b.linkedLots.join(', '):'')||'— manual entry —');
+    if(b.ptype==='paneer'){
+      h+=sec('② Raw milk');
+      h+='<div class="grid3">'+I('Raw milk (L)','pb-rawvol',b.rawVol)+I('Fat %','pb-rawfat',b.rawFat)+I('SNF %','pb-rawsnf',b.rawSnf)+'</div>';
+      h+=sec('③ Heating & coagulation');
+      h+='<div class="grid2">'+I('Heating temp (°C)','pb-heat',b.heatTemp)+I('Temp at coagulation (°C)','pb-coag',b.coagTemp)+'</div>';
+      h+='<div class="grid2">'+I('Citric acid used (g)','pb-citric',b.citricG)+I('Paneer yield (kg)','pb-yield',b.yieldKg)+'</div>';
+      h+=I('Use by','pb-useby',b.useBy,'date');
+    }else{
+      h+=sec('② Raw milk');
+      h+='<div class="grid3">'+I('Raw milk (L)','tm-rawvol',b.rawVol)+I('Raw Fat %','tm-rawfat',b.rawFat)+I('Raw SNF %','tm-rawsnf',b.rawSnf)+'</div>';
+      h+=sec('③ Final (after standardisation)');
+      h+='<div class="grid3">'+I('Final Vol (L)','tm-fvol',b.finalVol)+I('Final Fat %','tm-ffat',b.finalFat)+I('Final SNF %','tm-fsnf',b.finalSnf)+'</div>';
+      h+='<div class="grid2">'+I('500ml packs','tm-p500',b.packs500)+I('1L packs','tm-p1000',b.packs1000)+'</div>';
+      h+=I('Use by','tm-useby',b.useBy,'date');
+    }
+    h+='<div id="batchDetailAlert" style="margin-top:8px"></div>';
+    h+='<button class="btn btn-primary btn-full" style="margin-top:6px" onclick="saveBatchDetail(\''+_esc(b.batchId)+'\')">💾 Save details</button>';
+    if(b.status!=='completed')h+='<button class="btn btn-green btn-full" style="margin-top:8px" onclick="completeBatch(\''+_esc(b.batchId)+'\')">✅ Mark batch complete</button>';
+    document.getElementById('batchModalContent').innerHTML=h;
+    document.getElementById('batchModal').classList.add('open');
+    const pbBtn=document.getElementById('batchPauseBtn');if(pbBtn)pbBtn.style.display='none';
+    return;
+  }
   const isNew = b.cups200!=null||b.finalVol!=null||b.waterAdded!=null||Array.isArray(b.procIds);
   if(!isNew){
     h+='<div style="font-size:12px;color:var(--gray);padding:8px 0">This is an older batch record.</div>'+R('Lots', b.linkedLotId)+R('Vat', b.vat);
@@ -7468,8 +7656,7 @@ function openBatch(batchId){
   }
   h+=sec('① Milk source (from procurement)');
   h+=R('Lots used', b.linkedLotId||(b.linkedLots?b.linkedLots.join(', '):''));
-  h+=R('Raw quantity', (b.rawVol||0)+' L');
-  h+=R('Average fat / SNF', (b.rawFat||0)+'% / '+(b.rawSnf||0)+'%');
+  h+='<div class="grid3">'+I('Raw Qty (L)','ob-rawvol',b.rawVol)+I('Raw Fat %','ob-rawfat',b.rawFat)+I('Raw SNF %','ob-rawsnf',b.rawSnf)+'</div>';
   h+=sec('② Standardisation');
   h+='<div class="grid2">'+I('Water (L)','ob-water',b.waterAdded)+I('SMP (kg)','ob-smp',b.smpAdded)+'</div>';
   h+='<div class="grid3">'+I('Final Vol','ob-fvol',b.finalVol)+I('Final Fat','ob-ffat',b.finalFat)+I('Final SNF','ob-fsnf',b.finalSnf)+'</div>';
@@ -7933,6 +8120,7 @@ function batchProfitRange(){
   const to=(document.getElementById('bp-to')||{}).value||'';
   const batches=productionBatches.filter(b=>{
     if(!b)return false;
+    if(b.ptype==='paneer'||b.ptype==='toned')return false; // cup economics don't apply
     const isB=(b.cups200!=null||b.cups400!=null||b.finalVol!=null||Array.isArray(b.procIds));
     if(!isB)return false;
     const d=b.date||'';
@@ -8104,7 +8292,9 @@ function _recallLotCard(r){
 }
 function _recallBatchCard(b){
   const c2=parseInt(b.cups200)||0,c4=parseInt(b.cups400)||0;
-  const cups=(c2||c4)?(c2+'×200g · '+c4+'×400g'):(b.stages&&b.stages.s5_fill?(b.stages.s5_fill.cupsCount+' × '+(b.stages.s5_fill.cupSize||'?')):'—');
+  const cups=b.ptype==='paneer'?('🧀 '+(b.yieldKg||0)+' kg paneer')
+    :b.ptype==='toned'?('🥛 '+(b.finalVol||0)+' L toned milk')
+    :(c2||c4)?(c2+'×200g · '+c4+'×400g'):(b.stages&&b.stages.s5_fill?(b.stages.s5_fill.cupsCount+' × '+(b.stages.s5_fill.cupSize||'?')):'—');
   const linked=distRecords.filter(function(d){return String(d.batchIds||'').includes(b.batchId);});
   return'<div class="recall-card" style="border-left:4px solid var(--gold);margin-bottom:8px;cursor:pointer" onclick="openBatch(\''+_esc(b.batchId)+'\')">'+
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">'+
@@ -8454,7 +8644,9 @@ function renderSummary(){
   const bEl=document.getElementById('sum-batch-list');
   if(bEl)bEl.innerHTML=dayB.length?dayB.map(b=>{
     const fill=b.stages&&b.stages.s5_fill;
-    const cups=fill?fill.cupsCount+' × '+(fill.cupSize||'?'):'no fill yet';
+    const cups=b.ptype==='paneer'?('🧀 '+(b.yieldKg||0)+' kg paneer')
+      :b.ptype==='toned'?('🥛 '+(b.finalVol||0)+' L toned milk')
+      :fill?fill.cupsCount+' × '+(fill.cupSize||'?'):'no fill yet';
     const resColor=b.batchResult==='PASSED'?'green':b.status==='active'||b.status==='paused'?'gold':'red';
     return`<div class="row"><span class="rl">${_esc(b.batchId)} · ${_esc(b.vat||'Vat')}<br/><span style="font-size:9px;color:var(--gray)">${cups}</span></span><span class="rv ${resColor}">${_esc(b.batchResult||b.status||'—')}</span></div>`;
   }).join(''):'<div class="empty"><div class="empty-icon">🧫</div><div class="empty-text">No batches</div></div>';

@@ -1,1 +1,1 @@
-2026-08-03 · v84 (rider logs: backdate missed entries + manual crates-with-distributor counts)
+2026-08-06 · v85 (paneer/toned batches BDP-D/T/P; manual raw qty-fat-snf; rider logs carry paneer/toned)
