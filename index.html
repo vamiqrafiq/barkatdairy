@@ -2854,7 +2854,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-08-08 · v86 (loose open dahi on distribution bills)';
+var APP_BUILD='2026-08-08 · v87 (archive settled distributor accounts — records kept, restorable)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2929,7 +2929,8 @@ function acFilter(inputId, listId, storeKey){
   const input=document.getElementById(inputId);
   const list=document.getElementById(listId);
   const val=input.value.trim().toLowerCase();
-  const data=storeKey==='savedSuppliers'?savedSuppliers:storeKey==='savedDistributors'?savedDistributors:[];
+  let data=storeKey==='savedSuppliers'?savedSuppliers:storeKey==='savedDistributors'?savedDistributors:[];
+  if(storeKey==='savedDistributors'&&typeof _distVisible==='function')data=data.filter(_distVisible); // archived accounts hidden
   let matches=val?data.filter(s=>s.toLowerCase().includes(val)):data;
   if(matches.length===0){list.classList.remove('show');return;}
   list.innerHTML=matches.map(s=>`<div class="ac-item" data-v="${_esc(s)}" onmousedown="acSelect('${inputId}','${listId}',this.dataset.v)">${_esc(s)}</div>`).join('');
@@ -4084,7 +4085,10 @@ function renderDistRecords(){
   renderDistBatchPicker();
 
   // Hero — total outstanding using accurate getDistBalance
+  // (archived accounts are hidden, but any archived account with a balance
+  //  is still counted and shown — money can never hide)
   const allDists=[...new Set(distRecords.map(r=>r.dist).filter(Boolean))];
+  const visDists=allDists.filter(_distVisible);
   const totalOut=allDists.reduce((s,d)=>s+Math.max(0,getDistBalance(d)),0);
   const herobal=document.getElementById('dist-hero-bal');
   const herosub=document.getElementById('dist-hero-sub');
@@ -4105,24 +4109,39 @@ function renderDistRecords(){
 
   // Distributor Balances — use getDistBalance for accuracy (includes Payments tab)
   const balEl=document.getElementById('distBalances');
-  if(allDists.length===0){balEl.innerHTML='<div class="empty"><div class="empty-icon">💼</div><div class="empty-text">No distribution records yet</div></div>';}
-  else{
-    const sorted=allDists.map(d=>({name:d,bal:getDistBalance(d)})).sort((a,b)=>b.bal-a.bal);
-    balEl.innerHTML=sorted.map(d=>{
-      const cleared=d.bal<=0.5;
-      const entries=distRecords.filter(r=>r.dist===d.name).length;
-      return`<div class="dist-balance-card" onclick="openDistLedger('${_esc(d.name).replace(/'/g,"\\'")}')" style="cursor:pointer;${cleared?'background:linear-gradient(135deg,#15803d,#16a34a)':''}">
-        <div>
-          <div class="dist-balance-name">${_esc(d.name)}</div>
-          <div class="dist-balance-sub">${entries} entr${entries===1?'y':'ies'}${cleared?' · Cleared':''} · tap to open account</div>
-        </div>
-        <div style="text-align:right">
-          <div class="dist-balance-amt">${cleared?'✅':'₹'+d.bal.toFixed(0)}</div>
-          <div style="font-size:9px;font-weight:700;margin-top:4px;opacity:.85">📒 Account ›</div>
-        </div>
-      </div>`;
-    }).join('');
+  const cardsHtml=visDists.length?visDists.map(d=>({name:d,bal:getDistBalance(d)})).sort((a,b)=>b.bal-a.bal).map(d=>{
+    const cleared=d.bal<=0.5;
+    const entries=distRecords.filter(r=>r.dist===d.name).length;
+    return`<div class="dist-balance-card" onclick="openDistLedger('${_esc(d.name).replace(/'/g,"\\'")}')" style="cursor:pointer;${cleared?'background:linear-gradient(135deg,#15803d,#16a34a)':''}">
+      <div>
+        <div class="dist-balance-name">${_esc(d.name)}</div>
+        <div class="dist-balance-sub">${entries} entr${entries===1?'y':'ies'}${cleared?' · Cleared':''} · tap to open account</div>
+      </div>
+      <div style="text-align:right">
+        <div class="dist-balance-amt">${cleared?'✅':'₹'+d.bal.toFixed(0)}</div>
+        <div style="font-size:9px;font-weight:700;margin-top:4px;opacity:.85">📒 Account ›</div>
+      </div>
+    </div>`;
+  }).join(''):'<div class="empty"><div class="empty-icon">💼</div><div class="empty-text">No distribution records yet</div></div>';
+  // Archived accounts — hidden from lists but every record stays in the database
+  const archived=_archivedDists();
+  let archHtml='';
+  if(archived.length){
+    const isAdm=_hasRole(currentUser,'admin');
+    archHtml='<div style="margin-top:12px">'
+      +'<div style="font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🗄 Archived accounts ('+archived.length+') — records kept safe</div>'
+      +archived.slice().sort().map(function(n){
+        const bal=getDistBalance(n);
+        const entries=distRecords.filter(r=>r.dist===n).length;
+        return '<div style="display:flex;align-items:center;gap:8px;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:10px;padding:8px 10px;margin-bottom:6px">'
+          +'<div style="flex:1"><div style="font-size:12px;font-weight:700;color:var(--gray)">'+_esc(n)+'</div>'
+          +'<div style="font-size:10px;color:#94a3b8">'+entries+' record'+(entries===1?'':'s')+' saved'+(Math.abs(bal)>0.5?' · ⚠️ balance ₹'+bal.toFixed(0):' · cleared')+'</div></div>'
+          +'<button class="btn btn-sm btn-outline" onclick="openDistLedger(\''+_esc(n).replace(/'/g,"\\'")+'\')">📒</button>'
+          +(isAdm?'<button class="btn btn-sm" style="background:#0f766e;color:#fff;border:none" onclick="restoreDistAccount(\''+_esc(n).replace(/'/g,"\\'")+'\')">↩ Restore</button>':'')
+          +'</div>';
+      }).join('')+'</div>';
   }
+  balEl.innerHTML=cardsHtml+archHtml;
 
   // All records grouped by date
   const allEl=document.getElementById('allDistRecords');
@@ -4353,11 +4372,25 @@ function renderDistLedger(){
         <button class="btn btn-sm btn-outline" title="Remove without applying" onclick="dismissRiderPayment(${p.id})">✕</button>
       </div>`).join('')}
     </div>`:'';
+  // Archive control (admin only): allowed only once the account is fully settled.
+  // Archiving hides the account from lists — every record stays in the database.
+  let archCtl='';
+  if(_hasRole(currentUser,'admin')){
+    const nameArg=_esc(dist).replace(/'/g,"\\'");
+    if(_isArchivedDist(dist)){
+      archCtl='<div style="margin-top:6px"><span style="font-size:10px;font-weight:700;color:#94a3b8">🗄 Archived (records kept)</span> <button class="btn btn-sm" style="background:#0f766e;color:#fff;border:none" onclick="restoreDistAccount(\''+nameArg+'\')">↩ Restore account</button></div>';
+    }else if(Math.abs(bal)<=0.5){
+      archCtl='<div style="margin-top:6px"><button class="btn btn-sm btn-outline" style="color:#64748b" onclick="archiveDistAccount(\''+nameArg+'\')">🗄 Archive account — not billed anymore</button><div style="font-size:9px;color:#94a3b8;margin-top:3px">Hides him from lists · all records stay saved · restorable anytime</div></div>';
+    }else{
+      archCtl='<div style="font-size:9px;color:#94a3b8;margin-top:6px">🗄 Archiving is available once the balance is settled</div>';
+    }
+  }
   el.innerHTML=`
     <div style="text-align:center;margin-bottom:10px">
       <div style="font-size:17px;font-weight:800;color:var(--dark)">${_esc(dist)}</div>
       <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">Account balance</div>
       <div style="font-size:26px;font-weight:800;color:${balColor}">${bal>0.5?'₹'+bal.toFixed(0):'✅ Cleared'}</div>
+      ${archCtl}
     </div>
     ${pendHtml}
     <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:10px;margin-bottom:12px">
@@ -5997,7 +6030,7 @@ function _riderDistOptions(){
   const set={};
   getAllDistributors().forEach(n=>{if(n)set[n]=1;});
   (Array.isArray(savedDistributors)?savedDistributors:[]).forEach(n=>{if(n)set[n]=1;});
-  return Object.keys(set).sort();
+  return Object.keys(set).filter(_distVisible).sort(); // archived accounts hidden
 }
 function riderDropCalc(){
   const n=id=>{const e=document.getElementById(id);return e?(parseInt(e.value)||0):0;};
@@ -9147,6 +9180,50 @@ function getAllDistributors(){
   return Object.keys(set);
 }
 
+// ── Archived distributor accounts ──
+// Archiving only HIDES the distributor from lists/dropdowns; every bill,
+// payment and ledger entry stays in the database untouched, and the account
+// can be restored any time. The archived list lives in settings (syncs to all
+// devices; no new database key needed).
+function _archivedDists(){return Array.isArray(settings.archivedDists)?settings.archivedDists:[];}
+function _isArchivedDist(n){return _archivedDists().indexOf(n)>-1;}
+// Safety net: an archived account that somehow gets a balance again (e.g. a
+// bill edit) reappears in balance lists so money can never hide.
+function _distVisible(n){return !_isArchivedDist(n)||Math.abs(getDistBalance(n))>0.5;}
+function archiveDistAccount(name){
+  if(!_hasRole(currentUser,'admin')){alert('Only admin can archive a distributor account.');return;}
+  var bal=getDistBalance(name);
+  if(Math.abs(bal)>0.5){
+    alert('Cannot archive "'+name+'" — account is not settled.\n\n'+(bal>0?'Outstanding balance: ₹'+bal.toFixed(0):'Credit on account: ₹'+Math.abs(bal).toFixed(0))+'\n\nSettle the account first, then archive.');
+    return;
+  }
+  var pend=(Array.isArray(paymentsLog)?paymentsLog:[]).filter(function(p){return p&&p.dist===name&&p.pending;});
+  if(pend.length){
+    var pTot=pend.reduce(function(s,p){return s+(p.amount||0);},0);
+    alert('Cannot archive "'+name+'" — a rider still holds ₹'+pTot.toFixed(0)+' collected from him, awaiting handover.\n\nConfirm or dismiss that payment first (Payments tab).');
+    return;
+  }
+  if(!confirm('Archive distributor "'+name+'"?\n\nHe will be hidden from lists and dropdowns since he is not billed anymore.\n\n✅ ALL his bills, payments and ledger stay saved in the database.\n↩ You can restore him anytime from "Archived accounts" in the Distribution tab.'))return;
+  var list=_archivedDists().slice();
+  if(list.indexOf(name)===-1)list.push(name);
+  settings.archivedDists=list;
+  store('settings',settings);
+  try{_audit('distribution','archive',name,'active','archived','Distributor account archived (all records kept) · balance ₹'+bal.toFixed(0));}catch(e){}
+  closeDistLedger();
+  try{renderDistRecords();}catch(e){}
+  try{renderPayments();}catch(e){}
+  try{renderRiderLogs();}catch(e){}
+}
+function restoreDistAccount(name){
+  if(!_hasRole(currentUser,'admin')){alert('Only admin can restore a distributor account.');return;}
+  settings.archivedDists=_archivedDists().filter(function(n){return n!==name;});
+  store('settings',settings);
+  try{_audit('distribution','restore',name,'archived','active','Distributor account restored from archive');}catch(e){}
+  try{renderDistRecords();}catch(e){}
+  try{renderPayments();}catch(e){}
+  try{renderRiderLogs();}catch(e){}
+}
+
 // Quick-select a distributor from the credit card "Pay" button
 function selectPayDist(name){
   var sel=document.getElementById('pay-dist');
@@ -9163,7 +9240,7 @@ function renderPayments(){
   var byEl=document.getElementById('pay-by');
   if(byEl&&!byEl.value&&currentUser)byEl.value=currentUser.name;
 
-  var dists=getAllDistributors();
+  var dists=getAllDistributors().filter(_distVisible); // archived accounts hidden (reappear if any balance)
   // Populate dropdown
   var sel=document.getElementById('pay-dist');
   if(sel) sel.innerHTML='<option value="">— Select distributor —</option>'+dists.map(function(d){return '<option value="'+_esc(d)+'">'+_esc(d)+'</option>';}).join('');
