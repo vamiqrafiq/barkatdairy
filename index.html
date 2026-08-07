@@ -866,9 +866,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <div><label class="inp-label">🥛 Toned Milk 500ml (pkts)</label><input type="number" id="d-xq-tm500Qty" placeholder="0" min="0" step="1" oninput="calcDist()"/></div>
       <div><label class="inp-label">500ml rate (₹/pkt)</label><input type="number" id="d-xr-tm500Qty" step="0.5" min="0" placeholder="₹/pkt" oninput="calcDist()"/></div>
     </div>
-    <div class="grid2" style="margin-bottom:12px">
+    <div class="grid2" style="margin-bottom:6px">
       <div><label class="inp-label">🥛 Toned Milk 1L (pkts)</label><input type="number" id="d-xq-tm1000Qty" placeholder="0" min="0" step="1" oninput="calcDist()"/></div>
       <div><label class="inp-label">1L rate (₹/pkt)</label><input type="number" id="d-xr-tm1000Qty" step="0.5" min="0" placeholder="₹/pkt" oninput="calcDist()"/></div>
+    </div>
+    <div class="grid2" style="margin-bottom:12px">
+      <div><label class="inp-label">🥣 Loose Open Dahi (kg)</label><input type="number" id="d-xq-dahiQty" placeholder="0" min="0" step="0.25" oninput="calcDist()"/></div>
+      <div><label class="inp-label">Dahi rate (₹/kg)</label><input type="number" id="d-xr-dahiQty" step="1" min="0" placeholder="₹/kg" oninput="calcDist()"/></div>
     </div>
 
     <!-- Which batches these cups came from -->
@@ -894,6 +898,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       </div>
       <div id="d-xrow-tm1000Qty" style="display:none;justify-content:space-between;font-size:12px;color:var(--gray);margin-bottom:4px">
         <span id="d-xlbl-tm1000Qty">Toned Milk 1L</span><span id="d-xamt-tm1000Qty" style="font-weight:600;color:var(--dark)">₹0</span>
+      </div>
+      <div id="d-xrow-dahiQty" style="display:none;justify-content:space-between;font-size:12px;color:var(--gray);margin-bottom:4px">
+        <span id="d-xlbl-dahiQty">Loose Open Dahi</span><span id="d-xamt-dahiQty" style="font-weight:600;color:var(--dark)">₹0</span>
       </div>
       <div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #e2e8f0"></div>
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -1232,6 +1239,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <div><label class="inp-label">🧀 Paneer (₹/kg)</label><input type="number" id="a-pPaneer" value="0" min="0" oninput="saveSettings()"/></div>
       <div><label class="inp-label">🥛 Toned Milk 500ml (₹/pkt)</label><input type="number" id="a-pTm500" value="0" min="0" step="0.5" oninput="saveSettings()"/></div>
       <div><label class="inp-label">🥛 Toned Milk 1L (₹/pkt)</label><input type="number" id="a-pTm1000" value="0" min="0" step="0.5" oninput="saveSettings()"/></div>
+      <div><label class="inp-label">🥣 Loose Open Dahi (₹/kg)</label><input type="number" id="a-pDahi" value="0" min="0" oninput="saveSettings()"/></div>
     </div>
     <div style="font-size:9px;color:var(--gray);margin:-6px 0 12px">Paneer / toned-milk rate 0 = no default — the bill form will ask for the rate the first time each distributor buys that product, then remember it per distributor.</div>
 
@@ -2695,7 +2703,7 @@ const DEFAULT_CREDS={admin:'barkat2024',ops1:'ops123',proc1:'proc123',rider1:'ri
 // pPaneer/pTm500/pTm1000: default selling rates for the extra billed products.
 // 0 = "no default set" — the bill form then REQUIRES a typed rate the first
 // time a product is sold to a distributor (never bills at a guessed price).
-const DEFAULT_SETTINGS={smp:305,cult:133,fix:5100,p200:18,p400:34,pPaneer:0,pTm500:0,pTm1000:0,r200:0.6,r400:0.4,pk200:2.7,pk400:4.1,tsnf:9.0,
+const DEFAULT_SETTINGS={smp:305,cult:133,fix:5100,p200:18,p400:34,pPaneer:0,pTm500:0,pTm1000:0,pDahi:0,r200:0.6,r400:0.4,pk200:2.7,pk400:4.1,tsnf:9.0,
   // ── Standardisation model (owner-adopted ideal mass balance, 2026-07-09) ──
   // kFat    : final Fat = kFat * (qty*rawFat)/finalVol   (fat retained vs ideal)
   // kSmpVol : litres of final volume added per kg of SMP dissolved
@@ -2846,7 +2854,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-08-06 · v85 (paneer/toned batches BDP-D/T/P; manual raw qty-fat-snf; rider logs carry paneer/toned)';
+var APP_BUILD='2026-08-08 · v86 (loose open dahi on distribution bills)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2955,14 +2963,14 @@ document.addEventListener('click',e=>{
 // ══════════════════════════════════════════
 function loadSettings(){
   const s=settings;
-  ['smp','cult','fix','p200','p400','pPaneer','pTm500','pTm1000','r200','r400','pk200','pk400','tsnf','kFat','kSmpVol','kSmpSnf'].forEach(k=>{
+  ['smp','cult','fix','p200','p400','pPaneer','pTm500','pTm1000','pDahi','r200','r400','pk200','pk400','tsnf','kFat','kSmpVol','kSmpSnf'].forEach(k=>{
     const el=document.getElementById('a-'+k);
     if(el&&s[k]!==undefined)el.value=s[k];
   
   var clEl2=document.getElementById('a-creditLimit');if(clEl2&&settings.creditLimit)clEl2.value=settings.creditLimit;});
 }
 function saveSettings(){
-  ['smp','cult','fix','p200','p400','pPaneer','pTm500','pTm1000','r200','r400','pk200','pk400','tsnf','creditLimit','kFat','kSmpVol','kSmpSnf'].forEach(k=>{
+  ['smp','cult','fix','p200','p400','pPaneer','pTm500','pTm1000','pDahi','r200','r400','pk200','pk400','tsnf','creditLimit','kFat','kSmpVol','kSmpSnf'].forEach(k=>{
     const el=document.getElementById('a-'+k);
     if(el)settings[k]=parseFloat(el.value)||DEFAULT_SETTINGS[k]||(k==='creditLimit'?20000:0);
   });
@@ -3772,7 +3780,8 @@ function fallbackCopy(){
 const XPRODS=[
   {qty:'paneerQty', rate:'paneerRate', set:'pPaneer', label:'Paneer',            unit:'kg',  icon:'🧀', step:'0.25'},
   {qty:'tm500Qty',  rate:'tm500Rate',  set:'pTm500',  label:'Toned Milk 500ml',  unit:'pkt', icon:'🥛', step:'1'},
-  {qty:'tm1000Qty', rate:'tm1000Rate', set:'pTm1000', label:'Toned Milk 1L',     unit:'pkt', icon:'🥛', step:'1'}
+  {qty:'tm1000Qty', rate:'tm1000Rate', set:'pTm1000', label:'Toned Milk 1L',     unit:'pkt', icon:'🥛', step:'1'},
+  {qty:'dahiQty',   rate:'dahiRate',   set:'pDahi',   label:'Loose Open Dahi',   unit:'kg',  icon:'🥣', step:'0.25'}
 ];
 // Money from extra products on a bill (0 for all old records).
 function _xAmt(r){return XPRODS.reduce(function(s,p){return s+(parseFloat(r[p.qty])||0)*(parseFloat(r[p.rate])||0);},0);}
@@ -9387,10 +9396,10 @@ function exportExcel(){
   });
   rows.push('');
   rows.push('=== DISTRIBUTION ===');
-  rows.push('Date,Distributor,200g,400g,Paneer(kg),TM 500ml,TM 1L,Amount,Paid,Balance');
+  rows.push('Date,Distributor,200g,400g,Paneer(kg),TM 500ml,TM 1L,Dahi(kg),Amount,Paid,Balance');
   distRecords.forEach(function(r){
     rows.push([csvField(r.date),csvField(r.dist),csvField(r.c200),csvField(r.c400),
-      csvField(r.paneerQty||0),csvField(r.tm500Qty||0),csvField(r.tm1000Qty||0),
+      csvField(r.paneerQty||0),csvField(r.tm500Qty||0),csvField(r.tm1000Qty||0),csvField(r.dahiQty||0),
       csvField(r.amount),csvField(r.paid),csvField(r.balance)].join(','));
   });
   rows.push('');
