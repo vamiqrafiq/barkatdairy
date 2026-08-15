@@ -505,6 +505,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <button class="tab" onclick="goTab('batch',this);initBatchTab()">🧫 Batches</button>
     <button class="tab" onclick="goTab('cip',this);renderCIPList()">🧼 CIP</button>
     <button class="tab" onclick="goTab('dist',this)">🚚 Distribution</button>
+    <button class="tab" id="retailTabBtn" onclick="goTab('retail',this);renderRetail()" style="display:none">🏪 Self Distribution</button>
     <button class="tab" onclick="goTab('returns',this);renderReturns()">↩️ Returns</button>
     <button class="tab" onclick="goTab('recall',this);initRecall()">🔍 Recall</button>
     <button class="tab" onclick="goTab('inv',this)">📦 Inventory</button>
@@ -963,6 +964,139 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <button class="btn btn-sm btn-outline" onclick="clearDistFilter()">All</button>
     </div>
     <div id="allDistRecords"></div>
+  </div>
+
+</div>
+
+<!-- ══ SELF DISTRIBUTION (RETAILERS) TAB — admin only ══ -->
+<div class="page" id="tab-retail">
+
+  <!-- Hero: outstanding across all retailers -->
+  <div class="hero" style="background:linear-gradient(135deg,#5b21b6 0%,#7c3aed 60%,#a855f7 100%)">
+    <div class="hero-label">RETAILERS OUTSTANDING</div>
+    <div class="gold-bar"></div>
+    <div class="hero-val" id="rt-hero-bal">₹0</div>
+    <div class="hero-sub" id="rt-hero-sub">No retailers yet</div>
+  </div>
+
+  <!-- ① Retailer master -->
+  <div class="section">
+    <div class="sec-title-row">
+      <div class="sec-title">🏪 Retailers</div>
+      <button class="btn btn-sm btn-outline" onclick="rtToggleRetailerForm()" id="rt-cust-toggle">➕ Add retailer</button>
+    </div>
+    <div id="rt-cust-form" style="display:none;background:var(--light);border-radius:12px;padding:12px;margin-bottom:10px">
+      <input type="hidden" id="rt-cust-editid"/>
+      <div style="margin-bottom:8px"><label class="inp-label">Retailer / Shop Name *</label><input type="text" id="rt-cust-name" placeholder="e.g. Gulshan Store, Watlar" autocomplete="off"/></div>
+      <div class="grid2" style="margin-bottom:8px">
+        <div><label class="inp-label">Phone (10-digit) *</label><input type="tel" id="rt-cust-phone" placeholder="98XXXXXXXX" inputmode="numeric" maxlength="10"/></div>
+        <div><label class="inp-label">Location / Area *</label><input type="text" id="rt-cust-loc" placeholder="e.g. Watlar Market"/></div>
+      </div>
+      <div style="margin-bottom:10px"><label class="inp-label">Note <span style="font-weight:400;color:var(--gray)">optional</span></label><input type="text" id="rt-cust-note" placeholder="landmark, owner name, delivery day…"/></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" style="flex:1" onclick="rtSaveRetailer()">💾 Save Retailer</button>
+        <button class="btn btn-outline" style="flex:0 0 90px" onclick="rtCancelRetailerForm()">Cancel</button>
+      </div>
+      <div id="rtCustAlert" style="margin-top:8px"></div>
+    </div>
+    <div id="rt-cust-list"></div>
+  </div>
+
+  <!-- ② New bill -->
+  <div class="section">
+    <div class="sec-title" id="rt-bill-title">🧾 New Retail Bill</div>
+
+    <div style="font-size:9px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">① Retailer &amp; Date</div>
+    <div style="margin-bottom:10px">
+      <label class="inp-label">Retailer</label>
+      <select id="rt-cust" onchange="rtRetailerChanged()"><option value="">— select retailer —</option></select>
+      <div id="rt-cust-meta" style="font-size:10px;color:var(--gray);margin-top:4px"></div>
+    </div>
+    <div class="grid2" style="margin-bottom:12px">
+      <div><label class="inp-label">Bill Date</label><input type="date" id="rt-date" onchange="rtCalc()"/></div>
+      <div><label class="inp-label">Note on bill <span style="font-weight:400;color:var(--gray)">optional</span></label><input type="text" id="rt-note" placeholder="e.g. morning round"/></div>
+    </div>
+
+    <div style="font-size:9px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">② Items Taken <span style="font-weight:400;color:var(--gray);text-transform:none">(leave blank if not taken · rate is editable per bill)</span></div>
+    <div style="display:grid;grid-template-columns:1.5fr .85fr .85fr .9fr;gap:6px;font-size:8.5px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;padding:0 2px 5px">
+      <div>Item</div><div>Qty</div><div>Rate ₹</div><div style="text-align:right">Amount</div>
+    </div>
+    <div id="rt-items"></div>
+    <div style="display:flex;justify-content:flex-end;margin:6px 0 12px">
+      <button class="btn btn-sm btn-outline" onclick="rtOpenProducts()">⚙️ Manage items &amp; default rates</button>
+    </div>
+
+    <!-- Bill breakdown -->
+    <div style="background:var(--light);border-radius:12px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">Bill Breakdown</div>
+      <div id="rt-break" style="font-size:12px;color:var(--gray)"><div style="padding:4px 0">No items entered yet</div></div>
+      <div style="margin:8px 0;border-top:1px solid #e2e8f0"></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray);margin-bottom:4px"><span>Sub-total</span><span id="rt-subtotal" style="font-weight:600;color:var(--dark)">₹0</span></div>
+      <div id="rt-round-row" style="display:none;justify-content:space-between;font-size:12px;color:var(--gray);margin-bottom:4px"><span>Round off</span><span id="rt-round" style="font-weight:600;color:var(--dark)">₹0</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+        <span style="font-size:13px;font-weight:700;color:var(--dark)">Total Bill</span>
+        <span id="rt-total" style="font-size:20px;font-weight:700;color:#7c3aed">₹0</span>
+      </div>
+    </div>
+
+    <!-- ③ Payment -->
+    <div id="rt-pay-block">
+      <div style="font-size:9px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">③ Payment Received Now</div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div><label class="inp-label">Amount (₹)</label><input type="number" id="rt-paid" placeholder="0 — credit if blank" min="0" step="0.01" oninput="rtCalc()"/></div>
+        <div><label class="inp-label">Mode</label>
+          <select id="rt-pay-mode">
+            <option value="Credit">📋 On Credit</option>
+            <option value="Cash">💵 Cash</option>
+            <option value="UPI">📱 UPI</option>
+            <option value="Bank Transfer">🏦 Bank Transfer</option>
+            <option value="Cheque">📝 Cheque</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div id="rt-edit-note" style="display:none;font-size:11px;color:var(--gray);background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:9px 11px;margin-bottom:10px">
+      ✏️ <b>Editing a saved bill.</b> Only the items, rates, date and note change here — payments already recorded stay untouched (manage them from the retailer's ledger).
+    </div>
+
+    <div id="rt-balance-wrap" style="border-radius:14px;padding:14px 16px;margin-bottom:14px;background:linear-gradient(135deg,#b91c1c,#dc2626);display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:10px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Balance After This Bill</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.6)" id="rt-prev-note"></div>
+      </div>
+      <div id="rt-balance-preview" style="font-size:24px;font-weight:700;color:#fff">₹0</div>
+    </div>
+
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-full" onclick="rtSaveBill()" style="background:linear-gradient(135deg,#5b21b6,#7c3aed);color:#fff;font-size:14px;padding:14px;border-radius:12px;font-weight:700;letter-spacing:.3px;box-shadow:0 3px 10px rgba(124,58,237,.35)" id="rt-save-btn">💾 Save Bill</button>
+      <button class="btn btn-outline" id="rt-cancel-edit" style="display:none;flex:0 0 90px" onclick="rtCancelEdit()">Cancel</button>
+    </div>
+    <div id="rtAlert" style="margin-top:8px"></div>
+  </div>
+
+  <!-- Today's bills -->
+  <div class="section">
+    <div class="sec-title-row">
+      <div class="sec-title">📋 Today's Retail Bills</div>
+      <div id="rt-today-total" style="font-size:11px;color:#7c3aed;font-weight:700"></div>
+    </div>
+    <div id="rt-today-list"></div>
+  </div>
+
+  <!-- Retailer balances -->
+  <div class="section">
+    <div class="sec-title">💼 Retailer Balances</div>
+    <div id="rt-balances"></div>
+  </div>
+
+  <!-- All bills -->
+  <div class="section">
+    <div class="sec-title-row">
+      <div class="sec-title">📁 All Retail Bills</div>
+      <div id="rt-all-count" style="font-size:11px;color:var(--gray);font-weight:700"></div>
+    </div>
+    <input type="text" id="rt-search" placeholder="🔍 Search retailer, phone, area or date…" oninput="rtRenderAllBills()" style="margin-bottom:10px"/>
+    <div id="rt-all-list"></div>
   </div>
 
 </div>
@@ -2450,6 +2584,53 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
   </div>
 </div>
 
+<!-- ══ RETAIL BILL MODAL (self distribution) ══ -->
+<div class="modal-overlay" id="rtBillModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="dist-bill" id="rtBillContent"></div>
+    <button class="btn btn-full btn-outline" id="rtBillModeBtn" style="margin-top:10px" onclick="rtToggleBillDayOnly()">🧾 This bill only (no balance)</button>
+    <div style="margin-top:8px;display:flex;gap:8px">
+      <button class="btn btn-full" style="background:#0d1b4b;color:#fff;border:none" onclick="rtPrintRawBT()">🖨️ Print</button>
+      <button class="btn btn-full" style="background:#25D366;color:#fff;border:none" onclick="rtWhatsAppBill()">📲 WhatsApp</button>
+      <button class="btn btn-primary btn-full" onclick="rtDownloadPDF()">⬇️ PDF</button>
+    </div>
+    <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="rtCloseBill()">Close</button>
+  </div>
+</div>
+
+<!-- ══ RETAILER LEDGER MODAL (bills + payments for one shop) ══ -->
+<div class="modal-overlay" id="rtLedgerModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="rtLedgerContent"></div>
+    <button class="btn btn-outline btn-full" style="margin-top:12px" onclick="rtCloseLedger()">Close</button>
+  </div>
+</div>
+
+<!-- ══ RETAIL PRODUCT / RATE METER MODAL ══ -->
+<div class="modal-overlay" id="rtProdModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div style="font-size:13px;font-weight:700;color:var(--dark);margin-bottom:4px">⚙️ Items &amp; Default Rates</div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:12px">These are the products you can bill and the rate each one starts at. A retailer who was billed before always re-uses <b>his own last rate</b>; you can still change the rate on any single bill.</div>
+    <div id="rt-prod-list"></div>
+    <div style="background:var(--light);border-radius:12px;padding:12px;margin-top:12px">
+      <div style="font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Add a new item</div>
+      <div style="margin-bottom:8px"><label class="inp-label">Item name</label><input type="text" id="rt-np-label" placeholder="e.g. Dahi Bucket 5kg"/></div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div><label class="inp-label">Unit</label>
+          <select id="rt-np-unit"><option value="pc">pc (piece)</option><option value="cup">cup</option><option value="pkt">pkt (packet)</option><option value="kg">kg</option><option value="ltr">ltr (litre)</option><option value="crate">crate</option></select>
+        </div>
+        <div><label class="inp-label">Default rate (₹/unit)</label><input type="number" id="rt-np-rate" min="0" step="0.5" placeholder="0 = ask each time"/></div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="rtAddProduct()">➕ Add Item</button>
+      <div id="rtProdAlert" style="margin-top:8px"></div>
+    </div>
+    <button class="btn btn-outline btn-full" style="margin-top:12px" onclick="rtCloseProducts()">Done</button>
+  </div>
+</div>
+
 <!-- ══ DISTRIBUTOR LEDGER MODAL (one account, deliveries + payments) ══ -->
 <div class="modal-overlay" id="distLedgerModal">
   <div class="modal">
@@ -2793,6 +2974,7 @@ async function doLogin(){
     renderSupplierRates();
     renderAllRecords();
     renderDistRecords();
+    if(isAdmin)renderRetail();
     renderTestHistory();
     buildTestCards();
     calcOps();
@@ -2827,6 +3009,7 @@ var TAB_ROLES={
   batch:['admin','ops'],
   cip:['admin','ops'],
   dist:['admin','dist'],
+  retail:['admin'],          // self distribution to retailers — admin only
   returns:['admin','dist'],
   recall:['admin','ops','proc'],
   inv:['admin','ops','proc'],
@@ -2854,7 +3037,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-08-08 · v87 (archive settled distributor accounts — records kept, restorable)';
+var APP_BUILD='2026-08-15 · v88 (self distribution — retailer billing, RawBT print + PDF to WhatsApp)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -2896,6 +3079,10 @@ document.getElementById('loginUser').addEventListener('keydown',e=>{if(e.key==='
 function doLogout(){
   stopRiderLocation();
   currentUser=null;
+  // Close every open modal first. Modals sit at z-index 200 and the login screen
+  // at 100, so an open ledger/bill would otherwise stay readable on top of the
+  // login screen for whoever logs in next.
+  document.querySelectorAll('.modal-overlay.open').forEach(function(m){m.classList.remove('open');});
   document.getElementById('loginScreen').classList.remove('hidden');
   // Don't clear username if remember me was on
   try{
@@ -8741,12 +8928,978 @@ td{padding:7px 10px;border-bottom:1px solid #e5e7eb}
 function clearBatchRecords(){if(confirm('Delete ALL batch records?')){var n=productionBatches.length;_markDeleted('productionBatches',productionBatches.map(_rid));productionBatches=[];store('productionBatches',productionBatches);_audit('production','delete','ALL',n+' records','','Cleared all batch records');renderBatchList();}}
 function clearCipRecords(){if(confirm('Delete ALL CIP records?')){var n=cipLogs.length;_markDeleted('cipLogs',cipLogs.map(_rid));cipLogs=[];store('cipLogs',cipLogs);_audit('cip','delete','ALL',n+' records','','Cleared all CIP records');renderCIPList();renderCIPCalendar();}}
 
+// ════════════════════════════════════════════════════════════════════════
+// SELF DISTRIBUTION (RETAILERS) — admin-only retail billing module
+// ════════════════════════════════════════════════════════════════════════
+// Money rules this module never breaks:
+//  1. Every bill stores a SNAPSHOT of each line (qty, rate, amount). Nothing is
+//     ever re-priced from today's rate meter, so old bills stay exactly as issued.
+//  2. Payments are their OWN records (retailPayments) — never a mutable field on
+//     the bill. Two payments on one bill therefore add up instead of overwriting.
+//  3. A retailer is referenced by immutable id (rid), never by name, so renaming
+//     a shop can never orphan or merge money.
+//  4. All arithmetic goes through _r2 (2-dp) and the bill total is rounded to a
+//     whole rupee with the round-off stored, so balances can never drift.
+//  5. Balance = SUM(bill.amount) - SUM(payment.amount). One formula, used by the
+//     hero, the list, the preview, the ledger and the bill — they cannot disagree.
+
+var retailers=load('retailers',[]);          // {id,name,phone,location,note,createdAt,savedBy,archived}
+var retailBills=load('retailBills',[]);      // {id,rid,name,phone,location,date,items[],subtotal,roundOff,amount,note,...}
+var retailPayments=load('retailPayments',[]);// {id,rid,amount,date,mode,note,billId,savedBy}
+
+// Round to 2 decimals without float drift (0.1+0.2 → 0.3, not 0.30000000000000004).
+function _r2(n){n=parseFloat(n);if(!isFinite(n))return 0;return Math.round((n+(n>=0?1e-9:-1e-9))*100)/100;}
+// Rupee display: whole rupees unless there are real paise to show.
+function _rs(n){n=_r2(n);return '₹'+(Math.abs(n%1)>0.004?n.toFixed(2):n.toFixed(0));}
+function _rsT(n){n=_r2(n);return 'Rs.'+(Math.abs(n%1)>0.004?n.toFixed(2):n.toFixed(0));}
+// Trim float noise on quantities: 2.50 → "2.5", 3 → "3".
+function _rq(n){return String(parseFloat((parseFloat(n)||0).toFixed(3)));}
+function _rtAdmin(){return _hasRole(currentUser,'admin');}
+function _rtDeny(){alert('Only the admin can use Self Distribution.');return false;}
+
+// ── Product catalogue (lives in settings → syncs to every device, no new key) ──
+// rate 0 means "no default" — the bill form then REFUSES to save that item until
+// a rate is typed, so nothing is ever billed at a guessed price.
+var RETAIL_DEFAULT_PRODUCTS=[
+  {key:'dahi200',   label:'Dahi Cup 200g',    unit:'cup', rate:0},
+  {key:'dahi400',   label:'Dahi Cup 400g',    unit:'cup', rate:0},
+  {key:'dahiLoose', label:'Loose Open Dahi',  unit:'kg',  rate:0},
+  {key:'paneer',    label:'Paneer',           unit:'kg',  rate:0},
+  {key:'tm500',     label:'Toned Milk 500ml', unit:'pkt', rate:0},
+  {key:'tm1000',    label:'Toned Milk 1L',    unit:'pkt', rate:0}
+];
+function retailProducts(){
+  var p=settings.retailProducts;
+  if(Array.isArray(p)&&p.length)return p.filter(function(x){return x&&x.key&&x.label;});
+  return RETAIL_DEFAULT_PRODUCTS;
+}
+function _rtStepFor(unit){return (unit==='kg'||unit==='ltr')?'0.05':'1';}
+function _rtProd(key){
+  var p=retailProducts().find(function(x){return x.key===key;});
+  return p||{key:key,label:key,unit:'pc',rate:0};
+}
+
+// ── Retailer lookups ──
+function retailerById(rid){return retailers.find(function(c){return c&&String(c.id)===String(rid);})||null;}
+function _rtActiveRetailers(){return retailers.filter(function(c){return c&&!c.archived;});}
+
+// ── The single source of truth for money ──
+function retailBalance(rid){
+  var billed=0,paid=0;
+  retailBills.forEach(function(b){if(b&&String(b.rid)===String(rid))billed=_r2(billed+(parseFloat(b.amount)||0));});
+  retailPayments.forEach(function(p){if(p&&String(p.rid)===String(rid))paid=_r2(paid+(parseFloat(p.amount)||0));});
+  return _r2(billed-paid);
+}
+// Chronological ledger with a running balance (date first, then id for same-day order).
+function retailLedger(rid){
+  var tx=[];
+  retailBills.forEach(function(b){if(b&&String(b.rid)===String(rid))tx.push({kind:'bill',id:b.id,date:b.date||'',amount:_r2(b.amount),rec:b});});
+  retailPayments.forEach(function(p){if(p&&String(p.rid)===String(rid))tx.push({kind:'pay',id:p.id,date:p.date||'',amount:_r2(p.amount),rec:p});});
+  tx.sort(function(a,b){
+    if(a.date!==b.date)return a.date<b.date?-1:1;
+    return a.id<b.id?-1:a.id>b.id?1:0;
+  });
+  var run=0;
+  tx.forEach(function(t){run=_r2(run+(t.kind==='bill'?t.amount:-t.amount));t.run=run;});
+  return tx;
+}
+// What a given bill should show: this bill, what was owed before it, payments
+// made on its own date, and the resulting total to pay.
+var _rtBillDayOnly=false, _rtCurrentBill=null;
+function retailBillNumbers(b){
+  var cur=_r2(b.amount);
+  var tx=retailLedger(b.rid);
+  var i=tx.findIndex(function(t){return t.kind==='bill'&&String(t.id)===String(b.id);});
+  if(_rtBillDayOnly||i<0){
+    return {current:cur,prev:0,credit:0,payments:0,total:Math.max(0,cur),after:cur,isLatest:true,dayOnly:true};
+  }
+  var prevRaw=i>0?tx[i-1].run:0;
+  // Payments dated the SAME day as the bill belong ON the bill, not in "previous"
+  // — the shopkeeper may have paid in the morning before the bill was entered.
+  var payBefore=0,s;
+  for(s=0;s<i;s++){if(tx[s].kind==='pay'&&tx[s].date===b.date)payBefore=_r2(payBefore+tx[s].amount);}
+  var k=i,payAfter=0;
+  while(k+1<tx.length&&tx[k+1].date===b.date&&tx[k+1].kind==='pay'){k++;payAfter=_r2(payAfter+tx[k].amount);}
+  prevRaw=_r2(prevRaw+payBefore);            // pull same-day payments out of "previous"
+  var after=tx[k].run;
+  return {
+    current:cur,
+    prev:prevRaw>0.005?prevRaw:0,
+    credit:prevRaw<-0.005?_r2(-prevRaw):0,   // shop was in advance/credit before this bill
+    payments:_r2(payBefore+payAfter),
+    total:Math.max(0,after),
+    after:after,
+    isLatest:(k===tx.length-1),
+    dayOnly:false
+  };
+}
+// A retailer's rate meter: his own last-used rate per item, else the default.
+function retailRates(rid){
+  var out={};
+  retailProducts().forEach(function(p){out[p.key]=parseFloat(p.rate)||0;});
+  if(!rid)return out;
+  var mine=retailBills.filter(function(b){return b&&String(b.rid)===String(rid);})
+    .sort(function(a,b){return (b.id||0)-(a.id||0);});   // newest first
+  Object.keys(out).forEach(function(key){
+    for(var i=0;i<mine.length;i++){
+      var it=(mine[i].items||[]).find(function(x){return x&&x.key===key&&(parseFloat(x.qty)||0)>0;});
+      if(it&&(parseFloat(it.rate)||0)>0){out[key]=_r2(it.rate);return;}
+    }
+  });
+  return out;
+}
+
+// ════════ FORM ════════
+var _rtEditId=null;
+// Rebuilt only when the item list itself changes. A cloud-sync refresh must
+// never wipe quantities/rates the admin is halfway through typing, so identical
+// rows are left alone and surviving items keep their typed values.
+function rtBuildItemRows(){
+  var el=document.getElementById('rt-items');if(!el)return;
+  var prods=retailProducts();
+  var sig=prods.map(function(p){return p.key+''+p.label+''+p.unit;}).join('');
+  if(el.getAttribute('data-sig')===sig)return;               // nothing changed — keep the form as typed
+  var keep={};
+  prods.forEach(function(p){
+    var q=document.getElementById('rt-q-'+p.key), r=document.getElementById('rt-r-'+p.key);
+    if(q||r)keep[p.key]={q:q?q.value:'',r:r?r.value:''};
+  });
+  el.setAttribute('data-sig',sig);
+  if(!prods.length){el.innerHTML='<div style="font-size:11px;color:var(--gray);padding:8px 0">No items configured — tap “Manage items” below.</div>';return;}
+  el.innerHTML=prods.map(function(p){
+    return '<div style="display:grid;grid-template-columns:1.5fr .85fr .85fr .9fr;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid #f3f4f8">'+
+      '<div style="font-size:11.5px;font-weight:700;color:var(--dark);line-height:1.25">'+_esc(p.label)+
+        '<div style="font-size:9px;font-weight:600;color:var(--gray)">per '+_esc(p.unit)+'</div></div>'+
+      '<input type="number" id="rt-q-'+_esc(p.key)+'" min="0" step="'+_rtStepFor(p.unit)+'" placeholder="0" oninput="rtCalc()" style="padding:8px 6px;font-size:12px"/>'+
+      '<input type="number" id="rt-r-'+_esc(p.key)+'" min="0" step="0.5" placeholder="rate" oninput="rtCalc()" style="padding:8px 6px;font-size:12px"/>'+
+      '<div id="rt-a-'+_esc(p.key)+'" style="font-size:12px;font-weight:700;color:var(--dark);text-align:right">₹0</div>'+
+    '</div>';
+  }).join('');
+  Object.keys(keep).forEach(function(k){
+    var q=document.getElementById('rt-q-'+k), r=document.getElementById('rt-r-'+k);
+    if(q)q.value=keep[k].q;
+    if(r)r.value=keep[k].r;
+  });
+}
+function rtFillRetailerSelect(){
+  var sel=document.getElementById('rt-cust');if(!sel)return;
+  var cur=sel.value;
+  var list=_rtActiveRetailers().slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
+  sel.innerHTML='<option value="">— select retailer —</option>'+list.map(function(c){
+    return '<option value="'+_esc(String(c.id))+'">'+_esc(c.name)+(c.location?' · '+_esc(c.location):'')+'</option>';
+  }).join('');
+  if(cur&&list.some(function(c){return String(c.id)===String(cur);}))sel.value=cur;
+}
+// The picked retailer's phone/area/live balance. Refreshed on every render so
+// the balance shown next to his name can never lag behind the ledger.
+function rtUpdateRetailerMeta(){
+  var meta=document.getElementById('rt-cust-meta');if(!meta)return;
+  var c=retailerById((document.getElementById('rt-cust')||{}).value||'');
+  if(!c){meta.innerHTML='';return;}
+  var bal=retailBalance(c.id);
+  meta.innerHTML='📞 '+_esc(c.phone||'—')+' · 📍 '+_esc(c.location||'—')+
+    ' · '+(bal<-0.005?'Advance':'Balance')+': <b style="color:'+(bal>0.005?'var(--red)':'var(--green)')+'">'+_rs(Math.abs(bal))+'</b>';
+}
+// Retailer picked → show his details and load HIS rates into the rate boxes.
+function rtRetailerChanged(){
+  var rid=(document.getElementById('rt-cust')||{}).value||'';
+  rtUpdateRetailerMeta();
+  var rates=retailRates(rid);
+  retailProducts().forEach(function(p){
+    var el=document.getElementById('rt-r-'+p.key);
+    if(el)el.value=(rates[p.key]>0)?rates[p.key]:'';   // blank when no rate known → save is blocked until typed
+  });
+  rtCalc();
+}
+// Read the form into a clean, validated item list. Never returns negatives.
+function _rtFormItems(){
+  var rid=(document.getElementById('rt-cust')||{}).value||'';
+  var rates=retailRates(rid);
+  return retailProducts().map(function(p){
+    var qEl=document.getElementById('rt-q-'+p.key), rEl=document.getElementById('rt-r-'+p.key);
+    var qty=Math.max(0,parseFloat(qEl&&qEl.value)||0);
+    var typed=(rEl&&rEl.value!=='')?Math.max(0,parseFloat(rEl.value)||0):null;
+    var rate=_r2(typed!=null?typed:(rates[p.key]||0));
+    return {key:p.key,label:p.label,unit:p.unit,qty:_r2(qty),rate:rate,amount:_r2(qty*rate)};
+  });
+}
+function rtCalc(){
+  var rid=(document.getElementById('rt-cust')||{}).value||'';
+  var items=_rtFormItems();
+  var taken=items.filter(function(x){return x.qty>0;});
+  var subtotal=0;
+  items.forEach(function(x){
+    var a=document.getElementById('rt-a-'+x.key);
+    if(a)a.textContent=x.qty>0?_rs(x.amount):'₹0';
+    if(x.qty>0)subtotal=_r2(subtotal+x.amount);
+  });
+  var total=Math.round(subtotal);
+  var roundOff=_r2(total-subtotal);
+  var br=document.getElementById('rt-break');
+  if(br)br.innerHTML=taken.length?taken.map(function(x){
+    return '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>'+_esc(x.label)+' · '+_rq(x.qty)+' '+_esc(x.unit)+' × '+_rs(x.rate)+'</span><span style="font-weight:600;color:var(--dark)">'+_rs(x.amount)+'</span></div>';
+  }).join(''):'<div style="padding:4px 0">No items entered yet</div>';
+  var st=document.getElementById('rt-subtotal');if(st)st.textContent=_rs(subtotal);
+  var rr=document.getElementById('rt-round-row');if(rr)rr.style.display=Math.abs(roundOff)>0.004?'flex':'none';
+  var ro=document.getElementById('rt-round');if(ro)ro.textContent=(roundOff>=0?'+':'−')+_rs(Math.abs(roundOff));
+  var tt=document.getElementById('rt-total');if(tt)tt.textContent=_rs(total);
+  // Balance preview. When editing, this bill's OLD amount is excluded so the
+  // preview shows the balance as it will be after the edit, not double-counted.
+  var editing=_rtEditId!=null?retailBills.find(function(b){return String(b.id)===String(_rtEditId);}):null;
+  var prev=rid?_r2(retailBalance(rid)-(editing?_r2(editing.amount):0)):0;
+  var paid=editing?0:Math.max(0,parseFloat((document.getElementById('rt-paid')||{}).value)||0);
+  var after=_r2(prev+total-paid);
+  var bp=document.getElementById('rt-balance-preview');
+  var wrap=document.getElementById('rt-balance-wrap');
+  var cleared=after<=0.005;
+  if(bp)bp.textContent=cleared?(after<-0.005?_rs(Math.abs(after))+' advance':'✅ Cleared'):_rs(after);
+  if(wrap)wrap.style.background=cleared?'linear-gradient(135deg,#15803d,#16a34a)':'linear-gradient(135deg,#b91c1c,#dc2626)';
+  var note=document.getElementById('rt-prev-note');
+  if(note)note.textContent=!rid?'Select a retailer':prev>0.005?('Incl. '+_rs(prev)+' carried forward'):prev<-0.005?(_rs(Math.abs(prev))+' advance on account'):'No previous balance';
+}
+
+// ════════ RETAILER MASTER ════════
+function rtToggleRetailerForm(){
+  var f=document.getElementById('rt-cust-form');if(!f)return;
+  var opening=f.style.display==='none';
+  f.style.display=opening?'block':'none';
+  if(opening)rtClearRetailerForm();
+  var t=document.getElementById('rt-cust-toggle');if(t)t.textContent=opening?'✕ Close':'➕ Add retailer';
+}
+function rtClearRetailerForm(){
+  ['rt-cust-editid','rt-cust-name','rt-cust-phone','rt-cust-loc','rt-cust-note'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+}
+function rtCancelRetailerForm(){
+  rtClearRetailerForm();
+  var f=document.getElementById('rt-cust-form');if(f)f.style.display='none';
+  var t=document.getElementById('rt-cust-toggle');if(t)t.textContent='➕ Add retailer';
+}
+function rtEditRetailer(id){
+  if(!_rtAdmin())return _rtDeny();
+  var c=retailerById(id);if(!c)return;
+  var f=document.getElementById('rt-cust-form');if(f)f.style.display='block';
+  var t=document.getElementById('rt-cust-toggle');if(t)t.textContent='✕ Close';
+  document.getElementById('rt-cust-editid').value=String(c.id);
+  document.getElementById('rt-cust-name').value=c.name||'';
+  document.getElementById('rt-cust-phone').value=c.phone||'';
+  document.getElementById('rt-cust-loc').value=c.location||'';
+  document.getElementById('rt-cust-note').value=c.note||'';
+  try{document.getElementById('rt-cust-name').scrollIntoView({behavior:'smooth',block:'center'});}catch(e){}
+}
+function rtSaveRetailer(){
+  if(!_rtAdmin())return _rtDeny();
+  var editId=(document.getElementById('rt-cust-editid')||{}).value||'';
+  var name=(document.getElementById('rt-cust-name')||{}).value.trim();
+  var phone=((document.getElementById('rt-cust-phone')||{}).value||'').replace(/[^0-9]/g,'');
+  var loc=(document.getElementById('rt-cust-loc')||{}).value.trim();
+  var note=(document.getElementById('rt-cust-note')||{}).value.trim();
+  if(!name){showAlert('rtCustAlert','alert-red','⚠️ Enter the retailer / shop name');return;}
+  if(phone.length!==10){showAlert('rtCustAlert','alert-red','⚠️ Phone must be exactly 10 digits — the bill PDF is sent to this number');return;}
+  if(!loc){showAlert('rtCustAlert','alert-red','⚠️ Enter the location / area');return;}
+  var clash=retailers.find(function(c){return c&&String(c.id)!==String(editId)&&String(c.name||'').trim().toLowerCase()===name.toLowerCase();});
+  if(clash){showAlert('rtCustAlert','alert-red','⚠️ A retailer named "'+name+'" already exists');return;}
+  if(editId){
+    var c=retailerById(editId);
+    if(!c){showAlert('rtCustAlert','alert-red','⚠️ Retailer not found');return;}
+    var before=c.name+' / '+c.phone+' / '+c.location;
+    c.name=name;c.phone=phone;c.location=loc;c.note=note;
+    c.editedAt=new Date().toISOString();c.editedBy=currentUser?currentUser.name:'Admin';
+    store('retailers',retailers);
+    try{_audit('selfdist','edit',c.id,before,name+' / '+phone+' / '+loc,'Retailer details updated');}catch(e){}
+    showAlert('rtCustAlert','alert-green','✅ Retailer updated');
+  }else{
+    var rec={id:_uid(),name:name,phone:phone,location:loc,note:note,archived:false,
+      createdAt:new Date().toISOString(),savedBy:currentUser?currentUser.name:'Admin'};
+    retailers.unshift(rec);
+    store('retailers',retailers);
+    try{_audit('selfdist','create',rec.id,'',name+' / '+phone+' / '+loc,'New retailer added');}catch(e){}
+    showAlert('rtCustAlert','alert-green','✅ Retailer saved');
+    var sel=document.getElementById('rt-cust');
+    rtFillRetailerSelect();
+    if(sel){sel.value=String(rec.id);rtRetailerChanged();}
+  }
+  rtClearRetailerForm();
+  renderRetail();
+}
+// Archiving hides a shop from the picker; every bill, payment and rupee stays.
+function rtArchiveRetailer(id){
+  if(!_rtAdmin())return _rtDeny();
+  var c=retailerById(id);if(!c)return;
+  var bal=retailBalance(id);
+  if(Math.abs(bal)>0.005){alert('Cannot hide "'+c.name+'" — the account is not settled.\n\n'+(bal>0?'Outstanding: '+_rs(bal):'Advance on account: '+_rs(Math.abs(bal)))+'\n\nSettle it first.');return;}
+  if(!confirm('Hide retailer "'+c.name+'" from the list?\n\n✅ All his bills and payments stay saved and can be viewed any time.\n↩ You can unhide him from the retailer list.'))return;
+  c.archived=true;
+  store('retailers',retailers);
+  try{_audit('selfdist','archive',c.id,'active','hidden','Retailer hidden (all records kept)');}catch(e){}
+  renderRetail();
+}
+function rtRestoreRetailer(id){
+  if(!_rtAdmin())return _rtDeny();
+  var c=retailerById(id);if(!c)return;
+  c.archived=false;
+  store('retailers',retailers);
+  try{_audit('selfdist','restore',c.id,'hidden','active','Retailer unhidden');}catch(e){}
+  renderRetail();
+}
+
+// ════════ BILLING ════════
+function rtSaveBill(){
+  if(!_rtAdmin())return _rtDeny();
+  var rid=(document.getElementById('rt-cust')||{}).value||'';
+  var date=(document.getElementById('rt-date')||{}).value||'';
+  var note=(document.getElementById('rt-note')||{}).value.trim();
+  var c=retailerById(rid);
+  if(!c){showAlert('rtAlert','alert-red','⚠️ Select a retailer first');return;}
+  if(!date){showAlert('rtAlert','alert-red','⚠️ Pick the bill date');return;}
+  var all=_rtFormItems();
+  var items=all.filter(function(x){return x.qty>0;});
+  if(!items.length){showAlert('rtAlert','alert-red','⚠️ Enter the quantity of at least one item');return;}
+  // An item with quantity but no rate would silently bill ₹0 — refuse instead.
+  var noRate=items.find(function(x){return !(x.rate>0);});
+  if(noRate){showAlert('rtAlert','alert-red','⚠️ Enter a rate for '+noRate.label+' (₹/'+noRate.unit+') — this retailer has no saved rate for it yet');return;}
+  var subtotal=0;items.forEach(function(x){subtotal=_r2(subtotal+x.amount);});
+  var amount=Math.round(subtotal);
+  var roundOff=_r2(amount-subtotal);
+  if(!(amount>0)){showAlert('rtAlert','alert-red','⚠️ Bill total is ₹0 — check the quantities and rates');return;}
+
+  if(_rtEditId!=null){
+    // ── EDIT: replace the item lines of an existing bill. Payments are separate
+    //    records and are deliberately untouched, so no money can be lost here.
+    var b=retailBills.find(function(x){return String(x.id)===String(_rtEditId);});
+    if(!b){showAlert('rtAlert','alert-red','⚠️ That bill no longer exists');_rtEditId=null;rtCancelEdit();return;}
+    var oldAmt=_r2(b.amount);
+    b.rid=c.id;b.name=c.name;b.phone=c.phone;b.location=c.location;
+    b.date=date;b.note=note;b.items=items;b.subtotal=subtotal;b.roundOff=roundOff;b.amount=amount;
+    b.editedAt=new Date().toISOString();b.editedBy=currentUser?currentUser.name:'Admin';
+    store('retailBills',retailBills);
+    try{_audit('selfdist','edit',b.id,'₹'+oldAmt,'₹'+amount,'Retail bill edited for '+c.name+' ('+date+')');}catch(e){}
+    showAlert('rtAlert','alert-green','✅ Bill updated — total '+_rs(amount));
+    var editedId=b.id;
+    rtCancelEdit();
+    renderRetail();
+    rtShowBill(editedId);
+    return;
+  }
+
+  // ── NEW BILL ──
+  var dup=retailBills.find(function(x){return x&&String(x.rid)===String(c.id)&&x.date===date;});
+  if(dup&&!confirm('A bill for '+c.name+' dated '+date+' already exists ('+_rs(dup.amount)+').\n\nSave ANOTHER bill for the same day?')){
+    showAlert('rtAlert','alert-red','Not saved — a bill for '+c.name+' on '+date+' already exists');return;
+  }
+  var paid=Math.max(0,parseFloat((document.getElementById('rt-paid')||{}).value)||0);
+  paid=_r2(paid);
+  var payMode=(document.getElementById('rt-pay-mode')||{}).value||'Credit';
+  if(paid>0){
+    var dupPay=retailPayments.find(function(p){return p&&String(p.rid)===String(c.id)&&p.date===date&&_r2(p.amount)===paid;});
+    if(dupPay&&!confirm('⚠️ A payment of '+_rs(paid)+' from '+c.name+' on '+date+' is ALREADY recorded.\n\nRecord ANOTHER identical payment?')){
+      showAlert('rtAlert','alert-red','Not saved — set the payment to 0 and save again if it was already recorded');return;
+    }
+  }
+  var rec={
+    id:_uid(),rid:c.id,name:c.name,phone:c.phone,location:c.location,
+    date:date,items:items,subtotal:subtotal,roundOff:roundOff,amount:amount,note:note,
+    createdAt:new Date().toISOString(),savedBy:currentUser?currentUser.name:'Admin'
+  };
+  retailBills.unshift(rec);
+  store('retailBills',retailBills);
+  if(paid>0){
+    retailPayments.unshift({id:_uid(),rid:c.id,billId:rec.id,amount:paid,date:date,
+      mode:(payMode&&payMode!=='Credit')?payMode:'Cash',note:'',
+      savedBy:currentUser?currentUser.name:'Admin',createdAt:new Date().toISOString()});
+    store('retailPayments',retailPayments);
+  }
+  try{_audit('selfdist','create',rec.id,'','₹'+amount,'Retail bill for '+c.name+' ('+date+')'+(paid>0?' · paid ₹'+paid:''));}catch(e){}
+  var a=document.getElementById('rtAlert');
+  if(a)a.innerHTML='<div class="alert alert-green" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">✅ Bill saved for '+_esc(c.name)+' — '+_rs(amount)+
+    '<button class="btn btn-sm btn-primary" onclick="rtShowBill('+rec.id+')">📄 Open Bill</button></div>';
+  // Reset only the entry fields; retailer + date stay for the next shop on the round.
+  retailProducts().forEach(function(p){var e=document.getElementById('rt-q-'+p.key);if(e)e.value='';});
+  ['rt-paid','rt-note'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  var pm=document.getElementById('rt-pay-mode');if(pm)pm.selectedIndex=0;
+  renderRetail();
+  rtShowBill(rec.id);
+}
+function rtEditBill(id){
+  if(!_rtAdmin())return _rtDeny();
+  var b=retailBills.find(function(x){return String(x.id)===String(id);});if(!b)return;
+  rtCloseLedger();rtCloseBill();
+  _rtEditId=b.id;
+  var sel=document.getElementById('rt-cust');
+  rtFillRetailerSelect();
+  // A hidden retailer must still appear while his bill is being edited.
+  if(sel&&!Array.from(sel.options).some(function(o){return o.value===String(b.rid);})){
+    var opt=document.createElement('option');opt.value=String(b.rid);opt.textContent=(b.name||'Retailer')+' (hidden)';sel.appendChild(opt);
+  }
+  if(sel)sel.value=String(b.rid);
+  var d=document.getElementById('rt-date');if(d)d.value=b.date||'';
+  var n=document.getElementById('rt-note');if(n)n.value=b.note||'';
+  // Load the bill's OWN saved lines — never today's rate meter.
+  retailProducts().forEach(function(p){
+    var it=(b.items||[]).find(function(x){return x&&x.key===p.key;});
+    var q=document.getElementById('rt-q-'+p.key), r=document.getElementById('rt-r-'+p.key);
+    if(q)q.value=it&&(parseFloat(it.qty)||0)>0?_rq(it.qty):'';
+    if(r)r.value=it&&(parseFloat(it.rate)||0)>0?_r2(it.rate):'';
+  });
+  // Lines this bill has that are no longer in the catalogue would vanish on save —
+  // warn instead of silently dropping the money.
+  var orphan=(b.items||[]).filter(function(x){return x&&(parseFloat(x.qty)||0)>0&&!retailProducts().some(function(p){return p.key===x.key;});});
+  rtUpdateRetailerMeta();
+  if(orphan.length)alert('⚠️ This bill contains item(s) that are no longer in your item list:\n\n'+orphan.map(function(x){return '• '+x.label+' — '+_rq(x.qty)+' '+x.unit+' @ ₹'+x.rate;}).join('\n')+'\n\nIf you save the edit, those lines will be REMOVED from the bill. Add the item back under “Manage items” first if you want to keep them.');
+  var pb=document.getElementById('rt-pay-block');if(pb)pb.style.display='none';
+  var en=document.getElementById('rt-edit-note');if(en)en.style.display='block';
+  var ce=document.getElementById('rt-cancel-edit');if(ce)ce.style.display='';
+  var sb=document.getElementById('rt-save-btn');if(sb)sb.innerHTML='💾 Update Bill';
+  var tl=document.getElementById('rt-bill-title');if(tl)tl.textContent='✏️ Editing Bill RB-'+String(b.id).slice(-6);
+  rtCalc();
+  try{document.getElementById('rt-bill-title').scrollIntoView({behavior:'smooth',block:'start'});}catch(e){}
+}
+function rtCancelEdit(){
+  _rtEditId=null;
+  retailProducts().forEach(function(p){var e=document.getElementById('rt-q-'+p.key);if(e)e.value='';});
+  ['rt-note','rt-paid'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  var pb=document.getElementById('rt-pay-block');if(pb)pb.style.display='';
+  var en=document.getElementById('rt-edit-note');if(en)en.style.display='none';
+  var ce=document.getElementById('rt-cancel-edit');if(ce)ce.style.display='none';
+  var sb=document.getElementById('rt-save-btn');if(sb)sb.innerHTML='💾 Save Bill';
+  var tl=document.getElementById('rt-bill-title');if(tl)tl.textContent='🧾 New Retail Bill';
+  var d=document.getElementById('rt-date');if(d&&!d.value)d.value=_today();
+  rtFillRetailerSelect();
+  rtRetailerChanged();
+}
+function rtDeleteBill(id){
+  if(!_rtAdmin())return _rtDeny();
+  var b=retailBills.find(function(x){return String(x.id)===String(id);});if(!b)return;
+  var linked=retailPayments.filter(function(p){return p&&String(p.billId)===String(b.id);});
+  var msg='Delete this bill?\n\n'+b.name+' · '+b.date+' · '+_rs(b.amount)+'\n\nHis balance will DROP by '+_rs(b.amount)+'.';
+  if(linked.length)msg+='\n\n⚠️ '+linked.length+' payment(s) totalling '+_rs(linked.reduce(function(s,p){return _r2(s+p.amount);},0))+' were recorded with this bill. They will REMAIN on his account (delete them separately from the ledger if they were never received).';
+  if(!confirm(msg))return;
+  retailBills=retailBills.filter(function(x){return String(x.id)!==String(b.id);});
+  store('retailBills',retailBills);
+  try{_markDeleted('retailBills',b.id);}catch(e){}
+  try{_audit('selfdist','delete',b.id,'₹'+_r2(b.amount),'','Retail bill deleted — '+b.name+' ('+b.date+')');}catch(e){}
+  if(String(_rtEditId)===String(b.id))rtCancelEdit();
+  renderRetail();
+  if(document.getElementById('rtLedgerModal').classList.contains('open'))rtRenderLedger();
+}
+// ── Payments ──
+function rtAddPayment(rid){
+  if(!_rtAdmin())return _rtDeny();
+  var c=retailerById(rid);if(!c)return;
+  var amt=_r2(Math.max(0,parseFloat((document.getElementById('rt-lp-amt')||{}).value)||0));
+  var date=(document.getElementById('rt-lp-date')||{}).value||_today();
+  var mode=(document.getElementById('rt-lp-mode')||{}).value||'Cash';
+  var note=(document.getElementById('rt-lp-note')||{}).value.trim();
+  if(!(amt>0)){showAlert('rtLedgerAlert','alert-red','⚠️ Enter the amount received');return;}
+  var bal=retailBalance(rid);
+  if(amt>bal+0.005&&!confirm('This payment of '+_rs(amt)+' is MORE than '+c.name+' owes ('+_rs(Math.max(0,bal))+').\n\nThe extra '+_rs(_r2(amt-Math.max(0,bal)))+' will sit as an advance on his account.\n\nRecord it anyway?'))return;
+  var dupPay=retailPayments.find(function(p){return p&&String(p.rid)===String(rid)&&p.date===date&&_r2(p.amount)===amt;});
+  if(dupPay&&!confirm('⚠️ A payment of '+_rs(amt)+' from '+c.name+' on '+date+' is ALREADY recorded.\n\nRecord ANOTHER identical payment?'))return;
+  retailPayments.unshift({id:_uid(),rid:c.id,billId:'',amount:amt,date:date,mode:mode,note:note,
+    savedBy:currentUser?currentUser.name:'Admin',createdAt:new Date().toISOString()});
+  store('retailPayments',retailPayments);
+  try{_audit('selfdist','payment',c.id,'','₹'+amt,'Payment received from '+c.name+' ('+date+', '+mode+')');}catch(e){}
+  ['rt-lp-amt','rt-lp-note'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  renderRetail();
+  rtRenderLedger();
+}
+function rtDeletePayment(id){
+  if(!_rtAdmin())return _rtDeny();
+  var p=retailPayments.find(function(x){return String(x.id)===String(id);});if(!p)return;
+  var c=retailerById(p.rid);
+  if(!confirm('Delete this payment?\n\n'+(c?c.name:'Retailer')+' · '+p.date+' · '+_rs(p.amount)+' ('+(p.mode||'Cash')+')\n\nHis balance will RISE by '+_rs(p.amount)+'.'))return;
+  retailPayments=retailPayments.filter(function(x){return String(x.id)!==String(p.id);});
+  store('retailPayments',retailPayments);
+  try{_markDeleted('retailPayments',p.id);}catch(e){}
+  try{_audit('selfdist','delete',p.id,'₹'+_r2(p.amount),'','Retail payment deleted — '+(c?c.name:p.rid)+' ('+p.date+')');}catch(e){}
+  renderRetail();
+  rtRenderLedger();
+}
+
+// ════════ ITEM / RATE MANAGER ════════
+function rtOpenProducts(){if(!_rtAdmin())return _rtDeny();rtRenderProducts();document.getElementById('rtProdModal').classList.add('open');}
+function rtCloseProducts(){document.getElementById('rtProdModal').classList.remove('open');rtBuildItemRows();rtRetailerChanged();}
+function rtRenderProducts(){
+  var el=document.getElementById('rt-prod-list');if(!el)return;
+  var prods=retailProducts();
+  el.innerHTML=prods.map(function(p,i){
+    return '<div style="display:grid;grid-template-columns:1.4fr .75fr .95fr auto;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid #f3f4f8">'+
+      '<input type="text" id="rtp-l-'+i+'" value="'+_esc(p.label)+'" style="padding:8px 6px;font-size:11.5px"/>'+
+      '<input type="text" id="rtp-u-'+i+'" value="'+_esc(p.unit)+'" style="padding:8px 6px;font-size:11.5px"/>'+
+      '<input type="number" id="rtp-r-'+i+'" value="'+(parseFloat(p.rate)>0?_r2(p.rate):'')+'" min="0" step="0.5" placeholder="no default" style="padding:8px 6px;font-size:11.5px"/>'+
+      '<button class="btn btn-sm btn-red" onclick="rtDelProduct(\''+_esc(p.key)+'\')">🗑</button>'+
+    '</div>';
+  }).join('')+
+  '<button class="btn btn-primary btn-full" style="margin-top:10px" onclick="rtSaveProducts()">💾 Save item names &amp; rates</button>'+
+  '<div style="font-size:10px;color:var(--gray);margin-top:6px">Changing a rate here only affects <b>future</b> bills where the retailer has no rate of his own. Bills already saved keep the rate they were issued at.</div>';
+}
+function rtSaveProducts(){
+  if(!_rtAdmin())return _rtDeny();
+  var prods=retailProducts().map(function(p,i){
+    var l=(document.getElementById('rtp-l-'+i)||{}).value, u=(document.getElementById('rtp-u-'+i)||{}).value, r=(document.getElementById('rtp-r-'+i)||{}).value;
+    return {key:p.key,label:(l||p.label).trim(),unit:((u||p.unit).trim()||'pc'),rate:Math.max(0,_r2(parseFloat(r)||0))};
+  });
+  if(prods.some(function(p){return !p.label;})){showAlert('rtProdAlert','alert-red','⚠️ Item names cannot be blank');return;}
+  settings.retailProducts=prods;
+  store('settings',settings);
+  try{_audit('selfdist','edit','products','','','Retail item list / default rates updated');}catch(e){}
+  rtRenderProducts();rtBuildItemRows();rtRetailerChanged();
+  showAlert('rtProdAlert','alert-green','✅ Items saved');
+}
+function rtAddProduct(){
+  if(!_rtAdmin())return _rtDeny();
+  var label=(document.getElementById('rt-np-label')||{}).value.trim();
+  var unit=(document.getElementById('rt-np-unit')||{}).value||'pc';
+  var rate=Math.max(0,_r2(parseFloat((document.getElementById('rt-np-rate')||{}).value)||0));
+  if(!label){showAlert('rtProdAlert','alert-red','⚠️ Enter the item name');return;}
+  var prods=retailProducts().slice();
+  if(prods.some(function(p){return p.label.toLowerCase()===label.toLowerCase();})){showAlert('rtProdAlert','alert-red','⚠️ "'+label+'" is already in the list');return;}
+  // Stable, unique key — old bills reference items by key, so it must never be reused.
+  var key='p'+_uid().toString(36);
+  prods.push({key:key,label:label,unit:unit,rate:rate});
+  settings.retailProducts=prods;
+  store('settings',settings);
+  try{_audit('selfdist','create',key,'',label+' ('+unit+')','Retail item added');}catch(e){}
+  ['rt-np-label','rt-np-rate'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  rtRenderProducts();rtBuildItemRows();rtRetailerChanged();
+  showAlert('rtProdAlert','alert-green','✅ "'+label+'" added');
+}
+function rtDelProduct(key){
+  if(!_rtAdmin())return _rtDeny();
+  var p=_rtProd(key);
+  var used=retailBills.filter(function(b){return b&&(b.items||[]).some(function(x){return x&&x.key===key&&(parseFloat(x.qty)||0)>0;});}).length;
+  if(!confirm('Remove "'+p.label+'" from the item list?\n\n'+(used?('It appears on '+used+' saved bill(s). Those bills KEEP their line and their total — the item just disappears from the entry form.'):'It has never been billed.')))return;
+  settings.retailProducts=retailProducts().filter(function(x){return x.key!==key;});
+  store('settings',settings);
+  try{_audit('selfdist','delete',key,p.label,'','Retail item removed from list');}catch(e){}
+  rtRenderProducts();rtBuildItemRows();rtRetailerChanged();
+}
+
+// ════════ RENDERING ════════
+function renderRetail(){
+  if(!document.getElementById('tab-retail'))return;
+  if(!_rtAdmin())return;
+  rtBuildItemRows();
+  rtFillRetailerSelect();
+  var d=document.getElementById('rt-date');if(d&&!d.value)d.value=_today();
+  var lp=document.getElementById('rt-lp-date');if(lp&&!lp.value)lp.value=_today();
+  // Hero
+  var active=_rtActiveRetailers();
+  var owed=0,owing=0;
+  retailers.forEach(function(c){var b=retailBalance(c.id);if(b>0.005){owed=_r2(owed+b);owing++;}});
+  var hv=document.getElementById('rt-hero-bal');if(hv)hv.textContent=_rs(owed);
+  var hs=document.getElementById('rt-hero-sub');
+  if(hs)hs.textContent=!retailers.length?'No retailers yet — add one below':owing?(owing+' of '+active.length+' retailer'+(active.length===1?'':'s')+' with balance'):'All retailers cleared ✅';
+  rtRenderRetailerList();
+  rtRenderToday();
+  rtRenderBalances();
+  rtRenderAllBills();
+  rtUpdateRetailerMeta();
+  rtCalc();
+}
+function rtRenderRetailerList(){
+  var el=document.getElementById('rt-cust-list');if(!el)return;
+  if(!retailers.length){el.innerHTML='<div class="empty"><div class="empty-icon">🏪</div><div class="empty-text">No retailers yet — tap “Add retailer”</div></div>';return;}
+  var live=_rtActiveRetailers().slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));});
+  var hidden=retailers.filter(function(c){return c&&c.archived;});
+  el.innerHTML=live.map(function(c){
+    var bal=retailBalance(c.id);
+    var n=retailBills.filter(function(b){return String(b.rid)===String(c.id);}).length;
+    return '<div style="background:#fff;border:1px solid #eef2f6;border-radius:12px;padding:10px 12px;margin-bottom:8px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'+
+        '<div style="min-width:0"><div style="font-size:12.5px;font-weight:700;color:var(--dark)">'+_esc(c.name)+'</div>'+
+        '<div style="font-size:10px;color:var(--gray);margin-top:2px">📞 '+_esc(c.phone||'—')+' · 📍 '+_esc(c.location||'—')+'</div>'+
+        (c.note?'<div style="font-size:10px;color:var(--gray);font-style:italic;margin-top:2px">'+_esc(c.note)+'</div>':'')+'</div>'+
+        '<div style="text-align:right;flex-shrink:0"><div style="font-size:14px;font-weight:700;color:'+(bal>0.005?'var(--red)':bal<-0.005?'var(--green)':'var(--gray)')+'">'+(bal<-0.005?_rs(Math.abs(bal))+' adv':_rs(Math.max(0,bal)))+'</div>'+
+        '<div style="font-size:9px;color:var(--gray)">'+n+' bill'+(n===1?'':'s')+'</div></div>'+
+      '</div>'+
+      '<div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">'+
+        '<button class="btn btn-sm btn-outline" onclick="rtOpenLedger('+c.id+')">📒 Ledger</button>'+
+        '<button class="btn btn-sm btn-outline" onclick="rtBillFor('+c.id+')">🧾 New Bill</button>'+
+        '<button class="btn btn-sm btn-outline" onclick="rtEditRetailer('+c.id+')">✏️</button>'+
+        '<button class="btn btn-sm btn-red" onclick="rtArchiveRetailer('+c.id+')">🙈 Hide</button>'+
+      '</div>'+
+    '</div>';
+  }).join('')+
+  (hidden.length?('<div style="margin-top:10px;font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.4px">Hidden ('+hidden.length+')</div>'+
+    hidden.map(function(c){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f3f4f8">'+
+        '<span style="font-size:11.5px;color:var(--gray)">'+_esc(c.name)+' · '+_esc(c.location||'')+'</span>'+
+        '<span style="display:flex;gap:5px"><button class="btn btn-sm btn-outline" onclick="rtOpenLedger('+c.id+')">📒</button>'+
+        '<button class="btn btn-sm btn-outline" onclick="rtRestoreRetailer('+c.id+')">↩ Unhide</button></span></div>';
+    }).join('')):'');
+}
+function rtBillFor(rid){
+  rtCancelEdit();
+  var sel=document.getElementById('rt-cust');
+  if(sel){sel.value=String(rid);rtRetailerChanged();}
+  try{document.getElementById('rt-bill-title').scrollIntoView({behavior:'smooth',block:'start'});}catch(e){}
+}
+function _rtItemSummary(b){
+  return (b.items||[]).filter(function(x){return x&&(parseFloat(x.qty)||0)>0;})
+    .map(function(x){return _rq(x.qty)+' '+x.unit+' '+x.label;}).join(' · ')||'—';
+}
+function _rtBillCard(b){
+  var bal=retailBalance(b.rid);
+  return '<div style="background:#fff;border:1px solid #eef2f6;border-radius:12px;padding:10px 12px;margin-bottom:8px;border-left:3px solid #7c3aed">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'+
+      '<div style="min-width:0"><div style="font-size:12.5px;font-weight:700;color:var(--dark)">'+_esc(b.name||'Retailer')+'</div>'+
+      '<div style="font-size:10px;color:var(--gray)">'+_esc(b.date)+' · RB-'+String(b.id).slice(-6)+(b.editedAt?' · ✏️ edited':'')+'</div>'+
+      '<div style="font-size:10.5px;color:var(--gray);margin-top:3px">'+_esc(_rtItemSummary(b))+'</div>'+
+      (b.note?'<div style="font-size:10px;color:var(--gray);font-style:italic;margin-top:2px">📝 '+_esc(b.note)+'</div>':'')+'</div>'+
+      '<div style="text-align:right;flex-shrink:0"><div style="font-size:15px;font-weight:700;color:#7c3aed">'+_rs(b.amount)+'</div>'+
+      '<div style="font-size:9px;color:'+(bal>0.005?'var(--red)':'var(--green)')+'">bal '+_rs(Math.max(0,bal))+'</div></div>'+
+    '</div>'+
+    '<div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">'+
+      '<button class="btn btn-sm btn-primary" onclick="rtShowBill('+b.id+')">📄 Bill</button>'+
+      '<button class="btn btn-sm" style="background:#0d1b4b;color:#fff;border:none" onclick="rtPrintRawBT('+b.id+')">🖨️</button>'+
+      '<button class="btn btn-sm" style="background:#25D366;color:#fff;border:none" onclick="rtWhatsAppBill('+b.id+')">📲</button>'+
+      '<button class="btn btn-sm btn-outline" onclick="rtEditBill('+b.id+')">✏️</button>'+
+      '<button class="btn btn-sm btn-red" onclick="rtDeleteBill('+b.id+')">🗑</button>'+
+    '</div>'+
+  '</div>';
+}
+function rtRenderToday(){
+  var el=document.getElementById('rt-today-list');if(!el)return;
+  var today=_today();
+  var list=retailBills.filter(function(b){return b&&b.date===today;}).sort(function(a,b){return (b.id||0)-(a.id||0);});
+  var tot=list.reduce(function(s,b){return _r2(s+(parseFloat(b.amount)||0));},0);
+  var t=document.getElementById('rt-today-total');
+  if(t)t.textContent=list.length?(list.length+' bill'+(list.length===1?'':'s')+' · '+_rs(tot)):'';
+  el.innerHTML=list.length?list.map(_rtBillCard).join(''):'<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No retail bills today</div></div>';
+}
+function rtRenderBalances(){
+  var el=document.getElementById('rt-balances');if(!el)return;
+  var rows=retailers.map(function(c){return {c:c,bal:retailBalance(c.id)};})
+    .filter(function(x){return Math.abs(x.bal)>0.005;})
+    .sort(function(a,b){return b.bal-a.bal;});
+  if(!rows.length){el.innerHTML='<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">✅</div><div style="font-size:13px;font-weight:700;color:var(--green)">All retailers cleared</div></div>';return;}
+  el.innerHTML=rows.map(function(x){
+    var adv=x.bal<0;
+    return '<div onclick="rtOpenLedger('+x.c.id+')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:'+(adv?'linear-gradient(135deg,#15803d,#16a34a)':'linear-gradient(135deg,#6d28d9,#7c3aed)')+';color:#fff;border-radius:12px;padding:11px 13px;margin-bottom:8px">'+
+      '<div><div style="font-size:12.5px;font-weight:700">'+_esc(x.c.name)+'</div>'+
+      '<div style="font-size:10px;opacity:.75">'+_esc(x.c.location||'')+' · 📞 '+_esc(x.c.phone||'—')+'</div></div>'+
+      '<div style="text-align:right"><div style="font-size:16px;font-weight:700">'+_rs(Math.abs(x.bal))+'</div>'+
+      '<div style="font-size:9px;opacity:.75">'+(adv?'advance':'outstanding')+'</div></div>'+
+    '</div>';
+  }).join('');
+}
+function rtRenderAllBills(){
+  var el=document.getElementById('rt-all-list');if(!el)return;
+  var q=((document.getElementById('rt-search')||{}).value||'').trim().toLowerCase();
+  var list=retailBills.slice().sort(function(a,b){
+    if(a.date!==b.date)return a.date<b.date?1:-1;
+    return (b.id||0)-(a.id||0);
+  });
+  if(q)list=list.filter(function(b){
+    return (String(b.name||'')+' '+String(b.phone||'')+' '+String(b.location||'')+' '+String(b.date||'')+' '+String(b.note||'')).toLowerCase().indexOf(q)>=0;
+  });
+  var cnt=document.getElementById('rt-all-count');
+  if(cnt)cnt.textContent=list.length+' bill'+(list.length===1?'':'s')+(q?' found':'');
+  var shown=list.slice(0,60);
+  el.innerHTML=shown.length?shown.map(_rtBillCard).join('')+(list.length>shown.length?'<div style="text-align:center;font-size:10px;color:var(--gray);padding:6px">Showing the newest 60 of '+list.length+' — use search to narrow down</div>':'')
+    :'<div class="empty"><div class="empty-icon">📁</div><div class="empty-text">'+(q?'No bills match that search':'No retail bills yet')+'</div></div>';
+}
+
+// ════════ LEDGER ════════
+var _rtLedgerRid=null;
+function rtOpenLedger(rid){
+  if(!_rtAdmin())return _rtDeny();
+  _rtLedgerRid=rid;
+  rtRenderLedger();
+  document.getElementById('rtLedgerModal').classList.add('open');
+}
+function rtCloseLedger(){var m=document.getElementById('rtLedgerModal');if(m)m.classList.remove('open');}
+function rtRenderLedger(){
+  var el=document.getElementById('rtLedgerContent');var c=retailerById(_rtLedgerRid);
+  if(!el||!c)return;
+  var bal=retailBalance(c.id);
+  var tx=retailLedger(c.id);
+  var billed=0,paid=0;
+  tx.forEach(function(t){if(t.kind==='bill')billed=_r2(billed+t.amount);else paid=_r2(paid+t.amount);});
+  var rows=tx.slice().reverse().map(function(t){
+    if(t.kind==='bill'){
+      var b=t.rec;
+      return '<div style="border-bottom:1px solid #eef2f6;padding:9px 0">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'+
+          '<div style="min-width:0"><div style="font-size:10px;color:var(--gray)">'+_esc(t.date)+' · RB-'+String(b.id).slice(-6)+'</div>'+
+          '<div style="font-size:11.5px;font-weight:600;color:var(--dark)">🧾 '+_esc(_rtItemSummary(b))+'</div></div>'+
+          '<div style="text-align:right;flex-shrink:0"><div style="font-weight:700;color:#7c3aed">+'+_rs(t.amount)+'</div>'+
+          '<div style="font-size:10px;color:var(--gray)">bal '+_rs(t.run)+'</div></div>'+
+        '</div>'+
+        '<div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap">'+
+          '<button class="btn btn-sm btn-primary" onclick="rtShowBill('+b.id+')">📄</button>'+
+          '<button class="btn btn-sm" style="background:#0d1b4b;color:#fff;border:none" onclick="rtPrintRawBT('+b.id+')">🖨️</button>'+
+          '<button class="btn btn-sm" style="background:#25D366;color:#fff;border:none" onclick="rtWhatsAppBill('+b.id+')">📲</button>'+
+          '<button class="btn btn-sm btn-outline" onclick="rtEditBill('+b.id+')">✏️</button>'+
+          '<button class="btn btn-sm btn-red" onclick="rtDeleteBill('+b.id+')">🗑</button>'+
+        '</div></div>';
+    }
+    var p=t.rec;
+    return '<div style="border-bottom:1px solid #eef2f6;padding:9px 0;display:flex;justify-content:space-between;align-items:center;gap:8px">'+
+      '<div style="min-width:0"><div style="font-size:10px;color:var(--gray)">'+_esc(t.date)+'</div>'+
+      '<div style="font-size:11.5px;font-weight:600;color:var(--green)">💰 Payment · '+_esc(p.mode||'Cash')+(p.note?' · '+_esc(p.note):'')+'</div>'+
+      '<div style="font-size:9px;color:#bbb">By '+_esc(p.savedBy||'Admin')+'</div></div>'+
+      '<div style="text-align:right;flex-shrink:0"><div style="font-weight:700;color:var(--green)">−'+_rs(t.amount)+'</div>'+
+      '<div style="font-size:10px;color:var(--gray)">bal '+_rs(t.run)+'</div>'+
+      '<button class="btn btn-sm btn-red" style="margin-top:4px" onclick="rtDeletePayment('+p.id+')">🗑</button></div>'+
+    '</div>';
+  }).join('');
+  el.innerHTML=
+    '<div style="text-align:center;margin-bottom:12px">'+
+      '<div style="font-size:15px;font-weight:800;color:var(--dark)">'+_esc(c.name)+'</div>'+
+      '<div style="font-size:11px;color:var(--gray)">📞 '+_esc(c.phone||'—')+' · 📍 '+_esc(c.location||'—')+'</div>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;margin-bottom:12px">'+
+      '<div style="flex:1;background:var(--light);border-radius:10px;padding:9px;text-align:center"><div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:.4px">Billed</div><div style="font-size:14px;font-weight:700;color:var(--dark)">'+_rs(billed)+'</div></div>'+
+      '<div style="flex:1;background:var(--light);border-radius:10px;padding:9px;text-align:center"><div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:.4px">Received</div><div style="font-size:14px;font-weight:700;color:var(--green)">'+_rs(paid)+'</div></div>'+
+      '<div style="flex:1;background:'+(bal>0.005?'#fff1f2':'#f0fdf4')+';border-radius:10px;padding:9px;text-align:center"><div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:.4px">'+(bal<-0.005?'Advance':'Balance')+'</div><div style="font-size:14px;font-weight:700;color:'+(bal>0.005?'var(--red)':'var(--green)')+'">'+_rs(Math.abs(bal))+'</div></div>'+
+    '</div>'+
+    '<div style="background:var(--light);border-radius:12px;padding:12px;margin-bottom:12px">'+
+      '<div style="font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Record a payment</div>'+
+      '<div class="grid2" style="margin-bottom:8px">'+
+        '<div><label class="inp-label">Amount (₹)</label><input type="number" id="rt-lp-amt" min="0" step="0.01" placeholder="0"/></div>'+
+        '<div><label class="inp-label">Date</label><input type="date" id="rt-lp-date" value="'+_today()+'"/></div>'+
+      '</div>'+
+      '<div class="grid2" style="margin-bottom:10px">'+
+        '<div><label class="inp-label">Mode</label><select id="rt-lp-mode"><option value="Cash">💵 Cash</option><option value="UPI">📱 UPI</option><option value="Bank Transfer">🏦 Bank Transfer</option><option value="Cheque">📝 Cheque</option></select></div>'+
+        '<div><label class="inp-label">Note</label><input type="text" id="rt-lp-note" placeholder="optional"/></div>'+
+      '</div>'+
+      '<button class="btn btn-primary btn-full" onclick="rtAddPayment('+c.id+')">💰 Record Payment</button>'+
+      '<div id="rtLedgerAlert" style="margin-top:8px"></div>'+
+    '</div>'+
+    '<div style="font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">History (newest first)</div>'+
+    (rows||'<div class="empty"><div class="empty-text">No bills or payments yet</div></div>');
+}
+
+// ════════ BILL OUTPUT: preview · thermal (RawBT) · PDF · WhatsApp ════════
+function rtShowBill(id,keepMode){
+  var b=retailBills.find(function(x){return String(x.id)===String(id);});if(!b)return;
+  if(!keepMode)_rtBillDayOnly=false;
+  _rtCurrentBill=b;
+  var mb=document.getElementById('rtBillModeBtn');
+  if(mb)mb.textContent=_rtBillDayOnly?'📒 Show with account balance':'🧾 This bill only (no balance)';
+  var B=retailBillNumbers(b);
+  var items=(b.items||[]).filter(function(x){return x&&(parseFloat(x.qty)||0)>0;});
+  var rowsHTML=items.map(function(x){
+    return '<tr><td>'+_esc(x.label)+'</td><td style="font-size:11px">'+_rq(x.qty)+' '+_esc(x.unit)+'</td><td style="text-align:right">'+_rs(x.rate)+'/'+_esc(x.unit)+'</td><td style="text-align:right">'+_rs(x.amount)+'</td></tr>';
+  }).join('');
+  var line=function(lbl,val,color,sign){return '<div style="display:flex;justify-content:space-between;padding:5px 12px;font-size:12px;color:'+color+'"><span>'+lbl+'</span><span>'+sign+_rs(Math.abs(val))+'</span></div>';};
+  document.getElementById('rtBillContent').innerHTML=
+    '<div class="dist-bill-header" style="text-align:center">'+barkatLogoHTML(84)+
+      '<div class="dist-bill-brand" style="margin-top:6px">BARKAT DAIRY PLANT</div>'+
+      '<div class="dist-bill-urdu">برکت ڈیری پلانٹ</div>'+
+      '<div class="dist-bill-sub">Watlar, Ganderbal, Kashmir · Pure Goodness, Blessed by Quality</div></div>'+
+    '<div class="dist-bill-title">RETAIL BILL</div>'+
+    '<div class="dist-bill-info">'+
+      '<div><b>Bill To:</b> '+_esc(b.name||'')+'<br/><span style="font-size:11px">📞 '+_esc(b.phone||'—')+'<br/>📍 '+_esc(b.location||'—')+'</span></div>'+
+      '<div><b>Date:</b> '+_esc(b.date)+'<br/><b>Bill No:</b> RB-'+String(b.id).slice(-6)+'</div>'+
+    '</div>'+
+    '<table class="dist-bill-table"><thead><tr><th>Item</th><th>Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>'+
+    '<tbody>'+rowsHTML+(b.note?'<tr><td colspan="4" style="font-size:11px;color:var(--gray);font-style:italic;padding-top:6px">📝 '+_esc(b.note)+'</td></tr>':'')+'</tbody></table>'+
+    (Math.abs(_r2(b.roundOff))>0.004?line('Sub-total',_r2(b.subtotal),'var(--gray)','')+line('Round off',_r2(b.roundOff),'var(--gray)',_r2(b.roundOff)>=0?'+':'−'):'')+
+    '<div style="display:flex;justify-content:space-between;padding:8px 12px;font-weight:700;font-size:13px;border-top:2px solid #e5e7eb"><span>This Bill Total</span><span>'+_rs(B.current)+'</span></div>'+
+    (B.prev>0.005?line('Previous unpaid balance',B.prev,'var(--red)','+'):'')+
+    (B.credit>0.005?line('Advance carried in',B.credit,'var(--green)','−'):'')+
+    (B.payments>0.005?line('Payment received ('+_dShort(b.date)+')',B.payments,'var(--green)','−'):'')+
+    '<div style="display:flex;justify-content:space-between;padding:10px 12px;background:'+(B.total>0.005?'#fff1f2':'#f0fdf4')+';border-radius:10px;margin-top:6px">'+
+      '<span style="font-weight:700;font-size:13px;color:'+(B.total>0.005?'var(--red)':'var(--green)')+'">Total To Be Paid'+(B.isLatest||B.dayOnly?'':' (as on '+_dShort(b.date)+')')+'</span>'+
+      '<span style="font-weight:700;font-size:17px;color:'+(B.total>0.005?'var(--red)':'var(--green)')+'">'+(B.total>0.005?_rs(B.total):'✅ Cleared')+'</span></div>'+
+    (B.dayOnly?'<div style="font-size:10px;color:var(--gray);text-align:center;margin-top:4px">This bill only — account balance not included.</div>'
+      :B.isLatest?'':'<div style="font-size:10px;color:var(--gray);text-align:center;margin-top:4px">Position as on '+_dShort(b.date)+' — later bills/payments not included.</div>')+
+    '<div class="dist-bill-sig"><div class="dist-bill-sig-box"><div class="dist-bill-sig-line"></div>Retailer Signature</div>'+
+    '<div class="dist-bill-sig-box"><div class="dist-bill-sig-line"></div>Authorised Signatory</div></div>'+
+    '<div class="dist-bill-footer">This is a computer-generated bill from Barkat Dairy Plant<br/>Prepared by: '+_esc(b.savedBy||'Admin')+' · '+new Date().toLocaleString()+'</div>';
+  document.getElementById('rtBillModal').classList.add('open');
+}
+function rtCloseBill(){var m=document.getElementById('rtBillModal');if(m)m.classList.remove('open');}
+function rtToggleBillDayOnly(){
+  _rtBillDayOnly=!_rtBillDayOnly;
+  if(_rtCurrentBill)rtShowBill(_rtCurrentBill.id,true);
+}
+// Modal buttons pass no id and keep whatever view mode the modal is showing.
+// List/ledger buttons pass an id — those always mean the FULL bill, so the
+// "this bill only" toggle can never leak out and silently hide a balance.
+function _rtBill(id){
+  if(id!=null){_rtBillDayOnly=false;return retailBills.find(function(x){return String(x.id)===String(id);})||null;}
+  return _rtCurrentBill;
+}
+// Plain-text bill (WhatsApp message body).
+function rtBillText(b){
+  var B=retailBillNumbers(b);
+  var L=['*BARKAT DAIRY PLANT*','Watlar, Ganderbal, Kashmir','_Pure Goodness, Blessed by Quality_','------------------------',
+    'Bill To: '+(b.name||''),'Phone: '+(b.phone||'-'),'Area: '+(b.location||'-'),
+    'Date: '+b.date,'Bill No: RB-'+String(b.id).slice(-6),'------------------------'];
+  (b.items||[]).filter(function(x){return (parseFloat(x.qty)||0)>0;}).forEach(function(x){
+    L.push(x.label+': '+_rq(x.qty)+' '+x.unit+' x '+_rsT(x.rate)+' = '+_rsT(x.amount));
+  });
+  if(b.note)L.push('Note: '+b.note);
+  L.push('------------------------');
+  if(Math.abs(_r2(b.roundOff))>0.004){L.push('Sub-total: '+_rsT(b.subtotal));L.push('Round off: '+(_r2(b.roundOff)>=0?'+':'-')+_rsT(Math.abs(_r2(b.roundOff))));}
+  L.push('This Bill Total: '+_rsT(B.current));
+  if(B.prev>0.005)L.push('Previous unpaid balance: +'+_rsT(B.prev));
+  if(B.credit>0.005)L.push('Advance carried in: -'+_rsT(B.credit));
+  if(B.payments>0.005)L.push('Payment received ('+_dShort(b.date)+'): -'+_rsT(B.payments));
+  L.push('*TOTAL TO BE PAID'+(B.isLatest||B.dayOnly?'':' (as on '+_dShort(b.date)+')')+': '+_rsT(B.total)+'*');
+  if(B.dayOnly)L.push('_This bill only - account balance not included._');
+  L.push('------------------------','Thank you! - Barkat Dairy Plant');
+  return L.join('\n');
+}
+// 42-column thermal receipt for RawBT (same width as the procurement slip).
+function rtBillThermal(b){
+  var W=42, dash='-'.repeat(W);
+  function ctr(s){s=String(s);var p=Math.max(0,Math.floor((W-s.length)/2));return ' '.repeat(p)+s;}
+  function tw(l,r){l=String(l);r=String(r);var sp=Math.max(1,W-l.length-r.length);return l+' '.repeat(sp)+r;}
+  var B=retailBillNumbers(b);
+  var L=[dash,ctr('BARKAT DAIRY PLANT'),ctr('Watlar, Ganderbal, Kashmir'),dash,
+    'Bill To: '+String(b.name||'').toUpperCase(),
+    'Phone  : '+(b.phone||'-'),
+    'Area   : '+(b.location||'-'),
+    tw('Date: '+b.date,'RB-'+String(b.id).slice(-6)),
+    dash,
+    tw('ITEM  QTY x RATE','AMOUNT')];
+  (b.items||[]).filter(function(x){return (parseFloat(x.qty)||0)>0;}).forEach(function(x){
+    L.push(String(x.label).slice(0,W));
+    L.push(tw('  '+_rq(x.qty)+' '+x.unit+' x '+_rsT(x.rate),_rsT(x.amount)));
+  });
+  if(b.note)L.push('Note: '+String(b.note).slice(0,W-6));
+  L.push(dash);
+  if(Math.abs(_r2(b.roundOff))>0.004){
+    L.push(tw('Sub-total',_rsT(b.subtotal)));
+    L.push(tw('Round off',(_r2(b.roundOff)>=0?'+':'-')+_rsT(Math.abs(_r2(b.roundOff)))));
+  }
+  L.push(tw('THIS BILL TOTAL',_rsT(B.current)));
+  if(B.prev>0.005)L.push(tw('Previous balance','+'+_rsT(B.prev)));
+  if(B.credit>0.005)L.push(tw('Advance carried in','-'+_rsT(B.credit)));
+  if(B.payments>0.005)L.push(tw('Payment received','-'+_rsT(B.payments)));
+  L.push(dash);
+  L.push(tw('TOTAL TO BE PAID',_rsT(B.total)));
+  L.push(dash);
+  if(B.dayOnly)L.push(ctr('(this bill only)'));
+  else if(!B.isLatest)L.push(ctr('(position as on '+_dShort(b.date)+')'));
+  L.push(ctr('Thank you!'),ctr('Barkat Dairy Plant'),'','');
+  return L.join('\n');
+}
+function rtPrintRawBT(id){
+  var b=_rtBill(id);if(!b){alert('Bill not found');return;}
+  rawbtPrint(rtBillThermal(b));
+}
+// A4 PDF built with the same in-house generator used for distribution bills.
+// PDF text is WinAnsi only — no rupee sign, no unicode dashes.
+function rtBillPDF(b){
+  var B=retailBillNumbers(b);
+  var W=595, margin=50, textW=W-margin*2;
+  var ops=[], y=22;
+  function ctext(txt,sz,bold,color){
+    var w=String(txt).length*sz*(bold?0.56:0.5);
+    ops.push({t:'text',x:Math.max(margin,(W-w)/2),y:y,txt:txt,s:sz,b:!!bold,color:color||'#000000'});
+    y+=sz+4;
+  }
+  function hline(color,weight){ops.push({t:'line',x1:margin,y1:y,x2:W-margin,y2:y,color:color||'#cccccc',w:weight||0.5});y+=6;}
+  function row2(left,right,sz,bold,lcolor,rcolor){
+    sz=sz||10;
+    ops.push({t:'text',x:margin,y:y,txt:left,s:sz,b:!!bold,color:lcolor||'#444444'});
+    var rightX=W-margin-String(right).length*sz*0.52;
+    ops.push({t:'text',x:Math.max(margin+200,rightX),y:y,txt:right,s:sz,b:!!bold,color:rcolor||'#000000'});
+    y+=sz+5;
+  }
+  var hasLogo=_logoImg&&_logoImg.data;
+  if(hasLogo){ops.push({t:'image',idx:0,x:(W-78)/2,y:y,dw:78,dh:78});y+=84;}
+  ctext('BARKAT DAIRY PLANT',18,true,'#1a3a8f');
+  ctext('Watlar, Ganderbal, Kashmir  |  Pure Goodness, Blessed by Quality',9,false,'#6b7280');
+  y+=4;
+  ops.push({t:'rect',x:margin,y:y,w:textW,h:2,fill:'#1a3a8f'});y+=10;
+  ctext('RETAIL BILL',12,true,'#1a3a8f');
+  y+=10;
+  // Party block
+  ops.push({t:'text',x:margin,y:y,txt:'Bill To: '+(b.name||''),s:11,b:true,color:'#111111'});
+  ops.push({t:'text',x:margin+330,y:y,txt:'Date: '+(b.date||''),s:10,b:false,color:'#444444'});
+  y+=15;
+  ops.push({t:'text',x:margin,y:y,txt:'Phone: '+(b.phone||'-'),s:9,b:false,color:'#444444'});
+  ops.push({t:'text',x:margin+330,y:y,txt:'Bill No: RB-'+String(b.id).slice(-6),s:10,b:false,color:'#444444'});
+  y+=13;
+  ops.push({t:'text',x:margin,y:y,txt:'Area: '+(b.location||'-'),s:9,b:false,color:'#444444'});
+  y+=16;
+  hline('#1a3a8f',1);
+  // Item table
+  ops.push({t:'text',x:margin,y:y,txt:'ITEM',s:9,b:true,color:'#6b7280'});
+  ops.push({t:'text',x:margin+210,y:y,txt:'QTY',s:9,b:true,color:'#6b7280'});
+  ops.push({t:'text',x:margin+300,y:y,txt:'RATE',s:9,b:true,color:'#6b7280'});
+  ops.push({t:'text',x:margin+410,y:y,txt:'AMOUNT',s:9,b:true,color:'#6b7280'});
+  y+=14;
+  hline('#e5e7eb');
+  (b.items||[]).filter(function(x){return (parseFloat(x.qty)||0)>0;}).forEach(function(x){
+    ops.push({t:'text',x:margin,y:y,txt:String(x.label).slice(0,32),s:10,b:false,color:'#111111'});
+    ops.push({t:'text',x:margin+210,y:y,txt:_rq(x.qty)+' '+x.unit,s:10,b:false,color:'#111111'});
+    ops.push({t:'text',x:margin+300,y:y,txt:_rsT(x.rate)+'/'+x.unit,s:10,b:false,color:'#111111'});
+    ops.push({t:'text',x:margin+410,y:y,txt:_rsT(x.amount),s:10,b:true,color:'#111111'});
+    y+=16;
+  });
+  if(b.note){ops.push({t:'text',x:margin,y:y,txt:'Note: '+String(b.note).slice(0,70),s:9,b:false,color:'#6b7280'});y+=14;}
+  hline('#e5e7eb');
+  if(Math.abs(_r2(b.roundOff))>0.004){
+    row2('Sub-total',_rsT(b.subtotal),10,false,'#6b7280','#111111');
+    row2('Round off',(_r2(b.roundOff)>=0?'+':'-')+_rsT(Math.abs(_r2(b.roundOff))),10,false,'#6b7280','#111111');
+  }
+  row2('This Bill Total',_rsT(B.current),11,true,'#111111','#111111');
+  if(B.prev>0.005)row2('Previous unpaid balance','+ '+_rsT(B.prev),10,false,'#b91c1c','#b91c1c');
+  if(B.credit>0.005)row2('Advance carried in','- '+_rsT(B.credit),10,false,'#15803d','#15803d');
+  if(B.payments>0.005)row2('Payment received ('+_dShort(b.date)+')','- '+_rsT(B.payments),10,false,'#15803d','#15803d');
+  y+=4;
+  var balColor=B.total>0.005?'#b91c1c':'#15803d';
+  ops.push({t:'rect',x:margin,y:y,w:textW,h:26,fill:B.total>0.005?'#fff1f2':'#f0fdf4'});
+  ops.push({t:'text',x:margin+8,y:y+17,txt:'TOTAL TO BE PAID'+(B.isLatest||B.dayOnly?'':' (as on '+_dShort(b.date)+')'),s:11,b:true,color:balColor});
+  ops.push({t:'text',x:margin+370,y:y+17,txt:_rsT(B.total),s:13,b:true,color:balColor});
+  y+=32;
+  if(B.dayOnly){ops.push({t:'text',x:margin,y:y,txt:'This bill only - account balance not included.',s:8,color:'#9ca3af'});y+=12;}
+  else if(!B.isLatest){ops.push({t:'text',x:margin,y:y,txt:'Position as on '+_dShort(b.date)+' - later bills/payments not included.',s:8,color:'#9ca3af'});y+=12;}
+  y+=50;
+  hline('#999999');
+  ops.push({t:'text',x:margin,y:y,txt:'Retailer Signature',s:9,color:'#888888'});
+  ops.push({t:'text',x:margin+260,y:y,txt:'Authorised Signatory',s:9,color:'#888888'});
+  y+=20;
+  hline('#eeeeee');
+  ops.push({t:'text',x:margin,y:y,txt:'Barkat Dairy Plant, Watlar Ganderbal  |  Computer-generated bill  |  '+new Date().toLocaleString(),s:8,color:'#aaaaaa'});
+  return makePDF({pages:[ops],images:(_logoImg&&_logoImg.data)?[_logoImg]:[]});
+}
+function rtBillPDFFile(b){
+  var pdfStr=rtBillPDF(b);
+  var bytes=new Uint8Array(pdfStr.length);
+  for(var i=0;i<pdfStr.length;i++)bytes[i]=pdfStr.charCodeAt(i)&0xff;
+  var name='BarkatDairy_Bill_'+String(b.name||'Retailer').replace(/[^A-Za-z0-9]+/g,'_')+'_'+b.date+'.pdf';
+  return new File([bytes],name,{type:'application/pdf'});
+}
+function rtDownloadPDF(id){
+  var b=_rtBill(id);if(!b){alert('Bill not found');return;}
+  try{_downloadFile(rtBillPDFFile(b));}catch(e){alert('PDF error: '+e.message);}
+}
+// Send the PDF to the retailer's SAVED number. On a phone the share sheet
+// attaches the file; elsewhere the PDF downloads and the chat opens for it.
+async function rtWhatsAppBill(id){
+  var b=_rtBill(id);if(!b){alert('Bill not found');return;}
+  var c=retailerById(b.rid);
+  var phone=String((c&&c.phone)||b.phone||'').replace(/[^0-9]/g,'');
+  if(phone.length===10)phone='91'+phone;      // India country code
+  if(!phone){alert('No phone number saved for this retailer — add it in the retailer list first.');return;}
+  var file=null;
+  try{file=rtBillPDFFile(b);}catch(e){file=null;}
+  var text=rtBillText(b);
+  if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
+    try{
+      await navigator.share({files:[file],title:'Bill — '+(b.name||''),text:text});
+      return;
+    }catch(e){if(e&&e.name==='AbortError')return;}
+  }
+  if(file)_downloadFile(file);
+  window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(text+'\n\n(PDF bill downloaded — attach it in this chat)'),'_blank');
+}
+
 // ═══ FIREBASE CLOUD SYNC ═══
 var _fb=null,_fbReady=false,_fbListening=false,_fbAuthed=false,_syncReady=false;
 var _syncKeys=['records','distRecords','testRecords','productionBatches','cipLogs',
   'users','settings','savedSuppliers','savedDistributors','attRecords',
   'invEntries','invOpening','returnsLog','paymentsLog','supplierPayments','auditLog','rateOverride','supplierRates',
-  'riderDropLogs','riderCrateReturns','distCrateCounts','fuelLog','deletedIds'];
+  'riderDropLogs','riderCrateReturns','distCrateCounts','fuelLog',
+  'retailers','retailBills','retailPayments','deletedIds'];
 
 // ── Deletion tombstones ───────────────────────────────────────────────────
 // Natural key for a record (matches the merge logic in _syncDown).
@@ -8876,6 +10029,9 @@ function _setGlobal(k,v){
     case 'riderCrateReturns':riderCrateReturns=v;break;
     case 'distCrateCounts':distCrateCounts=v;break;
     case 'fuelLog':fuelLog=v;break;
+    case 'retailers':retailers=v;break;
+    case 'retailBills':retailBills=v;break;
+    case 'retailPayments':retailPayments=v;break;
     case 'deletedIds':deletedIds=v;break;
     default: try{window[k]=v;}catch(e){}
   }
@@ -8984,6 +10140,7 @@ function _refreshUI(){
     if(typeof renderAttToday==='function')renderAttToday();
     if(typeof renderCIPList==='function')renderCIPList();
     if(typeof renderRiderLogs==='function')renderRiderLogs();
+    if(typeof renderRetail==='function')renderRetail();
   }catch(e){}
 }
 // Override store to sync to cloud
