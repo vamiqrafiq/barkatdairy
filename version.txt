@@ -1,1 +1,1 @@
-2026-08-15 · v88 (self distribution — retailer billing, RawBT print + PDF to WhatsApp)
+2026-08-20 · v89 (standardisation recalibrated to measured batches + event & function billing)

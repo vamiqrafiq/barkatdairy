@@ -506,6 +506,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
     <button class="tab" onclick="goTab('cip',this);renderCIPList()">🧼 CIP</button>
     <button class="tab" onclick="goTab('dist',this)">🚚 Distribution</button>
     <button class="tab" id="retailTabBtn" onclick="goTab('retail',this);renderRetail()" style="display:none">🏪 Self Distribution</button>
+    <button class="tab" id="eventTabBtn" onclick="goTab('event',this);renderEvents()" style="display:none">🎊 Event Orders</button>
     <button class="tab" onclick="goTab('returns',this);renderReturns()">↩️ Returns</button>
     <button class="tab" onclick="goTab('recall',this);initRecall()">🔍 Recall</button>
     <button class="tab" onclick="goTab('inv',this)">📦 Inventory</button>
@@ -1404,11 +1405,17 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 
     <!-- Standardisation calibration -->
     <div style="font-size:9px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">Standardisation Calibration</div>
-    <div style="font-size:11px;color:var(--gray);margin-bottom:8px">Tuned from a real batch so Target Fat / SNF match your meter readings. Re-tune only after comparing a measured batch against the plan.</div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:8px">Tuned from real batches so Target Fat / SNF match your meter readings. Use auto-calibrate below rather than editing these by hand.</div>
+    <div style="background:linear-gradient(135deg,#0d1b4b,#1a3a8f);border-radius:12px;padding:12px 14px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:#fff;margin-bottom:3px">🎯 Auto-calibrate from measured batches</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.72);line-height:1.45;margin-bottom:9px">Reads every completed batch that has a measured final volume, Fat and SNF, and works out the true constants from them. Shows you the fit before anything is changed.</div>
+      <button class="btn btn-sm btn-full" style="background:#c49a2a;color:#1a0000;border:none;font-weight:700" onclick="calAutoRun()">Analyse my batches</button>
+    </div>
+    <div id="calAutoOut" style="margin-bottom:10px"></div>
     <div class="grid2" style="margin-bottom:6px">
       <div><label class="inp-label">Fat retention (kFat)</label><input type="number" id="a-kFat" value="1" step="0.001" min="0.5" max="1" oninput="saveSettings()"/></div>
       <div><label class="inp-label">SMP volume (L/kg)</label><input type="number" id="a-kSmpVol" value="1" step="0.01" min="0" max="3" oninput="saveSettings()"/></div>
-      <div><label class="inp-label">SMP→SNF yield (kg/kg)</label><input type="number" id="a-kSmpSnf" value="0.96" step="0.001" min="0.3" max="1" oninput="saveSettings()"/></div>
+      <div><label class="inp-label">SMP→SNF yield (kg/kg)</label><input type="number" id="a-kSmpSnf" value="0.87" step="0.001" min="0.3" max="1" oninput="saveSettings()"/></div>
     </div>
     <div id="settingsAlert" style="margin-top:8px"></div>
   </div>
@@ -2350,6 +2357,132 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 
 
 <!-- ══ RETURNS / WASTAGE TAB ══ -->
+<!-- ══════════ EVENT & FUNCTION ORDERS ══════════ -->
+<div class="page" id="tab-event">
+
+  <!-- Hero -->
+  <div class="hero" style="background:linear-gradient(135deg,#0d1b4b,#1a3a8f)">
+    <div class="hero-label">Awaiting Payment</div>
+    <div class="hero-val" id="ev-hero-val">₹0</div>
+    <div class="hero-sub" id="ev-hero-sub">No event orders yet</div>
+  </div>
+
+  <!-- Upcoming functions -->
+  <div class="section">
+    <div class="sec-title">📅 Upcoming Functions</div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:10px">What the plant has to have ready, soonest first.</div>
+    <div id="ev-upcoming"></div>
+  </div>
+
+  <!-- New order -->
+  <div class="section" id="ev-form-card">
+    <div class="sec-title" id="ev-title">🎊 New Event Order</div>
+
+    <div style="font-size:9px;font-weight:700;color:#c49a2a;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">① Party &amp; Occasion</div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><label class="inp-label">Party / Host name</label><input type="text" id="ev-party" placeholder="e.g. Ghulam Nabi Bhat" onblur="evPartyChanged()"/></div>
+      <div><label class="inp-label">Phone</label><input type="tel" id="ev-phone" placeholder="10-digit mobile"/></div>
+    </div>
+    <div style="margin-bottom:10px">
+      <label class="inp-label">Venue / Address</label>
+      <input type="text" id="ev-venue" placeholder="e.g. Bhat House, Watlar Ganderbal"/>
+    </div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><label class="inp-label">Occasion</label><select id="ev-occasion" onchange="evOccasionChanged()"></select></div>
+      <div><label class="inp-label">Message tone</label>
+        <select id="ev-tone" onchange="evToneChanged()">
+          <option value="islamic">🕌 With dua (Islamic)</option>
+          <option value="neutral">💐 Warm &amp; neutral</option>
+        </select>
+      </div>
+      <div><label class="inp-label">Function date</label><input type="date" id="ev-edate" onchange="evCalc()"/></div>
+      <div><label class="inp-label">Bill date</label><input type="date" id="ev-date" onchange="evCalc()"/></div>
+    </div>
+    <div style="margin-bottom:8px">
+      <label class="inp-label">Your own message <span style="font-weight:400;color:var(--gray)">optional — replaces the standard one</span></label>
+      <input type="text" id="ev-msg" placeholder="e.g. Mubarak ho from all of us at Barkat Dairy" oninput="evCalc()"/>
+    </div>
+    <div id="ev-msg-preview" style="background:#fffbf0;border:1px solid #e8dcb8;border-radius:10px;padding:11px 13px;margin-bottom:14px;text-align:center"></div>
+
+    <div style="font-size:9px;font-weight:700;color:#c49a2a;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">② Items Supplied <span style="font-weight:400;color:var(--gray);text-transform:none">(leave blank if not supplied)</span></div>
+    <div style="display:grid;grid-template-columns:1.5fr .85fr .85fr .9fr;gap:6px;font-size:8.5px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;padding:0 2px 5px">
+      <div>Item</div><div>Qty</div><div>Rate ₹</div><div style="text-align:right">Amount</div>
+    </div>
+    <div id="ev-items"></div>
+    <div style="display:flex;justify-content:flex-end;margin:6px 0 12px">
+      <button class="btn btn-sm btn-outline" onclick="evOpenProducts()">⚙️ Manage items &amp; default rates</button>
+    </div>
+
+    <div style="font-size:9px;font-weight:700;color:#c49a2a;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">③ Crates &amp; Containers Sent</div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:8px">Counted on the bill with the return &amp; damages clause — never charged for.</div>
+    <div class="grid2" style="margin-bottom:14px">
+      <div><label class="inp-label">Crates</label><input type="number" id="ev-crates" min="0" step="1" placeholder="0"/></div>
+      <div><label class="inp-label">Cans</label><input type="number" id="ev-cans" min="0" step="1" placeholder="0"/></div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label class="inp-label">Other containers <span style="font-weight:400;color:var(--gray)">optional</span></label>
+      <input type="text" id="ev-other" placeholder="e.g. 2 steel drums, 1 insulated box"/>
+    </div>
+
+    <div style="font-size:9px;font-weight:700;color:#c49a2a;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1.5px solid var(--light)">④ Discount, Advance &amp; Note</div>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><label class="inp-label">Discount (₹)</label><input type="number" id="ev-discount" min="0" step="1" placeholder="0" oninput="evCalc()"/></div>
+      <div><label class="inp-label">Note on bill <span style="font-weight:400;color:var(--gray)">optional</span></label><input type="text" id="ev-note" placeholder="e.g. delivered 8 AM to hall"/></div>
+    </div>
+    <div id="ev-adv-block">
+      <div class="grid2" style="margin-bottom:10px">
+        <div><label class="inp-label">Advance received (₹)</label><input type="number" id="ev-advance" min="0" step="0.01" placeholder="0 — none" oninput="evCalc()"/></div>
+        <div><label class="inp-label">Advance mode</label>
+          <select id="ev-adv-mode">
+            <option value="Cash">💵 Cash</option>
+            <option value="UPI">📱 UPI</option>
+            <option value="Bank Transfer">🏦 Bank Transfer</option>
+            <option value="Cheque">📝 Cheque</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Breakdown -->
+    <div style="background:var(--light);border-radius:12px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">Order Breakdown</div>
+      <div id="ev-break" style="font-size:12px;color:var(--gray)"><div style="padding:4px 0">No items entered yet</div></div>
+      <div style="margin:8px 0;border-top:1px solid #e2e8f0"></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray);margin-bottom:4px"><span>Sub-total</span><span id="ev-subtotal" style="font-weight:600;color:var(--dark)">₹0</span></div>
+      <div id="ev-disc-row" style="display:none;justify-content:space-between;font-size:12px;color:var(--green);margin-bottom:4px"><span>Discount</span><span id="ev-disc-shown" style="font-weight:600">₹0</span></div>
+      <div id="ev-round-row" style="display:none;justify-content:space-between;font-size:12px;color:var(--gray);margin-bottom:4px"><span>Round off</span><span id="ev-round" style="font-weight:600;color:var(--dark)">₹0</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+        <span style="font-size:13px;font-weight:700;color:var(--dark)">Order Total</span>
+        <span id="ev-total" style="font-size:20px;font-weight:700;color:#0d1b4b">₹0</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--gray);margin-top:5px"><span>Received</span><span id="ev-paid-preview" style="font-weight:600;color:var(--green)">₹0</span></div>
+    </div>
+
+    <div id="ev-edit-note" style="display:none;font-size:11px;color:var(--gray);background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:9px 11px;margin-bottom:10px"></div>
+
+    <div id="ev-due-wrap" style="border-radius:14px;padding:14px 16px;margin-bottom:14px;background:linear-gradient(135deg,#b91c1c,#dc2626);display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:10px;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:.5px" id="ev-due-label">Balance Due On/After Delivery</div>
+      <div id="ev-due-preview" style="font-size:24px;font-weight:700;color:#fff">₹0</div>
+    </div>
+
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-full" onclick="evSaveOrder()" style="background:linear-gradient(135deg,#0d1b4b,#1a3a8f);color:#fff;font-size:14px;padding:14px;border-radius:12px;font-weight:700;letter-spacing:.3px;box-shadow:0 3px 10px rgba(13,27,75,.35)" id="ev-save-btn">💾 Save Event Order</button>
+      <button class="btn btn-outline" id="ev-cancel-edit" style="display:none;flex:0 0 90px" onclick="evCancelEdit()">Cancel</button>
+    </div>
+    <div id="evAlert" style="margin-top:8px"></div>
+  </div>
+
+  <!-- All orders -->
+  <div class="section">
+    <div class="sec-title-row">
+      <div class="sec-title">🎊 All Event Orders</div>
+      <div id="ev-all-count" style="font-size:11px;color:var(--gray);font-weight:700"></div>
+    </div>
+    <input type="text" id="ev-search" placeholder="🔍 Search party, phone, venue, occasion or date…" oninput="evRenderAll()" style="margin-bottom:10px"/>
+    <div id="ev-all-list"></div>
+  </div>
+</div>
+
 <div class="page" id="tab-returns">
 
   <!-- Hero -->
@@ -2682,6 +2815,45 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
   </div>
 </div>
 
+<!-- ══ EVENT BILL MODAL ══ -->
+<div class="modal-overlay" id="evBillModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="evBillContent"></div>
+    <div style="margin-top:10px;display:flex;gap:8px">
+      <button class="btn btn-full" style="background:#0d1b4b;color:#fff;border:none" onclick="evPrintBill()">🖨️ Print</button>
+      <button class="btn btn-full" style="background:#25D366;color:#fff;border:none" onclick="evWhatsApp()">📲 WhatsApp</button>
+      <button class="btn btn-primary btn-full" onclick="evDownloadPDF()">⬇️ PDF</button>
+    </div>
+    <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="evCloseBill()">Close</button>
+  </div>
+</div>
+
+<!-- ══ EVENT ITEM / RATE CATALOGUE MODAL ══ -->
+<div class="modal-overlay" id="evProdModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div style="font-size:13px;font-weight:700;color:var(--dark);margin-bottom:4px">⚙️ Event Items &amp; Default Rates</div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:12px">What you can put on an event bill and the rate each one starts at. A party billed before always re-uses <b>its own last rate</b>; you can still change the rate on any single order.</div>
+    <div style="display:grid;grid-template-columns:1.4fr .7fr .7fr 30px;gap:6px;font-size:8.5px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">
+      <div>Item</div><div>Unit</div><div>Rate</div><div></div>
+    </div>
+    <div id="evProdList"></div>
+    <button class="btn btn-sm btn-full" style="margin-top:8px;background:var(--green);color:#fff;border:none" onclick="evSaveProducts()">💾 Save changes</button>
+    <div style="background:var(--light);border-radius:12px;padding:12px;margin-top:12px">
+      <div style="font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Add a new item</div>
+      <div style="display:grid;grid-template-columns:1.4fr .7fr .7fr;gap:6px;margin-bottom:8px">
+        <input type="text" id="evp-new-l" placeholder="Item name" style="padding:8px;font-size:12px"/>
+        <input type="text" id="evp-new-u" placeholder="unit" style="padding:8px;font-size:12px"/>
+        <input type="number" id="evp-new-r" placeholder="rate" step="0.5" style="padding:8px;font-size:12px"/>
+      </div>
+      <button class="btn btn-sm btn-full btn-primary" onclick="evAddProduct()">+ Add item</button>
+    </div>
+    <div id="evProdAlert" style="margin-top:8px"></div>
+    <button class="btn btn-outline btn-full" style="margin-top:10px" onclick="evCloseProducts()">Close</button>
+  </div>
+</div>
+
 <!-- ══ FULL-SCREEN BILL PRINT OVERLAY ══ -->
 <div id="billPrintScreen">
   <div class="bill-print-toolbar">
@@ -2885,19 +3057,40 @@ const DEFAULT_CREDS={admin:'barkat2024',ops1:'ops123',proc1:'proc123',rider1:'ri
 // 0 = "no default set" — the bill form then REQUIRES a typed rate the first
 // time a product is sold to a distributor (never bills at a guessed price).
 const DEFAULT_SETTINGS={smp:305,cult:133,fix:5100,p200:18,p400:34,pPaneer:0,pTm500:0,pTm1000:0,pDahi:0,r200:0.6,r400:0.4,pk200:2.7,pk400:4.1,tsnf:9.0,
-  // ── Standardisation model (owner-adopted ideal mass balance, 2026-07-09) ──
+  // ── Standardisation model (measured-batch fit, 2026-08-20) ──
   // kFat    : final Fat = kFat * (qty*rawFat)/finalVol   (fat retained vs ideal)
   // kSmpVol : litres of final volume added per kg of SMP dissolved
   // kSmpSnf : kg of SNF actually delivered per kg of SMP added
-  // Ideal values per owner's dahi spec: SMP is 96% SNF, adds 1 L/kg, no fat loss.
-  // (Previous meter-fit from 23 Jun was kFat 0.9016, kSmpVol 1.267, kSmpSnf 0.7273
-  //  — restore those in Admin → Settings if meter readings drift from the plan.)
-  kFat:1, kSmpVol:1, kSmpSnf:0.96};
+  // kSmpSnf was 0.96 (the ideal 'SMP is 96% SNF' spec). Back-solving 35 real
+  // batches from the plant gives 0.87 — SMP delivers less SNF than the spec once
+  // moisture and undissolved powder are accounted for. The 0.96 figure is exactly
+  // what made every plan land ~0.5 SNF low (plan 10.5 → meter 10.0). kFat fits at
+  // ~1.00 on the same batches, which is why Fat was already landing correctly.
+  // Re-tune from your own batches any time: Admin → Standardisation Calibration →
+  // 'Auto-calibrate from measured batches'.
+  kFat:1, kSmpVol:1, kSmpSnf:0.87};
 // Cups per crate by cup size (distribution is entered in crates).
 const CPC200=28, CPC400=14;
 
 let users=load('users',DEFAULT_USERS);
 let settings=load('settings',DEFAULT_SETTINGS);
+// ── One-time standardisation recalibration (2026-08-20) ────────────────────
+// Every device already has kSmpSnf:0.96 saved in its settings, and a saved
+// value always beats a changed default — so the new 0.87 has to be pushed in
+// once, explicitly. calV records that it has been done, so a later manual
+// re-tune by the owner is never silently overwritten. Runs at startup AND
+// whenever settings arrive from the cloud (a device that never got the update
+// would otherwise sync its stale 0.96 straight back over everyone else).
+const CAL_VERSION=2;
+function migrateCalibration(){
+  if(!settings||typeof settings!=='object')return false;
+  if((parseFloat(settings.calV)||0)>=CAL_VERSION)return false;
+  settings.calV=CAL_VERSION;
+  settings.kSmpSnf=0.87;
+  store('settings',settings);
+  return true;
+}
+migrateCalibration();
 let records=load('records',[]);
 let distRecords=load('distRecords',[]);
 let testRecords=load('testRecords',[]);
@@ -3010,6 +3203,7 @@ var TAB_ROLES={
   cip:['admin','ops'],
   dist:['admin','dist'],
   retail:['admin'],          // self distribution to retailers — admin only
+  event:['admin'],           // event / marriage orders we deliver ourselves — admin only
   returns:['admin','dist'],
   recall:['admin','ops','proc'],
   inv:['admin','ops','proc'],
@@ -3037,7 +3231,7 @@ function _applyTabAccess(user){
 }
 
 // Auto-fill saved credentials on page load
-var APP_BUILD='2026-08-15 · v88 (self distribution — retailer billing, RawBT print + PDF to WhatsApp)';
+var APP_BUILD='2026-08-20 · v89 (standardisation recalibrated to measured batches + event & function billing)';
 // Auto-update: compare the running build to the deployed version.txt; if a newer
 // build is live, force a cache-busting reload so devices never get stuck on an
 // old cached copy again.
@@ -3243,6 +3437,126 @@ function calConst(){
   const s=settings||{};
   const pick=k=>{const v=parseFloat(s[k]);return (isFinite(v)&&v>0)?v:DEFAULT_SETTINGS[k];};
   return {kFat:pick('kFat'),kSmpVol:pick('kSmpVol'),kSmpSnf:pick('kSmpSnf')};
+}
+// ══════════════════════════════════════════
+// AUTO-CALIBRATION FROM MEASURED BATCHES
+// ══════════════════════════════════════════
+// Every completed batch already stores what was put IN (raw vol/fat/snf, water,
+// SMP) and what the meter actually READ afterwards (finalVol/finalFat/finalSnf).
+// That is a full experiment per batch, so the model constants can be solved for
+// instead of guessed. This is what turned kSmpSnf 0.96 into 0.87 — the 0.96
+// ideal-spec figure was making every plan land ~0.5 SNF low.
+//
+// Two independent least-squares fits through the origin:
+//   kFat    from  finalFat*finalVol = kFat * rawVol*rawFat
+//   kSmpSnf from  finalSnf*finalVol - rawVol*rawSnf = 100*kSmpSnf * smpKg
+// kSmpVol is deliberately NOT fitted: final volume is eyeballed off the vat and
+// its residual is ±12 L either way, so a "fit" would be noise — and since Fat
+// already lands correctly, the volume model is doing its job as-is.
+function _calBatchSet(){
+  var all=(typeof productionBatches!=='undefined'&&Array.isArray(productionBatches))?productionBatches:[];
+  var rows=[];
+  all.forEach(function(b){
+    if(!b)return;
+    var rv=parseFloat(b.rawVol), rf=parseFloat(b.rawFat), rs=parseFloat(b.rawSnf);
+    var w=parseFloat(b.waterAdded)||0, smp=parseFloat(b.smpAdded)||0;
+    var fv=parseFloat(b.finalVol), ff=parseFloat(b.finalFat), fs=parseFloat(b.finalSnf);
+    if(!(rv>0&&rf>0&&rs>0&&fv>0&&ff>0&&fs>0&&smp>0))return;
+    if(fv<rv)return;                       // final volume below raw = typo
+    rows.push({id:b.batchId||b.id,date:b.date||'',rv:rv,rf:rf,rs:rs,w:w,smp:smp,fv:fv,ff:ff,fs:fs});
+  });
+  // Volume-consistent batches only: if what was poured in doesn't add up to the
+  // volume that was measured, one of the numbers is wrong and the whole row is
+  // untrustworthy for fitting.
+  var consistent=rows.filter(function(r){return Math.abs(r.fv-(r.rv+r.w+r.smp))<Math.max(3,0.06*r.fv);});
+  // Prefer big batches — a 40 L test batch rounds its SNF to the nearest 0.5.
+  var big=consistent.filter(function(r){return r.fv>=90;});
+  var used=big.length>=6?big:(consistent.length>=6?consistent:rows);
+  var tier=big.length>=6?'large volume-consistent':(consistent.length>=6?'volume-consistent':'all usable');
+  return {all:rows,used:used,tier:tier};
+}
+function _calFitThroughOrigin(set,xf,yf){
+  var sxy=0,sxx=0;
+  set.forEach(function(r){var x=xf(r),y=yf(r);sxy+=x*y;sxx+=x*x;});
+  return sxx>0?sxy/sxx:NaN;
+}
+// Fit kSmpSnf, dropping anything more than 2 sigma out (a mis-keyed SNF can drag
+// the constant a long way on its own).
+function _calFitSnf(set){
+  var cur=set.slice(),k=NaN,rms=0,dropped=[];
+  for(var it=0;it<4&&cur.length>=4;it++){
+    k=_calFitThroughOrigin(cur,function(r){return 100*r.smp;},function(r){return r.fs*r.fv-r.rv*r.rs;});
+    if(!isFinite(k))break;
+    var res=cur.map(function(r){return {r:r,e:(r.rv*r.rs+100*k*r.smp)/r.fv-r.fs};});
+    rms=Math.sqrt(res.reduce(function(a,x){return a+x.e*x.e;},0)/res.length);
+    var keep=res.filter(function(x){return Math.abs(x.e)<=2*rms;});
+    if(keep.length===cur.length||keep.length<4)break;
+    res.forEach(function(x){if(Math.abs(x.e)>2*rms)dropped.push(x.r.id);});
+    cur=keep.map(function(x){return x.r;});
+  }
+  return {k:k,rms:rms,n:cur.length,dropped:dropped};
+}
+var _calProposed=null;
+function calAutoRun(){
+  var out=document.getElementById('calAutoOut');if(!out)return;
+  var S=_calBatchSet();
+  if(S.used.length<4){
+    out.innerHTML='<div class="alert alert-gold" style="font-size:11px">Not enough measured batches yet ('+S.all.length+' usable). A batch counts only once it has raw qty/Fat/SNF, the SMP added, and the <b>measured</b> final volume, Fat and SNF filled in. Keep recording those and run this again.</div>';
+    _calProposed=null;return;
+  }
+  var fit=_calFitSnf(S.used);
+  var kFat=_calFitThroughOrigin(S.used,function(r){return r.rv*r.rf;},function(r){return r.ff*r.fv;});
+  if(!isFinite(fit.k)||!isFinite(kFat)){
+    out.innerHTML='<div class="alert alert-red" style="font-size:11px">Could not solve from these batches — the numbers do not balance.</div>';
+    _calProposed=null;return;
+  }
+  // Round to what the model can honestly resolve, and refuse anything absurd.
+  var kSnf=Math.round(fit.k*100)/100, kF=Math.round(kFat*1000)/1000;
+  if(kSnf<0.5||kSnf>1.05){
+    out.innerHTML='<div class="alert alert-red" style="font-size:11px">The fit came out at '+kSnf.toFixed(2)+' kg SNF per kg SMP, which is outside anything physically sensible. Check the batch entries for a mis-typed SNF or volume before trusting this.</div>';
+    _calProposed=null;return;
+  }
+  if(kF<0.8)kF=0.8;
+  if(kF>1)kF=1;
+  var c=calConst();
+  // How far the CURRENT settings miss on these same batches — this is the number
+  // the owner actually feels ("I ask for 10.5 and get 10.0").
+  var errSum=0;
+  S.used.forEach(function(r){errSum+=(r.rv*r.rs+100*c.kSmpSnf*r.smp)/r.fv-r.fs;});
+  var curBias=errSum/S.used.length;
+  _calProposed={kSmpSnf:kSnf,kFat:kF};
+  var same=Math.abs(kSnf-c.kSmpSnf)<0.005&&Math.abs(kF-c.kFat)<0.005;
+  out.innerHTML=
+    '<div style="background:var(--light);border-radius:12px;padding:12px 14px">'+
+      '<div style="font-size:11px;font-weight:700;color:var(--dark);margin-bottom:6px">Fitted from '+fit.n+' batch'+(fit.n===1?'':'es')+' <span style="font-weight:400;color:var(--gray)">('+S.tier+')</span></div>'+
+      (fit.dropped.length?'<div style="font-size:10px;color:var(--gray);margin-bottom:6px">Ignored as outliers: '+_esc(fit.dropped.join(', '))+'</div>':'')+
+      '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #e2e8f0"><span style="color:var(--gray)">SMP&rarr;SNF yield</span><span><b>'+kSnf.toFixed(2)+'</b> <span style="color:var(--gray);font-size:10px">now '+c.kSmpSnf+'</span></span></div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #e2e8f0"><span style="color:var(--gray)">Fat retention</span><span><b>'+kF.toFixed(3)+'</b> <span style="color:var(--gray);font-size:10px">now '+c.kFat+'</span></span></div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span style="color:var(--gray)">Typical SNF error left</span><span><b>&plusmn;'+fit.rms.toFixed(2)+'</b></span></div>'+
+      '<div style="font-size:11px;color:'+(Math.abs(curBias)>0.15?'var(--red)':'var(--green)')+';margin-top:8px;line-height:1.45">'+
+        (Math.abs(curBias)>0.15
+          ? 'Your current settings plan <b>'+Math.abs(curBias).toFixed(2)+' SNF '+(curBias>0?'higher':'lower')+'</b> than the meter actually reads on these batches &mdash; ask for 10.5 and you get about '+(10.5-curBias).toFixed(1)+'.'
+          : 'Your current settings are already tracking the meter to within '+Math.abs(curBias).toFixed(2)+' SNF.')+
+      '</div>'+
+      (same?'<div style="font-size:11px;color:var(--gray);margin-top:8px">Nothing to change &mdash; these are the values already saved.</div>'
+           :'<button class="btn btn-sm btn-full" style="margin-top:10px;background:var(--green);color:#fff;border:none;font-weight:700" onclick="calAutoApply()">Apply these constants</button>')+
+    '</div>';
+}
+function calAutoApply(){
+  if(!_calProposed){alert('Run the analysis first.');return;}
+  var c=calConst();
+  settings.kSmpSnf=_calProposed.kSmpSnf;
+  settings.kFat=_calProposed.kFat;
+  settings.calV=CAL_VERSION;              // an owner re-tune also counts as done
+  store('settings',settings);
+  try{_audit('settings','calibrate','kSmpSnf/kFat',c.kSmpSnf+' / '+c.kFat,_calProposed.kSmpSnf+' / '+_calProposed.kFat,'Auto-calibrated from measured batches');}catch(e){}
+  loadSettings();
+  try{calcOps();}catch(e){}
+  try{calcTest();}catch(e){}
+  try{calcBatchStd();}catch(e){}
+  var out=document.getElementById('calAutoOut');
+  if(out)out.innerHTML='<div class="alert alert-green" style="font-size:11px">&#9989; Calibration saved. Every plan &mdash; Operations, Calc and Batch &mdash; now uses SMP&rarr;SNF '+_calProposed.kSmpSnf.toFixed(2)+' and Fat retention '+_calProposed.kFat.toFixed(3)+'.</div>';
+  _calProposed=null;
 }
 // Given raw milk + Target Fat/SNF, return the water + SMP that hit BOTH targets
 // under the calibrated model. Water rounded to 0.5 L, SMP to 0.01 kg; the
@@ -5103,8 +5417,10 @@ function buildBillBodyHTML(r){
     </div>`;
 }
 
+var _printCtx='dist';   // which module filled the print overlay: 'dist' | 'event'
 function openBillPrintScreen(){
   if(!currentDistBill)return;
+  _printCtx='dist';
   document.getElementById('billPrintBody').innerHTML=buildBillBodyHTML(currentDistBill);
   document.getElementById('billPrintScreen').classList.add('active');
   closeDistBill();
@@ -5116,6 +5432,7 @@ function doPrint(){
   window.print();
 }
 function doShareBill(){
+  if(_printCtx==='event'){ if(_evCurrent)evWhatsApp(_evCurrent.id); return; }
   if(!currentDistBill)return;
   const r=currentDistBill;
   const text=buildBillText(r);
@@ -5506,11 +5823,78 @@ function downloadHTML(){
 // ══════════════════════════════════════════
 // MINIMAL PDF GENERATOR
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+// PDF TYPOGRAPHY & SHAPE HELPERS
+// ══════════════════════════════════════════
+// Helvetica advance widths (Adobe AFM, 1/1000 em) for the printable ASCII range.
+// The old bills centred headings on a guess — length × size × 0.5 — which drifts
+// by millimetres and makes a "centred" title visibly off. With the real table,
+// centring and right-alignment are exact, which is most of what makes a
+// generated page look typeset rather than assembled.
+var _PDF_W_REG=[278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,
+  556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,
+  667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,
+  278,278,278,469,556,333,
+  556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,
+  334,260,334,584];
+var _PDF_W_BOLD=[278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,
+  556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,
+  722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,
+  333,278,333,584,556,333,
+  556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,
+  389,280,389,584];
+// Width of a string at a given size, honouring extra character spacing.
+function pdfTextWidth(txt,size,bold,tc){
+  var t=String(txt==null?'':txt), tbl=bold?_PDF_W_BOLD:_PDF_W_REG, w=0;
+  for(var i=0;i<t.length;i++){
+    var c=t.charCodeAt(i)-32;
+    w+=(c>=0&&c<tbl.length?tbl[c]:556);
+  }
+  return w*size/1000 + (tc||0)*Math.max(0,t.length-1);
+}
+// The built-in fonts are WinAnsi only. Anything outside it prints as garbage, so
+// fold the characters this app actually produces — rupee sign, en/em dashes,
+// smart quotes, arrows — down to safe equivalents instead of shipping mojibake.
+function pdfSafe(txt){
+  return String(txt==null?'':txt)
+    .replace(/₹/g,'Rs.')
+    .replace(/[‒–—―]/g,'-')
+    .replace(/[‘’‛]/g,"'")
+    .replace(/[“”]/g,'"')
+    .replace(/…/g,'...')
+    .replace(/[→➔]/g,'->')
+    .replace(/ /g,' ')
+    .replace(/[^\x20-\x7E\xA0-\xFF]/g,'');
+}
+// Greedy word wrap to a pixel width. Returns an array of lines.
+function pdfWrap(txt,size,bold,maxW,tc){
+  var words=pdfSafe(txt).split(/\s+/).filter(Boolean), lines=[], cur='';
+  words.forEach(function(w){
+    var test=cur?cur+' '+w:w;
+    if(pdfTextWidth(test,size,bold,tc)<=maxW){cur=test;return;}
+    if(cur)lines.push(cur);
+    // A single word longer than the line still has to go somewhere — hard-split it.
+    while(pdfTextWidth(w,size,bold,tc)>maxW&&w.length>1){
+      var cut=w.length;
+      while(cut>1&&pdfTextWidth(w.slice(0,cut),size,bold,tc)>maxW)cut--;
+      lines.push(w.slice(0,cut));w=w.slice(cut);
+    }
+    cur=w;
+  });
+  if(cur)lines.push(cur);
+  return lines.length?lines:[''];
+}
+
 function makePDF(doc){
   // doc = { pages: [ [ {op, ...} ] ] }
-  // ops: {t:'text', x, y, s(size), b(bold), txt}
-  //      {t:'line', x1,y1,x2,y2, w(width)}
+  // ops: {t:'text', x, y, s(size), b(bold), txt, color, tc(char spacing)}
+  //      {t:'line', x1,y1,x2,y2, w(width), color}
   //      {t:'rect', x,y,w,h, fill(hex)}
+  //      {t:'rrect', x,y,w,h, r(corner radius), fill, stroke, sw(stroke width)}
+  //      {t:'srect', x,y,w,h, stroke, sw, fill(optional)}
+  //      {t:'poly', pts:[x,y,x,y,...], fill}
+  //      {t:'image', idx, x, y, dw, dh}
+  // All y values are top-down (0 = top of page); the renderer flips them.
   const W=595, H=842; // A4 points
   let objs=[], streams=[];
 
@@ -5548,8 +5932,41 @@ function makePDF(doc){
         const sz=op.s||11;
         const rgb=hexToRGB(op.color||'#000000');
         stream+=rgb+' rg\n';
-        stream+='BT\n'+fName+' '+sz+' Tf\n'+op.x+' '+(H-op.y)+' Td\n('+escStr(String(op.txt||''))+') Tj\nET\n';
+        stream+='BT\n'+fName+' '+sz+' Tf\n'+(op.tc?op.tc+' Tc\n':'')+op.x+' '+(H-op.y)+' Td\n('+escStr(String(op.txt||''))+') Tj\nET\n'+(op.tc?'0 Tc\n':'');
         stream+='0 0 0 rg\n';
+      } else if(op.t==='rrect'){
+        // Rounded rectangle. Corners are quarter-circles approximated with the
+        // standard Bezier constant; a plain 're' can't be rounded.
+        const r=Math.max(0,Math.min(op.r||0,Math.min(op.w,op.h)/2));
+        const L=op.x, R=op.x+op.w, B=H-op.y-op.h, T=H-op.y, k=0.5523*r;
+        if(op.fill)stream+=hexToRGB(op.fill)+' rg\n';
+        if(op.stroke){stream+=hexToRGB(op.stroke)+' RG\n'+(op.sw||1)+' w\n';}
+        stream+=(L+r)+' '+B+' m\n'
+          +(R-r)+' '+B+' l\n'
+          +(R-r+k)+' '+B+' '+R+' '+(B+r-k)+' '+R+' '+(B+r)+' c\n'
+          +R+' '+(T-r)+' l\n'
+          +R+' '+(T-r+k)+' '+(R-r+k)+' '+T+' '+(R-r)+' '+T+' c\n'
+          +(L+r)+' '+T+' l\n'
+          +(L+r-k)+' '+T+' '+L+' '+(T-r+k)+' '+L+' '+(T-r)+' c\n'
+          +L+' '+(B+r)+' l\n'
+          +L+' '+(B+r-k)+' '+(L+r-k)+' '+B+' '+(L+r)+' '+B+' c\n'
+          +'h\n'+(op.fill&&op.stroke?'B':op.stroke?'S':'f')+'\n';
+        stream+='0 0 0 rg\n0 0 0 RG\n1 w\n';
+      } else if(op.t==='srect'){
+        stream+=hexToRGB(op.stroke||'#000000')+' RG\n'+(op.sw||1)+' w\n';
+        if(op.fill){stream+=hexToRGB(op.fill)+' rg\n';}
+        stream+=op.x+' '+(H-op.y-op.h)+' '+op.w+' '+op.h+' re '+(op.fill?'B':'S')+'\n';
+        stream+='0 0 0 rg\n0 0 0 RG\n1 w\n';
+      } else if(op.t==='poly'){
+        // Filled polygon from a flat [x,y,x,y,…] list in top-down coordinates —
+        // used for the small diamond ornaments on the dividers.
+        const p=op.pts||[];
+        if(p.length>=6){
+          stream+=hexToRGB(op.fill||'#000000')+' rg\n';
+          stream+=p[0]+' '+(H-p[1])+' m\n';
+          for(let i=2;i<p.length;i+=2)stream+=p[i]+' '+(H-p[i+1])+' l\n';
+          stream+='h f\n0 0 0 rg\n';
+        }
       } else if(op.t==='image'){
         const dw=op.dw, dh=op.dh;
         stream+='q '+dw+' 0 0 '+dh+' '+op.x+' '+(H-op.y-dh)+' cm /Im'+(op.idx||0)+' Do Q\n';
@@ -9893,13 +10310,1058 @@ async function rtWhatsAppBill(id){
   window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(text+'\n\n(PDF bill downloaded — attach it in this chat)'),'_blank');
 }
 
+
+// ════════════════════════════════════════════════════════════════════════
+// EVENT & FUNCTION ORDERS — marriages, aqiqahs, gatherings we deliver ourselves
+// ════════════════════════════════════════════════════════════════════════
+// Same money discipline as Self Distribution, for the same reasons:
+//  1. Each order stores a SNAPSHOT of every line (qty, rate, amount). An order
+//     issued last month never re-prices itself from today's rates.
+//  2. Payments are their OWN records (eventPayments) — the booking advance and
+//     the balance paid on delivery are two rows that add up, not one field that
+//     the second payment silently overwrites.
+//  3. Balance = order amount − SUM(payments). One formula everywhere.
+//  4. Crates are COUNTED, never charged. The bill carries an accountability
+//     clause instead of a deposit, so no crate ever touches the money column.
+var eventOrders=load('eventOrders',[]);      // {id,party,phone,occasion,tone,eventDate,date,venue,items[],crates,...}
+var eventPayments=load('eventPayments',[]);  // {id,oid,amount,date,mode,note,savedBy}
+
+function _evAdmin(){return _hasRole(currentUser,'admin');}
+function _evDeny(){alert('Only the admin can use Event Orders.');return false;}
+
+// ── Occasions ────────────────────────────────────────────────────────────
+// Each occasion carries BOTH a religious and a neutral greeting so the tone is
+// chosen per bill (some customers want a dua on the bill, some don't). Every
+// message exists twice over: `ur` is the Urdu/Arabic line, shown only on the
+// on-screen and browser-printed bill where the font can render it; `tr` is the
+// romanised form used in the generated PDF, whose built-in Helvetica is
+// WinAnsi-only and would print Arabic script as garbage.
+var EVENT_OCCASIONS=[
+  {key:'nikah', label:'Nikah / Wedding', icon:'💍',
+   islamic:{head:'Mabrook!', ur:'مَبْرُوك', line:'May Allah bless this union, fill your home with barakah and mercy, and keep you together in goodness.',
+            dua:'بَارَكَ اللهُ لَكُمَا وَبَارَكَ عَلَيْكُمَا وَجَمَعَ بَيْنَكُمَا فِي خَيْرٍ', tr:'Barakallahu lakuma wa baraka alaykuma wa jama a baynakuma fi khayr'},
+   neutral:{head:'Congratulations!', line:'Wishing the couple a lifetime of happiness, health and togetherness. May this beginning be everything you hoped for.'}},
+  {key:'walima', label:'Walima / Reception', icon:'🎉',
+   islamic:{head:'Mabrook!', ur:'مَبْرُوك', line:'May this walima be a source of joy and barakah, and may Allah keep happiness in your home always.',
+            dua:'بَارَكَ اللهُ لَكُمَا وَجَمَعَ بَيْنَكُمَا فِي خَيْرٍ', tr:'Barakallahu lakuma wa jama a baynakuma fi khayr'},
+   neutral:{head:'Congratulations!', line:'May your celebration be joyful and your years ahead full of warmth and good company.'}},
+  {key:'mangni', label:'Mangni / Engagement', icon:'💐',
+   islamic:{head:'Mabrook!', ur:'مَبْرُوك', line:'May Allah make what has begun today easy, blessed and full of khayr for both families.',
+            dua:'بَارَكَ اللهُ لَكُمْ', tr:'Barakallahu lakum'},
+   neutral:{head:'Congratulations!', line:'Wishing both families joy as this happy new chapter begins.'}},
+  {key:'aqiqah', label:'Aqiqah / Naming Ceremony', icon:'🍼',
+   islamic:{head:'Mabrook!', ur:'مَبْرُوك', line:'May Allah make the child righteous, healthy and a coolness of your eyes, and grant the family long happiness together.',
+            dua:'بَارَكَ اللهُ لَكَ فِي الْمَوْهُوبِ لَكَ', tr:'Barakallahu laka fil mawhoobi laka'},
+   neutral:{head:'Congratulations!', line:'Warmest wishes on your new arrival. May the little one bring endless joy and laughter to your home.'}},
+  {key:'khatna', label:'Khatna / Sunnat', icon:'🌙',
+   islamic:{head:'Mabrook!', ur:'مَبْرُوك', line:'May Allah keep the child in good health and grant the family lasting happiness and barakah.',
+            dua:'بَارَكَ اللهُ لَكُمْ وَحَفِظَكُمْ', tr:'Barakallahu lakum wa hafizakum'},
+   neutral:{head:'Best Wishes!', line:'Wishing your family good health, happiness and a memorable celebration.'}},
+  {key:'milad', label:'Milad / Dua Khwani', icon:'🕌',
+   islamic:{head:'Jazakumullahu Khayran', ur:'جزاکم اللہ خیرا', line:'May Allah accept this gathering, fill it with mercy and blessings, and reward every hand that helped.',
+            dua:'تَقَبَّلَ اللهُ مِنَّا وَمِنْكُمْ', tr:'Taqabbalallahu minna wa minkum'},
+   neutral:{head:'With Best Wishes', line:'May your gathering be peaceful and blessed, and bring your family and guests closer together.'}},
+  {key:'griha', label:'New Home / Shifting', icon:'🏡',
+   islamic:{head:'Mabrook!', ur:'مَبْرُوك', line:'May Allah fill this new home with barakah, safety, rizq and peace for everyone who lives in it.',
+            dua:'بَارَكَ اللهُ لَكُمْ فِي دَارِكُمْ', tr:'Barakallahu lakum fi darikum'},
+   neutral:{head:'Congratulations!', line:'Wishing you happiness, comfort and many good memories in your new home.'}},
+  {key:'birthday', label:'Birthday / Anniversary', icon:'🎂',
+   islamic:{head:'Mabrook!', ur:'مَبْرُوك', line:'May Allah grant you a long, healthy and blessed life, filled with happiness and good company.',
+            dua:'بَارَكَ اللهُ لَكَ', tr:'Barakallahu lak'},
+   neutral:{head:'Many Happy Returns!', line:'Wishing you health, happiness and a wonderful year ahead. May the celebration be everything you wished for.'}},
+  {key:'eid', label:'Eid / Festival', icon:'🌟',
+   islamic:{head:'Eid Mubarak!', ur:'عید مبارک', line:'May this Eid bring peace, health and barakah to you and your whole family.',
+            dua:'تَقَبَّلَ اللهُ مِنَّا وَمِنْكُمْ', tr:'Taqabbalallahu minna wa minkum'},
+   neutral:{head:'Season’s Greetings!', line:'Wishing you and your family a joyful celebration and a wonderful time together.'}},
+  {key:'gathering', label:'Function / Get-together', icon:'🍽️',
+   islamic:{head:'Barakallahu Feekum', ur:'بارک اللہ فیکم', line:'May Allah bless your gathering, accept your hospitality and keep your family in happiness.',
+            dua:'بَارَكَ اللهُ فِيكُمْ', tr:'Barakallahu feekum'},
+   neutral:{head:'With Best Wishes', line:'Thank you for letting us be part of your occasion. May it be warm, happy and memorable.'}},
+  {key:'other', label:'Other Occasion', icon:'✨',
+   islamic:{head:'Barakallahu Feekum', ur:'بارک اللہ فیکم', line:'May Allah bless this occasion for you and your family and keep you in good health and happiness.',
+            dua:'بَارَكَ اللهُ فِيكُمْ', tr:'Barakallahu feekum'},
+   neutral:{head:'With Best Wishes', line:'Thank you for choosing us for your occasion. We wish you a happy and memorable celebration.'}}
+];
+function eventOccasion(key){
+  return EVENT_OCCASIONS.find(function(o){return o.key===key;})||EVENT_OCCASIONS[EVENT_OCCASIONS.length-1];
+}
+// The greeting an order should carry: the occasion's message in the chosen tone,
+// unless the admin typed their own — a custom line always wins.
+function eventGreeting(o){
+  var oc=eventOccasion(o&&o.occasion), tone=(o&&o.tone)==='neutral'?'neutral':'islamic';
+  var m=oc[tone]||oc.neutral;
+  var custom=(o&&o.customMsg||'').trim();
+  return {
+    head:m.head,
+    line:custom||m.line,
+    ur:tone==='islamic'?(m.ur||''):'',
+    dua:(tone==='islamic'&&!custom)?(m.dua||''):'',
+    duaTr:(tone==='islamic'&&!custom)?(m.tr||''):'',
+    label:oc.label, icon:oc.icon
+  };
+}
+
+// ── Products: the retail catalogue plus event-only lines ──────────────────
+// Events sell the same dahi/paneer/milk as everything else, but also things
+// that only exist for a function (bulk dahi in the party's own vessel, lassi,
+// kahwa milk). Kept in settings so it syncs without a new key.
+var EVENT_DEFAULT_PRODUCTS=[
+  {key:'dahi200',   label:'Dahi Cup 200g',        unit:'cup',   rate:0},
+  {key:'dahi400',   label:'Dahi Cup 400g',        unit:'cup',   rate:0},
+  {key:'dahiLoose', label:'Loose Dahi (bulk)',    unit:'kg',    rate:0},
+  {key:'paneer',    label:'Paneer',               unit:'kg',    rate:0},
+  {key:'tm500',     label:'Toned Milk 500ml',     unit:'pkt',   rate:0},
+  {key:'tm1000',    label:'Toned Milk 1L',        unit:'pkt',   rate:0},
+  {key:'milkBulk',  label:'Milk (bulk, in cans)', unit:'ltr',   rate:0},
+  {key:'lassi',     label:'Lassi',                unit:'ltr',   rate:0},
+  {key:'cream',     label:'Fresh Cream / Malai',  unit:'kg',    rate:0}
+];
+function eventProducts(){
+  var p=settings.eventProducts;
+  if(Array.isArray(p)&&p.length)return p.filter(function(x){return x&&x.key&&x.label;});
+  return EVENT_DEFAULT_PRODUCTS;
+}
+function _evProd(key){
+  return eventProducts().find(function(x){return x.key===key;})||{key:key,label:key,unit:'pc',rate:0};
+}
+// An order's own last-used rate per item for this party, else the default.
+function eventRates(party){
+  var out={};
+  eventProducts().forEach(function(p){out[p.key]=parseFloat(p.rate)||0;});
+  if(!party)return out;
+  var mine=eventOrders.filter(function(o){return o&&_evSameParty(o.party,party);})
+    .sort(function(a,b){return (b.id||0)-(a.id||0);});
+  Object.keys(out).forEach(function(key){
+    for(var i=0;i<mine.length;i++){
+      var it=(mine[i].items||[]).find(function(x){return x&&x.key===key&&(parseFloat(x.qty)||0)>0;});
+      if(it&&(parseFloat(it.rate)||0)>0){out[key]=_r2(it.rate);return;}
+    }
+  });
+  return out;
+}
+function _evSameParty(a,b){
+  return String(a||'').trim().toLowerCase()===String(b||'').trim().toLowerCase();
+}
+
+// ── Money ────────────────────────────────────────────────────────────────
+function eventPaidFor(oid){
+  var paid=0;
+  eventPayments.forEach(function(p){if(p&&String(p.oid)===String(oid))paid=_r2(paid+(parseFloat(p.amount)||0));});
+  return paid;
+}
+function eventBalance(oid){
+  var o=eventOrders.find(function(x){return String(x.id)===String(oid);});
+  if(!o)return 0;
+  return _r2((parseFloat(o.amount)||0)-eventPaidFor(oid));
+}
+// Everything the bill needs about one order's money, in one place.
+function eventNumbers(o){
+  var total=_r2(o.amount), paid=eventPaidFor(o.id);
+  return {subtotal:_r2(o.subtotal), discount:_r2(o.discount), roundOff:_r2(o.roundOff),
+          total:total, paid:paid, due:_r2(total-paid)};
+}
+function eventCrateText(o){
+  var bits=[];
+  if((parseFloat(o.crates)||0)>0)bits.push(_rq(o.crates)+' crate'+((parseFloat(o.crates)||0)===1?'':'s'));
+  if((parseFloat(o.cans)||0)>0)bits.push(_rq(o.cans)+' can'+((parseFloat(o.cans)||0)===1?'':'s'));
+  if((o.otherItems||'').trim())bits.push(o.otherItems.trim());
+  return bits.join(' · ');
+}
+
+// ── Form ─────────────────────────────────────────────────────────────────
+var _evEditId=null;
+function evFillOccasions(){
+  var sel=document.getElementById('ev-occasion');if(!sel)return;
+  if(sel.options.length)return;
+  sel.innerHTML=EVENT_OCCASIONS.map(function(o){
+    return '<option value="'+o.key+'">'+o.icon+'  '+_esc(o.label)+'</option>';
+  }).join('');
+}
+// Rebuilt only when the item catalogue changes — a cloud sync landing mid-entry
+// must never wipe quantities the admin is halfway through typing.
+function evBuildItemRows(){
+  var el=document.getElementById('ev-items');if(!el)return;
+  var prods=eventProducts();
+  var sig=prods.map(function(p){return p.key+'|'+p.label+'|'+p.unit;}).join('~');
+  if(el.dataset.sig===sig)return;
+  el.dataset.sig=sig;
+  el.innerHTML=prods.map(function(p){
+    return '<div style="display:grid;grid-template-columns:1.5fr .85fr .85fr .9fr;gap:6px;align-items:center;margin-bottom:5px">'
+      +'<div style="font-size:11.5px;font-weight:600;color:var(--dark);line-height:1.25">'+_esc(p.label)
+        +'<div style="font-size:9px;font-weight:400;color:var(--gray)">per '+_esc(p.unit)+'</div></div>'
+      +'<input type="number" id="ev-q-'+p.key+'" min="0" step="'+_rtStepFor(p.unit)+'" placeholder="0" oninput="evCalc()" style="padding:7px;font-size:12px"/>'
+      +'<input type="number" id="ev-r-'+p.key+'" min="0" step="0.5" placeholder="rate" oninput="evCalc()" style="padding:7px;font-size:12px"/>'
+      +'<div id="ev-a-'+p.key+'" style="text-align:right;font-size:12px;font-weight:700;color:var(--gray)">—</div>'
+      +'</div>';
+  }).join('');
+}
+function evReadItems(){
+  return eventProducts().map(function(p){
+    var q=parseFloat((document.getElementById('ev-q-'+p.key)||{}).value)||0;
+    var r=parseFloat((document.getElementById('ev-r-'+p.key)||{}).value)||0;
+    return {key:p.key,label:p.label,unit:p.unit,qty:_r2(q),rate:_r2(r),amount:_r2(q*r)};
+  });
+}
+function evPartyChanged(){
+  var party=(document.getElementById('ev-party')||{}).value||'';
+  var rates=eventRates(party);
+  eventProducts().forEach(function(p){
+    var el=document.getElementById('ev-r-'+p.key);
+    if(el&&!el.value&&rates[p.key]>0)el.value=rates[p.key];
+  });
+  evCalc();
+}
+function evToneChanged(){evCalc();}
+function evOccasionChanged(){evCalc();}
+function evCalc(){
+  var items=evReadItems().filter(function(x){return x.qty>0;});
+  var sub=0;
+  eventProducts().forEach(function(p){
+    var it=items.find(function(x){return x.key===p.key;});
+    var cell=document.getElementById('ev-a-'+p.key);
+    if(cell)cell.textContent=it?_rs(it.amount):'—';
+    if(it)sub=_r2(sub+it.amount);
+  });
+  var disc=parseFloat((document.getElementById('ev-discount')||{}).value)||0;
+  if(disc<0)disc=0;
+  if(disc>sub)disc=sub;
+  var net=_r2(sub-disc);
+  var total=Math.round(net);
+  var roundOff=_r2(total-net);
+  var adv=parseFloat((document.getElementById('ev-advance')||{}).value)||0;
+  // On an existing order the advance box is disabled — payments already recorded
+  // are the truth, and they are edited from the order's own payment list.
+  var paidAlready=_evEditId!=null?eventPaidFor(_evEditId):0;
+  var paid=_evEditId!=null?paidAlready:adv;
+  var due=_r2(total-paid);
+
+  var br=document.getElementById('ev-break');
+  if(br){
+    br.innerHTML=items.length
+      ? items.map(function(x){
+          return '<div style="display:flex;justify-content:space-between;padding:3px 0"><span>'+_esc(x.label)+' · '+_rq(x.qty)+' '+_esc(x.unit)+' × '+_rs(x.rate)+'</span><span style="font-weight:600;color:var(--dark)">'+_rs(x.amount)+'</span></div>';
+        }).join('')
+      : '<div style="padding:4px 0">No items entered yet</div>';
+  }
+  var set=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v;};
+  set('ev-subtotal',_rs(sub));
+  set('ev-total',_rs(total));
+  set('ev-paid-preview',_rs(paid));
+  set('ev-due-preview',_rs(Math.max(0,due)));
+  var dr=document.getElementById('ev-disc-row');
+  if(dr)dr.style.display=disc>0.004?'flex':'none';
+  set('ev-disc-shown','− '+_rs(disc));
+  var rr=document.getElementById('ev-round-row');
+  if(rr)rr.style.display=Math.abs(roundOff)>0.004?'flex':'none';
+  set('ev-round',(roundOff>=0?'+ ':'− ')+_rs(Math.abs(roundOff)));
+  var wrap=document.getElementById('ev-due-wrap');
+  if(wrap)wrap.style.background=due>0.005?'linear-gradient(135deg,#b91c1c,#dc2626)':'linear-gradient(135deg,#15803d,#22c55e)';
+  var dl=document.getElementById('ev-due-label');
+  if(dl)dl.textContent=due>0.005?'Balance Due On/After Delivery':'Fully Paid';
+
+  // Live preview of the greeting that will print on the bill
+  var g=eventGreeting({occasion:(document.getElementById('ev-occasion')||{}).value,
+                       tone:(document.getElementById('ev-tone')||{}).value,
+                       customMsg:(document.getElementById('ev-msg')||{}).value});
+  var pv=document.getElementById('ev-msg-preview');
+  if(pv){
+    pv.innerHTML='<div style="font-size:13px;font-weight:700;color:#8a6d1f;margin-bottom:3px">'+_esc(g.head)+'</div>'
+      +(g.ur?'<div style="font-size:15px;color:#8a6d1f;margin-bottom:4px;direction:rtl">'+_esc(g.ur)+'</div>':'')
+      +'<div style="font-size:11px;color:#6b5a24;line-height:1.5">'+_esc(g.line)+'</div>'
+      +(g.dua?'<div style="font-size:13px;color:#8a6d1f;margin-top:5px;direction:rtl">'+_esc(g.dua)+'</div>':'');
+  }
+  return {items:items,sub:sub,disc:disc,total:total,roundOff:roundOff,adv:adv,due:due};
+}
+function evClearForm(){
+  _evEditId=null;
+  ['ev-party','ev-phone','ev-venue','ev-msg','ev-note','ev-crates','ev-cans','ev-other','ev-discount','ev-advance'].forEach(function(id){
+    var e=document.getElementById(id);if(e)e.value='';
+  });
+  eventProducts().forEach(function(p){
+    ['ev-q-','ev-r-'].forEach(function(pre){var e=document.getElementById(pre+p.key);if(e)e.value='';});
+  });
+  var d=document.getElementById('ev-date');if(d)d.value=_today();
+  var ed=document.getElementById('ev-edate');if(ed)ed.value=_today();
+  var t=document.getElementById('ev-title');if(t)t.textContent='🎊 New Event Order';
+  var b=document.getElementById('ev-save-btn');if(b)b.textContent='💾 Save Event Order';
+  var c=document.getElementById('ev-cancel-edit');if(c)c.style.display='none';
+  var n=document.getElementById('ev-edit-note');if(n)n.style.display='none';
+  var ab=document.getElementById('ev-adv-block');if(ab)ab.style.display='block';
+  evCalc();
+}
+function evSaveOrder(){
+  if(!_evAdmin())return _evDeny();
+  var party=(document.getElementById('ev-party').value||'').trim();
+  if(!party){showAlert('evAlert','alert-red','❌ Enter the party / host name');return;}
+  var date=document.getElementById('ev-date').value;
+  if(!date){showAlert('evAlert','alert-red','❌ Pick the bill date');return;}
+  var C=evCalc();
+  if(!C.items.length){showAlert('evAlert','alert-red','❌ Add at least one item');return;}
+  // Never bill at a guessed price — a quantity with no rate is a mistake.
+  var noRate=C.items.filter(function(x){return !(x.rate>0);});
+  if(noRate.length){
+    showAlert('evAlert','alert-red','❌ Enter a rate for: '+noRate.map(function(x){return _esc(x.label);}).join(', '));
+    return;
+  }
+  var rec={
+    id:_evEditId!=null?_evEditId:Date.now(),
+    party:party,
+    phone:(document.getElementById('ev-phone').value||'').trim(),
+    venue:(document.getElementById('ev-venue').value||'').trim(),
+    occasion:document.getElementById('ev-occasion').value,
+    tone:document.getElementById('ev-tone').value,
+    customMsg:(document.getElementById('ev-msg').value||'').trim(),
+    date:date,
+    eventDate:document.getElementById('ev-edate').value||date,
+    items:C.items,
+    crates:_r2(document.getElementById('ev-crates').value)||0,
+    cans:_r2(document.getElementById('ev-cans').value)||0,
+    otherItems:(document.getElementById('ev-other').value||'').trim(),
+    subtotal:C.sub, discount:C.disc, roundOff:C.roundOff, amount:C.total,
+    note:(document.getElementById('ev-note').value||'').trim(),
+    savedBy:(currentUser&&currentUser.name)||'Admin'
+  };
+  if(_evEditId!=null){
+    var i=eventOrders.findIndex(function(x){return String(x.id)===String(_evEditId);});
+    if(i<0){showAlert('evAlert','alert-red','❌ That order no longer exists');evClearForm();return;}
+    var old=eventOrders[i];
+    rec.createdAt=old.createdAt;
+    // Payments live in their own store — editing the order must not touch them.
+    eventOrders[i]=rec;
+    _audit('event','edit',rec.id,_rsT(old.amount),_rsT(rec.amount),'Event order edited · '+rec.party);
+  }else{
+    rec.createdAt=new Date().toISOString();
+    eventOrders.push(rec);
+    var adv=_r2(C.adv);
+    if(adv>0.004){
+      eventPayments.push({
+        id:Date.now()+1, oid:rec.id, amount:Math.min(adv,rec.amount), date:date,
+        mode:document.getElementById('ev-adv-mode').value||'Cash',
+        note:'Advance at booking', savedBy:rec.savedBy
+      });
+      store('eventPayments',eventPayments);
+    }
+    _audit('event','create',rec.id,'—',_rsT(rec.amount),'Event order created · '+rec.party);
+  }
+  store('eventOrders',eventOrders);
+  var savedId=rec.id;
+  evClearForm();
+  renderEvents();
+  showAlert('evAlert','alert-green','✅ Event order saved for '+_esc(party));
+  evShowBill(savedId);
+}
+function evEditOrder(id){
+  if(!_evAdmin())return _evDeny();
+  var o=eventOrders.find(function(x){return String(x.id)===String(id);});if(!o)return;
+  _evEditId=o.id;
+  evBuildItemRows();
+  evFillOccasions();
+  var set=function(id2,v){var e=document.getElementById(id2);if(e)e.value=v==null?'':v;};
+  set('ev-party',o.party);set('ev-phone',o.phone);set('ev-venue',o.venue);
+  set('ev-occasion',o.occasion||'other');set('ev-tone',o.tone||'islamic');
+  set('ev-msg',o.customMsg);set('ev-date',o.date);set('ev-edate',o.eventDate||o.date);
+  set('ev-crates',o.crates||'');set('ev-cans',o.cans||'');set('ev-other',o.otherItems);
+  set('ev-discount',o.discount||'');set('ev-note',o.note);
+  eventProducts().forEach(function(p){
+    var it=(o.items||[]).find(function(x){return x&&x.key===p.key;});
+    set('ev-q-'+p.key,it&&it.qty>0?it.qty:'');
+    set('ev-r-'+p.key,it&&it.rate>0?it.rate:'');
+  });
+  // Items that were on the order but have since been removed from the catalogue
+  // would silently vanish on save — warn instead of quietly dropping money.
+  var orphan=(o.items||[]).filter(function(x){
+    return x&&(parseFloat(x.qty)||0)>0&&!eventProducts().some(function(p){return p.key===x.key;});
+  });
+  var t=document.getElementById('ev-title');if(t)t.textContent='✏️ Editing Event Order';
+  var b=document.getElementById('ev-save-btn');if(b)b.textContent='💾 Update Order';
+  var c=document.getElementById('ev-cancel-edit');if(c)c.style.display='block';
+  var ab=document.getElementById('ev-adv-block');if(ab)ab.style.display='none';
+  var n=document.getElementById('ev-edit-note');
+  if(n){
+    n.style.display='block';
+    n.innerHTML='✏️ <b>Editing a saved order.</b> Items, rates, crates and the message change here — payments already recorded stay untouched (manage them from the order below).'
+      +(orphan.length?'<br/><span style="color:var(--red)">⚠️ This order has items no longer in your catalogue ('+_esc(orphan.map(function(x){return x.label;}).join(', '))+'). Saving now will drop them.</span>':'');
+  }
+  evCalc();
+  var el=document.getElementById('ev-form-card');
+  if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function evCancelEdit(){evClearForm();showAlert('evAlert','alert-gold','Edit cancelled — nothing changed.');}
+function evDeleteOrder(id){
+  if(!_evAdmin())return _evDeny();
+  var o=eventOrders.find(function(x){return String(x.id)===String(id);});if(!o)return;
+  var paid=eventPaidFor(id);
+  if(!confirm('Delete the event order for "'+o.party+'" ('+_rsT(o.amount)+')?'
+    +(paid>0.004?'\n\nThis also deletes '+_rsT(paid)+' of recorded payments against it.':'')
+    +'\n\nThis cannot be undone.'))return;
+  var payIds=eventPayments.filter(function(p){return p&&String(p.oid)===String(id);}).map(function(p){return p.id;});
+  eventOrders=eventOrders.filter(function(x){return String(x.id)!==String(id);});
+  eventPayments=eventPayments.filter(function(p){return String(p.oid)!==String(id);});
+  _markDeleted('eventOrders',id);
+  if(payIds.length)_markDeleted('eventPayments',payIds);
+  store('eventOrders',eventOrders);store('eventPayments',eventPayments);
+  _audit('event','delete',id,_rsT(o.amount),'—','Event order deleted · '+o.party);
+  if(String(_evEditId)===String(id))evClearForm();
+  renderEvents();
+  showAlert('evAlert','alert-green','✅ Order deleted');
+}
+function evAddPayment(oid){
+  if(!_evAdmin())return _evDeny();
+  var o=eventOrders.find(function(x){return String(x.id)===String(oid);});if(!o)return;
+  var amt=parseFloat((document.getElementById('ev-pay-amt-'+oid)||{}).value)||0;
+  if(!(amt>0)){alert('Enter the amount received.');return;}
+  var date=(document.getElementById('ev-pay-date-'+oid)||{}).value||_today();
+  var mode=(document.getElementById('ev-pay-mode-'+oid)||{}).value||'Cash';
+  eventPayments.push({id:Date.now(),oid:o.id,amount:_r2(amt),date:date,mode:mode,note:'',savedBy:(currentUser&&currentUser.name)||'Admin'});
+  store('eventPayments',eventPayments);
+  _audit('event','payment',o.id,'—',_rsT(amt),'Payment received · '+o.party+' · '+mode);
+  renderEvents();
+}
+function evDeletePayment(pid){
+  if(!_evAdmin())return _evDeny();
+  var p=eventPayments.find(function(x){return String(x.id)===String(pid);});if(!p)return;
+  if(!confirm('Remove this payment of '+_rsT(p.amount)+'?'))return;
+  eventPayments=eventPayments.filter(function(x){return String(x.id)!==String(pid);});
+  _markDeleted('eventPayments',pid);
+  store('eventPayments',eventPayments);
+  _audit('event','payment-delete',p.oid,_rsT(p.amount),'—','Payment removed');
+  renderEvents();
+}
+
+// ── Item catalogue editor ────────────────────────────────────────────────
+function evOpenProducts(){if(!_evAdmin())return _evDeny();evRenderProducts();document.getElementById('evProdModal').classList.add('open');}
+function evCloseProducts(){document.getElementById('evProdModal').classList.remove('open');evBuildItemRows();evPartyChanged();}
+function evRenderProducts(){
+  var el=document.getElementById('evProdList');if(!el)return;
+  el.innerHTML=eventProducts().map(function(p,i){
+    return '<div style="display:grid;grid-template-columns:1.4fr .7fr .7fr 30px;gap:6px;align-items:center;margin-bottom:6px">'
+      +'<input type="text" id="evp-l-'+i+'" value="'+_esc(p.label)+'" style="padding:7px;font-size:12px"/>'
+      +'<input type="text" id="evp-u-'+i+'" value="'+_esc(p.unit)+'" style="padding:7px;font-size:12px"/>'
+      +'<input type="number" id="evp-r-'+i+'" value="'+(parseFloat(p.rate)||'')+'" placeholder="rate" step="0.5" style="padding:7px;font-size:12px"/>'
+      +'<button class="btn btn-sm" style="background:#fee2e2;color:#b91c1c;border:none;padding:6px" onclick="evDelProduct(\''+_esc(p.key)+'\')">✕</button>'
+      +'</div>';
+  }).join('')||'<div style="font-size:11px;color:var(--gray);padding:6px 0">No items — add one below.</div>';
+}
+function evSaveProducts(){
+  if(!_evAdmin())return _evDeny();
+  var prods=eventProducts().map(function(p,i){
+    var l=(document.getElementById('evp-l-'+i)||{}).value,
+        u=(document.getElementById('evp-u-'+i)||{}).value,
+        r=(document.getElementById('evp-r-'+i)||{}).value;
+    return {key:p.key,label:(l||p.label).trim(),unit:(u||p.unit).trim()||'pc',rate:_r2(r)||0};
+  });
+  settings.eventProducts=prods;
+  store('settings',settings);
+  evRenderProducts();
+  var a=document.getElementById('evProdAlert');
+  if(a){a.innerHTML='<div class="alert alert-green" style="font-size:11px">✅ Saved</div>';setTimeout(function(){a.innerHTML='';},1800);}
+}
+function evAddProduct(){
+  if(!_evAdmin())return _evDeny();
+  var l=(document.getElementById('evp-new-l').value||'').trim();
+  if(!l){alert('Give the item a name.');return;}
+  var u=(document.getElementById('evp-new-u').value||'').trim()||'pc';
+  var r=_r2(document.getElementById('evp-new-r').value)||0;
+  var key='ev'+Date.now().toString(36);
+  var prods=eventProducts().slice();
+  prods.push({key:key,label:l,unit:u,rate:r});
+  settings.eventProducts=prods;
+  store('settings',settings);
+  document.getElementById('evp-new-l').value='';
+  document.getElementById('evp-new-u').value='';
+  document.getElementById('evp-new-r').value='';
+  evRenderProducts();
+}
+function evDelProduct(key){
+  if(!_evAdmin())return _evDeny();
+  var p=_evProd(key);
+  if(!confirm('Remove "'+p.label+'" from the event item list?\n\nOrders already saved keep their own copy of it.'))return;
+  settings.eventProducts=eventProducts().filter(function(x){return x.key!==key;});
+  store('settings',settings);
+  evRenderProducts();
+}
+
+// ── Lists ────────────────────────────────────────────────────────────────
+function renderEvents(){
+  if(!document.getElementById('tab-event'))return;
+  if(!_evAdmin())return;
+  evFillOccasions();
+  evBuildItemRows();
+  var d=document.getElementById('ev-date');if(d&&!d.value)d.value=_today();
+  var ed=document.getElementById('ev-edate');if(ed&&!ed.value)ed.value=_today();
+
+  var open=eventOrders.filter(function(o){return eventBalance(o.id)>0.005;});
+  var due=open.reduce(function(a,o){return _r2(a+eventBalance(o.id));},0);
+  var hv=document.getElementById('ev-hero-val');if(hv)hv.textContent=_rs(due);
+  var hs=document.getElementById('ev-hero-sub');
+  if(hs)hs.textContent=!eventOrders.length?'No event orders yet — create one below'
+    :open.length?(open.length+' order'+(open.length===1?'':'s')+' awaiting payment')
+    :'All event orders settled ✅';
+
+  // Upcoming functions — what the plant has to actually produce for
+  var today=_today();
+  var upcoming=eventOrders.filter(function(o){return (o.eventDate||o.date)>=today;})
+    .sort(function(a,b){return (a.eventDate||a.date)<(b.eventDate||b.date)?-1:1;});
+  var up=document.getElementById('ev-upcoming');
+  if(up){
+    up.innerHTML=upcoming.length?upcoming.map(function(o){
+      var g=eventGreeting(o),bal=eventBalance(o.id);
+      var items=(o.items||[]).filter(function(x){return x.qty>0;})
+        .map(function(x){return _rq(x.qty)+' '+x.unit+' '+x.label;}).join(' · ');
+      return '<div style="border:1px solid #e5e7eb;border-left:3px solid #c49a2a;border-radius:10px;padding:10px 12px;margin-bottom:8px;background:#fffdf7">'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
+          +'<div style="flex:1"><div style="font-size:13px;font-weight:700;color:var(--dark)">'+g.icon+' '+_esc(o.party)+'</div>'
+          +'<div style="font-size:10px;color:var(--gray);margin-top:1px">'+_esc(g.label)+' · '+_dShort(o.eventDate||o.date)+(o.venue?' · 📍 '+_esc(o.venue):'')+'</div></div>'
+          +'<div style="text-align:right"><div style="font-size:14px;font-weight:700;color:var(--dark)">'+_rs(o.amount)+'</div>'
+          +'<div style="font-size:9px;font-weight:700;color:'+(bal>0.005?'var(--red)':'var(--green)')+'">'+(bal>0.005?_rs(bal)+' due':'PAID')+'</div></div>'
+        +'</div>'
+        +(items?'<div style="font-size:10px;color:var(--gray);margin-top:5px;line-height:1.4">'+_esc(items)+'</div>':'')
+        +'</div>';
+    }).join(''):'<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">No upcoming functions</div></div>';
+  }
+  evRenderAll();
+  evCalc();
+}
+function evRenderAll(){
+  var el=document.getElementById('ev-all-list');if(!el)return;
+  var q=((document.getElementById('ev-search')||{}).value||'').trim().toLowerCase();
+  var list=eventOrders.slice().sort(function(a,b){
+    var ad=a.eventDate||a.date,bd=b.eventDate||b.date;
+    if(ad!==bd)return ad<bd?1:-1;
+    return (b.id||0)-(a.id||0);
+  });
+  if(q)list=list.filter(function(o){
+    return [o.party,o.phone,o.venue,o.date,o.eventDate,eventOccasion(o.occasion).label,o.note]
+      .join(' ').toLowerCase().indexOf(q)>=0;
+  });
+  var cnt=document.getElementById('ev-all-count');
+  if(cnt)cnt.textContent=list.length+' order'+(list.length===1?'':'s');
+  if(!list.length){
+    el.innerHTML='<div class="empty"><div class="empty-icon">🎊</div><div class="empty-text">'+(q?'No orders match that search':'No event orders yet')+'</div></div>';
+    return;
+  }
+  el.innerHTML=list.map(function(o){
+    var N=eventNumbers(o),g=eventGreeting(o);
+    var pays=eventPayments.filter(function(p){return p&&String(p.oid)===String(o.id);})
+      .sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0;});
+    var crate=eventCrateText(o);
+    return '<div style="border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin-bottom:10px;background:#fff">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px">'
+        +'<div style="flex:1">'
+          +'<div style="font-size:13.5px;font-weight:700;color:var(--dark)">'+g.icon+' '+_esc(o.party)+'</div>'
+          +'<div style="font-size:10px;color:var(--gray);margin-top:2px">'+_esc(g.label)+' · function '+_dShort(o.eventDate||o.date)+' · billed '+_dShort(o.date)+'</div>'
+          +(o.venue?'<div style="font-size:10px;color:var(--gray)">📍 '+_esc(o.venue)+'</div>':'')
+          +(o.phone?'<div style="font-size:10px;color:var(--gray)">📞 '+_esc(o.phone)+'</div>':'')
+        +'</div>'
+        +'<div style="text-align:right">'
+          +'<div style="font-size:16px;font-weight:700;color:var(--dark)">'+_rs(N.total)+'</div>'
+          +'<div style="font-size:10px;font-weight:700;color:'+(N.due>0.005?'var(--red)':'var(--green)')+'">'+(N.due>0.005?_rs(N.due)+' due':'✅ Fully paid')+'</div>'
+        +'</div>'
+      +'</div>'
+      +(crate?'<div style="font-size:10px;color:#8a6d1f;background:#fffbeb;border-radius:8px;padding:5px 8px;margin-bottom:8px">📦 Issued: '+_esc(crate)+'</div>':'')
+      +(pays.length?'<div style="margin-bottom:8px">'+pays.map(function(p){
+          return '<div style="display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:var(--gray);padding:3px 0;border-bottom:1px dashed #f0f0f4">'
+            +'<span>💰 '+_dShort(p.date)+' · '+_esc(p.mode)+(p.note?' · '+_esc(p.note):'')+'</span>'
+            +'<span><b style="color:var(--green)">'+_rs(p.amount)+'</b> <span style="cursor:pointer;color:var(--red);margin-left:6px" onclick="evDeletePayment('+p.id+')">✕</span></span></div>';
+        }).join('')+'</div>':'')
+      +(N.due>0.005?'<div style="display:grid;grid-template-columns:1fr .9fr .9fr auto;gap:5px;margin-bottom:8px">'
+        +'<input type="number" id="ev-pay-amt-'+o.id+'" placeholder="Amount ₹" min="0" step="0.01" style="padding:7px;font-size:11.5px"/>'
+        +'<input type="date" id="ev-pay-date-'+o.id+'" value="'+_today()+'" style="padding:7px;font-size:11.5px"/>'
+        +'<select id="ev-pay-mode-'+o.id+'" style="padding:7px;font-size:11.5px"><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select>'
+        +'<button class="btn btn-sm" style="background:var(--green);color:#fff;border:none;padding:7px 10px" onclick="evAddPayment('+o.id+')">+</button>'
+      +'</div>':'')
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
+        +'<button class="btn btn-sm btn-teal" style="flex:1;min-width:80px" onclick="evShowBill('+o.id+')">📄 Bill</button>'
+        +'<button class="btn btn-sm" style="flex:1;min-width:80px;background:#25D366;color:#fff;border:none" onclick="evWhatsApp('+o.id+')">📲 Send</button>'
+        +'<button class="btn btn-sm btn-outline" style="flex:0 0 44px" onclick="evEditOrder('+o.id+')">✏️</button>'
+        +'<button class="btn btn-sm" style="flex:0 0 44px;background:#fee2e2;color:#b91c1c;border:none" onclick="evDeleteOrder('+o.id+')">🗑️</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+
+// ── The event invoice PDF ────────────────────────────────────────────────
+// This one goes out WITH the order, into the hands of a family in the middle of
+// a wedding — so it is built to be handed over, not filed. Navy and gold, a
+// gold rule frame, the greeting on a tinted card, and the crate clause set as a
+// clear notice rather than fine print nobody reads.
+//
+// Everything is Helvetica: the built-in fonts are WinAnsi-only, so the Arabic
+// and Urdu lines are printed ROMANISED here. The on-screen bill (evShowBill)
+// carries the same greeting in real Urdu script, and prints that way from the
+// browser — see evPrintBill.
+var EVPDF={navy:'#0d1b4b',navySoft:'#1a3a8f',gold:'#c49a2a',goldSoft:'#f0e2b8',
+           cream:'#fffbf0',ink:'#1e293b',mute:'#6b7280',faint:'#e8eef8',
+           red:'#b91c1c',green:'#15803d'};
+function evBillPDF(o){
+  // The invoice is laid out repeatedly at decreasing densities and the FIRST one
+  // that fits on a single A4 page is the one that gets printed. This bill is
+  // handed to a family at their function — it must not arrive as two sheets with
+  // the crate clause and the note stranded on the back. Only genuinely enormous
+  // orders (roughly 30+ line items) fall through to a second page.
+  var DENSITIES=[1,.92,.84,.76,.68,.6,.5,.4,.3,.2,.1,0];
+  var built=null;
+  for(var i=0;i<DENSITIES.length;i++){
+    built=_evLayout(o,DENSITIES[i]);
+    if(built.pages.length===1)break;
+  }
+  return makePDF({pages:built.pages, images:(_logoImg&&_logoImg.data)?[_logoImg]:[]});
+}
+// One pass of the invoice layout at density k (1 = roomy, 0 = tightest legible).
+function _evLayout(o,k){
+  var W=595,H=842,M=44,IN=M+14;         // page, outer margin, frame inset
+  var CW=W-IN*2;                        // content width
+  var FOOT=H-M-52;                      // nothing may be drawn below this
+  var pages=[],ops=[],y=0;
+  var N=eventNumbers(o), g=eventGreeting(o), oc=eventOccasion(o.occasion);
+  // Interpolate a metric between its roomy and its tightest value.
+  function L(hi,lo){ return lo+(hi-lo)*k; }
+
+  // ── primitives ──
+  function Tat(txt,x,yy,size,bold,color,tc){
+    ops.push({t:'text',x:x,y:yy,txt:pdfSafe(txt),s:size,b:!!bold,color:color||EVPDF.ink,tc:tc||0});
+  }
+  function ctr(txt,size,bold,color,tc){
+    var t=pdfSafe(txt);
+    Tat(t,IN+(CW-pdfTextWidth(t,size,bold,tc))/2,y,size,bold,color,tc);
+    y+=size+4;
+  }
+  function ctrAt(txt,yy,size,bold,color,tc,cx,cw){
+    cx=cx==null?IN:cx; cw=cw==null?CW:cw;
+    var t=pdfSafe(txt);
+    Tat(t,cx+(cw-pdfTextWidth(t,size,bold,tc))/2,yy,size,bold,color,tc);
+  }
+  function rightAt(txt,rx,yy,size,bold,color){
+    var t=pdfSafe(txt);
+    Tat(t,rx-pdfTextWidth(t,size,bold,0),yy,size,bold,color);
+  }
+  // Shrink a single line until it fits its box, then clip it. A long host name
+  // must never run out of its panel into the column beside it.
+  function fitOne(txt,maxW,size,minSize,bold){
+    var t=pdfSafe(txt),s=size;
+    while(s>minSize&&pdfTextWidth(t,s,bold,0)>maxW)s-=0.25;
+    if(pdfTextWidth(t,s,bold,0)>maxW){
+      while(t.length>4&&pdfTextWidth(t+'...',s,bold,0)>maxW)t=t.slice(0,-1);
+      t=t+'...';
+    }
+    return {txt:t,s:s};
+  }
+  function fitAt(txt,x,yy,maxW,size,minSize,bold,color){
+    var f=fitOne(txt,maxW,size,minSize,bold);
+    Tat(f.txt,x,yy,f.s,bold,color);
+  }
+  // A gold hairline broken by a small diamond — the divider that gives the page
+  // its "occasion" feel without needing any artwork.
+  function ornament(yy){
+    var cx=W/2;
+    ops.push({t:'line',x1:IN,y1:yy,x2:cx-14,y2:yy,color:EVPDF.gold,w:0.8});
+    ops.push({t:'line',x1:cx+14,y1:yy,x2:IN+CW,y2:yy,color:EVPDF.gold,w:0.8});
+    ops.push({t:'poly',pts:[cx,yy-5,cx+5,yy,cx,yy+5,cx-5,yy],fill:EVPDF.gold});
+    ops.push({t:'poly',pts:[cx-11,yy-2.5,cx-8.5,yy,cx-11,yy+2.5,cx-13.5,yy],fill:EVPDF.gold});
+    ops.push({t:'poly',pts:[cx+11,yy-2.5,cx+13.5,yy,cx+11,yy+2.5,cx+8.5,yy],fill:EVPDF.gold});
+  }
+  function frame(){
+    ops.push({t:'srect',x:M,y:M,w:W-M*2,h:H-M*2,stroke:EVPDF.gold,sw:1.6});
+    ops.push({t:'srect',x:M+5,y:M+5,w:W-M*2-10,h:H-M*2-10,stroke:EVPDF.gold,sw:0.5});
+    [[M,M],[W-M,M],[M,H-M],[W-M,H-M]].forEach(function(p){
+      ops.push({t:'poly',pts:[p[0],p[1]-6,p[0]+6,p[1],p[0],p[1]+6,p[0]-6,p[1]],fill:EVPDF.gold});
+    });
+  }
+  function newPage(){ pages.push(ops); ops=[]; frame(); y=M+34; }
+  function need(h){ if(y+h>FOOT){ newPage(); return true; } return false; }
+
+  frame();
+
+  // ══ Masthead ══
+  // Same logo artwork the distribution bill prints, at the same size.
+  y=M+18;
+  var logoSz=L(78,44);
+  if(_logoImg&&_logoImg.data){ ops.push({t:'image',idx:0,x:(W-logoSz)/2,y:y,dw:logoSz,dh:logoSz}); y+=logoSz+L(6,4); }
+  ctr('BARKAT DAIRY PLANT',L(19,16),true,EVPDF.navy,1.4);
+  ctr('Watlar, Ganderbal, Kashmir',L(8.5,7.5),false,EVPDF.mute,0.6);
+  y+=L(1,0);
+  ctr('Pure Goodness, Blessed by Quality',L(8,7),false,EVPDF.gold,1.1);
+  y+=L(7,4);
+  ornament(y); y+=L(14,11);
+
+  // ══ Title plate ══
+  var tpH=L(34,26);
+  ops.push({t:'rrect',x:IN,y:y,w:CW,h:tpH,r:7,fill:EVPDF.navy});
+  ctrAt('EVENT & FUNCTION INVOICE',y+L(14,11.5),L(12.5,10.5),true,'#ffffff',2.2);
+  ctrAt(pdfSafe(oc.label).toUpperCase(),y+L(27,21.5),L(8.5,7),false,EVPDF.goldSoft,1.6);
+  y+=tpH+L(11,7);
+
+  // ══ Greeting card ══
+  // Measured before it is drawn, so the panel always fits its own text exactly.
+  var gFont=L(9.5,8), gLead=L(12.5,10);
+  var gLines=pdfWrap(g.line,gFont,false,CW-60);
+  var gH=L(25,20)+gLines.length*gLead+(g.duaTr?L(15,12):0)+L(9,6);
+  ops.push({t:'rrect',x:IN,y:y,w:CW,h:gH,r:10,fill:EVPDF.cream,stroke:EVPDF.gold,sw:0.9});
+  var gy=y+L(18,15);
+  ctrAt(g.head,gy,L(13,11),true,'#8a6d1f',0.5); gy+=L(16,13);
+  gLines.forEach(function(ln){ ctrAt(ln,gy,gFont,false,'#6b5a24'); gy+=gLead; });
+  if(g.duaTr){ gy+=L(3,2); ctrAt(g.duaTr,gy,L(8.5,7.5),true,EVPDF.gold,0.4); }
+  y+=gH+L(13,9);
+
+  // ══ Party / function details ══
+  var boxH=L(70,58), gap=12, colW=(CW-gap)/2, rcX=IN+colW+gap, iw=colW-24;
+  var dLbl=L(7.5,7), dBig=L(11,9.5), dSm=L(8.5,7.5);
+  var r1=L(15,13), r2=L(29,25), r3=L(41,35), r4=L(53,44), r5=L(63,52);
+  ops.push({t:'rrect',x:IN,y:y,w:colW,h:boxH,r:8,fill:EVPDF.faint});
+  ops.push({t:'rrect',x:rcX,y:y,w:colW,h:boxH,r:8,fill:EVPDF.faint});
+  Tat('BILL TO',IN+12,y+r1,dLbl,true,EVPDF.navySoft,1);
+  Tat('FUNCTION DETAILS',rcX+12,y+r1,dLbl,true,EVPDF.navySoft,1);
+  fitAt(o.party,IN+12,y+r2,iw,dBig,7,true,EVPDF.navy);
+  fitAt(o.phone?'Ph: '+o.phone:'Ph: -',IN+12,y+r3,iw,dSm,6.5,false,EVPDF.mute);
+  // The venue is wrapped WITH its label, or a long address runs out of the box
+  // and collides with the column beside it.
+  pdfWrap('Venue: '+(o.venue||'-'),dSm,false,iw).slice(0,2).forEach(function(ln,idx){
+    Tat(ln,IN+12,y+r4+idx*L(10,9),dSm,false,EVPDF.mute);
+  });
+  fitAt(oc.label,rcX+12,y+r2,iw,L(9.5,8.5),7,true,EVPDF.ink);
+  fitAt('Date: '+_dLong(o.eventDate||o.date),rcX+12,y+r3,iw,dSm,6.5,false,EVPDF.mute);
+  Tat('Invoice: EV-'+String(o.id).slice(-6),rcX+12,y+r4,dSm,false,EVPDF.mute);
+  Tat('Issued: '+_dLong(o.date),rcX+12,y+r5,dSm,false,EVPDF.mute);
+  y+=boxH+L(14,10);
+
+  // ══ Items ══
+  var cQty=IN+CW-232, cRate=IN+CW-140, cAmt=IN+CW-10;   // right edges of the numeric columns
+  var hdrH=L(20,17), rowH=L(18,10.5), iFont=L(9,6.5), iSm=L(8.5,6.3), base=rowH-L(5.5,3.4);
+  function itemsHeader(){
+    ops.push({t:'rrect',x:IN,y:y,w:CW,h:hdrH,r:5,fill:EVPDF.navy});
+    var hy=y+hdrH-L(6.5,5.5);
+    Tat('ITEM',IN+12,hy,L(8,6.8),true,EVPDF.goldSoft,1);
+    rightAt('QTY',cQty,hy,L(8,6.8),true,EVPDF.goldSoft);
+    rightAt('RATE',cRate,hy,L(8,6.8),true,EVPDF.goldSoft);
+    rightAt('AMOUNT',cAmt,hy,L(8,6.8),true,EVPDF.goldSoft);
+    y+=hdrH;
+  }
+  itemsHeader();
+  var items=(o.items||[]).filter(function(x){return x&&(parseFloat(x.qty)||0)>0;});
+  items.forEach(function(x,idx){
+    if(need(rowH+8)) itemsHeader();
+    if(idx%2===0)ops.push({t:'rect',x:IN,y:y,w:CW,h:rowH,fill:'#f8faff'});
+    fitAt(x.label,IN+12,y+base,cQty-IN-58,iFont,6,false,EVPDF.ink);
+    rightAt(_rq(x.qty)+' '+x.unit,cQty,y+base,iSm,false,EVPDF.ink);
+    rightAt('Rs.'+_r2(x.rate),cRate,y+base,iSm,false,EVPDF.ink);
+    rightAt('Rs.'+_r2(x.amount).toFixed(0),cAmt,y+base,iFont,true,EVPDF.ink);
+    y+=rowH;
+  });
+  ops.push({t:'line',x1:IN,y1:y,x2:IN+CW,y2:y,color:'#d7dce8',w:0.7});
+  y+=L(12,8);
+
+  // ══ Totals (right) beside the crates notice (left) ══
+  // Side by side on purpose: it keeps a normal order to one page, and it puts
+  // the crate clause level with the money instead of buried at the bottom where
+  // nobody reads it.
+  var tW=232, tX=IN+CW-tW, lW=tX-IN-14;
+  var crate=eventCrateText(o);
+  var clause='All crates, cans and containers sent with this order remain the property of '
+    +'Barkat Dairy Plant and must be returned in good condition after the function. The party '
+    +'is responsible for their safe keeping - any item damaged, broken, lost or not returned '
+    +'will be charged to the party at replacement cost.';
+  var cFont=L(7.5,6), cLead=L(9.5,7.4), cHeadF=L(9,7.5);
+  var cLines=pdfWrap(clause,cFont,false,lW-26);
+  var crateHead=crate?pdfWrap('Issued: '+crate,cHeadF,true,lW-26):[];
+  var cH=L(26,22)+(crate?crateHead.length*L(11,9)+L(6,4):0)+cLines.length*cLead+L(10,8);
+  // Height of the totals stack, counted before drawing so both columns can be
+  // room-checked together and never split across a page boundary.
+  var tRowH=L(15,12.5), tBig=L(16.5,14), tBox=L(30,25);
+  var tH=tRowH;
+  if(N.discount>0.004)tH+=tRowH;
+  if(Math.abs(N.roundOff)>0.004)tH+=tRowH;
+  tH+=4+tBig; if(N.paid>0.004)tH+=tRowH; tH+=4+tBox;
+  var blockH=Math.max(cH,tH);
+  need(blockH+L(12,8));
+  var topY=y;
+
+  // left: crates & containers notice
+  ops.push({t:'rrect',x:IN,y:topY,w:lW,h:cH,r:8,fill:'#fffbeb',stroke:EVPDF.gold,sw:0.9});
+  var cy=topY+L(15,12);
+  Tat('CRATES & CONTAINERS',IN+13,cy,L(7.5,6.5),true,'#8a6d1f',0.9);
+  cy+=L(12,10);
+  if(crate){
+    crateHead.forEach(function(ln){ Tat(ln,IN+13,cy,cHeadF,true,EVPDF.navy); cy+=L(11,9); });
+    cy+=L(6,4);
+  }
+  cLines.forEach(function(ln){ Tat(ln,IN+13,cy,cFont,false,'#6b5a24'); cy+=cLead; });
+
+  // right: the money
+  y=topY;
+  function tRow(lbl,val,bold,color,size,adv){
+    size=size||L(9,7.8);
+    Tat(lbl,tX,y+2,size,!!bold,color||EVPDF.mute);
+    rightAt(val,cAmt,y+2,size,!!bold,color||EVPDF.ink);
+    y+=adv||tRowH;
+  }
+  tRow('Sub-total','Rs.'+N.subtotal.toFixed(0));
+  if(N.discount>0.004)tRow('Discount','- Rs.'+N.discount.toFixed(0),false,EVPDF.green);
+  if(Math.abs(N.roundOff)>0.004)tRow('Round off',(N.roundOff>=0?'+ ':'- ')+'Rs.'+Math.abs(N.roundOff).toFixed(0));
+  ops.push({t:'line',x1:tX,y1:y-2,x2:IN+CW,y2:y-2,color:'#d7dce8',w:0.7});
+  y+=4;
+  tRow('Order Total','Rs.'+N.total.toFixed(0),true,EVPDF.navy,L(10.5,9),tBig);
+  if(N.paid>0.004)tRow('Received','- Rs.'+N.paid.toFixed(0),false,EVPDF.green);
+  y+=4;
+  var due=N.due>0.005;
+  ops.push({t:'rrect',x:tX,y:y,w:tW,h:tBox,r:7,fill:due?'#fff1f2':'#f0fdf4',stroke:due?EVPDF.red:EVPDF.green,sw:0.8});
+  Tat(due?'BALANCE DUE':'FULLY PAID',tX+11,y+tBox*0.65,L(9.5,8.2),true,due?EVPDF.red:EVPDF.green,0.5);
+  rightAt(due?'Rs.'+N.due.toFixed(0):'Rs.0',tX+tW-11,y+tBox*0.65,L(13,11),true,due?EVPDF.red:EVPDF.green);
+
+  y=topY+blockH+L(14,9);
+
+  // ══ Note ══
+  if((o.note||'').trim()){
+    var nFont=L(8.5,7), nLead=L(11,8.6);
+    var nLines=pdfWrap('Note: '+o.note,nFont,false,CW-8);
+    need(nLines.length*nLead+8);
+    nLines.forEach(function(ln){ Tat(ln,IN+4,y,nFont,false,EVPDF.mute); y+=nLead; });
+    y+=L(4,2);
+  }
+
+  // ══ Closing blessing + signatures ══
+  var clF=L(9,7.5), clF2=L(8.5,7);
+  need(L(76,58));
+  ornament(y); y+=L(15,12);
+  ctr('Thank you for letting Barkat Dairy be part of your celebration.',clF,false,EVPDF.navySoft);
+  ctr(g.duaTr?g.duaTr:'We wish you and your family every happiness.',clF2,true,EVPDF.gold,0.4);
+  y+=L(16,11);
+  ops.push({t:'line',x1:IN+6,y1:y,x2:IN+150,y2:y,color:'#9aa3b2',w:0.6});
+  ops.push({t:'line',x1:IN+CW-150,y1:y,x2:IN+CW-6,y2:y,color:'#9aa3b2',w:0.6});
+  y+=L(11,9);
+  Tat('Received by (Party)',IN+6,y,L(8,7),false,EVPDF.mute);
+  rightAt('For Barkat Dairy Plant',IN+CW-6,y,L(8,7),false,EVPDF.mute);
+
+  // ══ Footer on every page ══
+  pages.push(ops);
+  var stamp='Computer-generated invoice  |  Prepared by '+(o.savedBy||'Admin')+'  |  '+new Date().toLocaleString();
+  pages.forEach(function(pg,idx){
+    var fy=H-M-22;
+    pg.push({t:'line',x1:IN,y1:fy-10,x2:W-IN,y2:fy-10,color:'#e9e3d2',w:0.5});
+    var t1=pdfSafe(stamp);
+    pg.push({t:'text',x:IN+(CW-pdfTextWidth(t1,7,false,0))/2,y:fy,txt:t1,s:7,color:'#a9a9a9'});
+    if(pages.length>1){
+      var t2='Page '+(idx+1)+' of '+pages.length;
+      pg.push({t:'text',x:IN+(CW-pdfTextWidth(t2,7,false,0))/2,y:fy+10,txt:t2,s:7,color:'#a9a9a9'});
+    }
+  });
+  return {pages:pages};
+}
+// "12 August 2026" — an event bill deserves a real date, not 12/08.
+function _dLong(ds){
+  try{
+    var d=new Date(ds+'T00:00:00');
+    if(isNaN(d.getTime()))return ds||'—';
+    return d.toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'});
+  }catch(e){return ds||'—';}
+}
+function _evPDFFile(o){
+  var str=evBillPDF(o);
+  var bytes=new Uint8Array(str.length);
+  for(var i=0;i<str.length;i++)bytes[i]=str.charCodeAt(i)&0xff;
+  var name='BarkatDairy_Event_'+String(o.party||'').replace(/[^A-Za-z0-9]+/g,'_')+'_'+(o.eventDate||o.date)+'.pdf';
+  return new File([bytes],name,{type:'application/pdf'});
+}
+function evDownloadPDF(id){
+  var o=_evOrder(id);if(!o)return;
+  try{ _downloadFile(_evPDFFile(o)); showAlert('evAlert','alert-green','✅ PDF saved to your Downloads folder.'); }
+  catch(e){ alert('PDF error: '+e.message); }
+}
+async function evWhatsApp(id){
+  var o=_evOrder(id);if(!o)return;
+  var file=null;
+  try{ file=_evPDFFile(o); }catch(e){ file=null; }
+  var text=evBillText(o);
+  if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file],title:'Barkat Dairy — '+o.party,text:text}); return; }
+    catch(e){ if(e&&e.name==='AbortError')return; }
+  }
+  if(file)_downloadFile(file);
+  var phone=(o.phone||'').replace(/[^0-9]/g,'');
+  if(phone.length===10)phone='91'+phone;
+  window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(text+'\n\n(PDF invoice downloaded — attach it in this chat)'),'_blank');
+}
+function _evOrder(id){
+  if(id!=null)return eventOrders.find(function(x){return String(x.id)===String(id);})||null;
+  return _evCurrent;
+}
+// Plain-text version for the WhatsApp message body.
+function evBillText(o){
+  var N=eventNumbers(o), g=eventGreeting(o), oc=eventOccasion(o.occasion);
+  var L=['*BARKAT DAIRY PLANT*','Watlar, Ganderbal, Kashmir','_Pure Goodness, Blessed by Quality_','------------------------',
+    '*'+g.head+'*'];
+  if(g.ur)L.push(g.ur);
+  L.push(g.line);
+  if(g.dua)L.push(g.dua);
+  L.push('------------------------',
+    'Party: '+(o.party||''),
+    'Occasion: '+oc.label,
+    'Function: '+_dLong(o.eventDate||o.date));
+  if(o.venue)L.push('Venue: '+o.venue);
+  L.push('Invoice: EV-'+String(o.id).slice(-6),'------------------------');
+  (o.items||[]).filter(function(x){return (parseFloat(x.qty)||0)>0;}).forEach(function(x){
+    L.push(x.label+': '+_rq(x.qty)+' '+x.unit+' x '+_rsT(x.rate)+' = '+_rsT(x.amount));
+  });
+  L.push('------------------------','Sub-total: '+_rsT(N.subtotal));
+  if(N.discount>0.004)L.push('Discount: -'+_rsT(N.discount));
+  if(Math.abs(N.roundOff)>0.004)L.push('Round off: '+(N.roundOff>=0?'+':'-')+_rsT(Math.abs(N.roundOff)));
+  L.push('*ORDER TOTAL: '+_rsT(N.total)+'*');
+  if(N.paid>0.004)L.push('Received: -'+_rsT(N.paid));
+  L.push(N.due>0.005?'*BALANCE DUE: '+_rsT(N.due)+'*':'*FULLY PAID*');
+  var crate=eventCrateText(o);
+  L.push('------------------------','*CRATES & CONTAINERS*');
+  if(crate)L.push('Issued: '+crate);
+  L.push('All crates, cans and containers remain the property of Barkat Dairy Plant and must be returned in good condition after the function. Any item damaged, lost or not returned will be charged to the party at replacement cost.');
+  if(o.note)L.push('------------------------','Note: '+o.note);
+  L.push('------------------------','Thank you for letting Barkat Dairy be part of your celebration.','- Barkat Dairy Plant');
+  return L.join('\n');
+}
+
+// ── The on-screen bill ───────────────────────────────────────────────────
+// The screen and browser-print version of the same invoice. Unlike the PDF it
+// CAN render Urdu and Arabic, so the greeting appears in real script here — the
+// family sees the dua properly written when this is printed from the phone.
+var _evCurrent=null;
+function evShowBill(id){
+  var o=_evOrder(id);if(!o)return;
+  _evCurrent=o;
+  var el=document.getElementById('evBillContent');
+  if(el)el.innerHTML=evBillHTML(o);
+  document.getElementById('evBillModal').classList.add('open');
+}
+function evCloseBill(){var m=document.getElementById('evBillModal');if(m)m.classList.remove('open');}
+function evBillHTML(o,forPrint){
+  var N=eventNumbers(o), g=eventGreeting(o), oc=eventOccasion(o.occasion);
+  var crate=eventCrateText(o);
+  var big=!!forPrint;
+  var S=function(n){return big?n:Math.round(n*0.9*10)/10;};   // print a little larger
+  var rows=(o.items||[]).filter(function(x){return x&&(parseFloat(x.qty)||0)>0;}).map(function(x,i){
+    return '<tr style="background:'+(i%2?'#f8faff':'#fff')+'">'
+      +'<td style="padding:8px 10px;font-size:'+S(12)+'px;color:#1e293b">'+_esc(x.label)+'</td>'
+      +'<td style="padding:8px 10px;font-size:'+S(11)+'px;color:#1e293b;text-align:right;white-space:nowrap">'+_rq(x.qty)+' '+_esc(x.unit)+'</td>'
+      +'<td style="padding:8px 10px;font-size:'+S(11)+'px;color:#1e293b;text-align:right;white-space:nowrap">'+_rs(x.rate)+'</td>'
+      +'<td style="padding:8px 10px;font-size:'+S(12)+'px;color:#1e293b;text-align:right;font-weight:700;white-space:nowrap">'+_rs(x.amount)+'</td></tr>';
+  }).join('');
+  var tot=function(lbl,val,color,bold,size){
+    return '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:'+S(size||12)+'px;'
+      +(bold?'font-weight:700;':'')+'color:'+(color||'#6b7280')+'"><span>'+lbl+'</span><span style="color:'+(color||'#1e293b')+'">'+val+'</span></div>';
+  };
+  var due=N.due>0.005;
+  var ORN='<div style="display:flex;align-items:center;gap:8px;margin:14px 0">'
+    +'<div style="flex:1;height:1px;background:#c49a2a"></div>'
+    +'<div style="color:#c49a2a;font-size:11px;letter-spacing:3px">◆ ❖ ◆</div>'
+    +'<div style="flex:1;height:1px;background:#c49a2a"></div></div>';
+  return ''
+  +'<div style="border:2px solid #c49a2a;border-radius:'+(big?'4px':'14px')+';padding:'+(big?'26px 28px':'16px 14px')+';background:#fff">'
+  +'<div style="border:1px solid #e8dcb8;border-radius:'+(big?'2px':'10px')+';padding:'+(big?'22px 20px':'14px 10px')+'">'
+
+  // masthead
+  +'<div style="text-align:center">'+barkatLogoHTML(big?76:62)
+    +'<div style="font-size:'+S(21)+'px;font-weight:800;color:#0d1b4b;letter-spacing:2px;margin-top:8px">BARKAT DAIRY PLANT</div>'
+    +'<div style="font-size:'+S(16)+'px;color:#0d1b4b;margin-top:2px">برکت ڈیری پلانٹ</div>'
+    +'<div style="font-size:'+S(10)+'px;color:#6b7280;margin-top:4px">Watlar, Ganderbal, Kashmir</div>'
+    +'<div style="font-size:'+S(9.5)+'px;color:#c49a2a;letter-spacing:1.5px;margin-top:2px">Pure Goodness, Blessed by Quality</div>'
+  +'</div>'
+  +ORN
+
+  // title plate
+  +'<div style="background:#0d1b4b;border-radius:8px;padding:11px;text-align:center">'
+    +'<div style="font-size:'+S(13)+'px;font-weight:700;color:#fff;letter-spacing:2.5px">EVENT &amp; FUNCTION INVOICE</div>'
+    +'<div style="font-size:'+S(9.5)+'px;color:#f0e2b8;letter-spacing:1.5px;margin-top:3px">'+_esc(oc.label.toUpperCase())+'</div>'
+  +'</div>'
+
+  // greeting card
+  +'<div style="background:#fffbf0;border:1px solid #c49a2a;border-radius:10px;padding:'+(big?'16px 20px':'13px 14px')+';margin-top:14px;text-align:center">'
+    +'<div style="font-size:'+S(15)+'px;font-weight:700;color:#8a6d1f">'+_esc(g.icon)+' '+_esc(g.head)+'</div>'
+    +(g.ur?'<div style="font-size:'+S(19)+'px;color:#8a6d1f;margin-top:5px;direction:rtl;line-height:1.7">'+_esc(g.ur)+'</div>':'')
+    +'<div style="font-size:'+S(11.5)+'px;color:#6b5a24;line-height:1.65;margin-top:6px">'+_esc(g.line)+'</div>'
+    +(g.dua?'<div style="font-size:'+S(16)+'px;color:#8a6d1f;margin-top:8px;direction:rtl;line-height:1.9">'+_esc(g.dua)+'</div>':'')
+    +(g.duaTr?'<div style="font-size:'+S(9.5)+'px;color:#c49a2a;margin-top:3px;font-style:italic">'+_esc(g.duaTr)+'</div>':'')
+  +'</div>'
+
+  // details
+  +'<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">'
+    +'<div style="flex:1;min-width:150px;background:#e8eef8;border-radius:8px;padding:11px 13px">'
+      +'<div style="font-size:'+S(8.5)+'px;font-weight:700;color:#1a3a8f;letter-spacing:1px">BILL TO</div>'
+      +'<div style="font-size:'+S(13)+'px;font-weight:700;color:#0d1b4b;margin-top:5px">'+_esc(o.party)+'</div>'
+      +(o.phone?'<div style="font-size:'+S(10)+'px;color:#6b7280;margin-top:3px">📞 '+_esc(o.phone)+'</div>':'')
+      +(o.venue?'<div style="font-size:'+S(10)+'px;color:#6b7280;margin-top:2px">📍 '+_esc(o.venue)+'</div>':'')
+    +'</div>'
+    +'<div style="flex:1;min-width:150px;background:#e8eef8;border-radius:8px;padding:11px 13px">'
+      +'<div style="font-size:'+S(8.5)+'px;font-weight:700;color:#1a3a8f;letter-spacing:1px">FUNCTION DETAILS</div>'
+      +'<div style="font-size:'+S(11.5)+'px;font-weight:700;color:#1e293b;margin-top:5px">'+_esc(oc.label)+'</div>'
+      +'<div style="font-size:'+S(10)+'px;color:#6b7280;margin-top:3px">Date: '+_esc(_dLong(o.eventDate||o.date))+'</div>'
+      +'<div style="font-size:'+S(10)+'px;color:#6b7280;margin-top:2px">Invoice: EV-'+String(o.id).slice(-6)+'</div>'
+      +'<div style="font-size:'+S(10)+'px;color:#6b7280;margin-top:2px">Issued: '+_esc(_dLong(o.date))+'</div>'
+    +'</div>'
+  +'</div>'
+
+  // items
+  +'<table style="width:100%;border-collapse:collapse;margin-top:14px">'
+    +'<thead><tr style="background:#0d1b4b">'
+      +'<th style="padding:8px 10px;text-align:left;font-size:'+S(9)+'px;color:#f0e2b8;letter-spacing:1px">ITEM</th>'
+      +'<th style="padding:8px 10px;text-align:right;font-size:'+S(9)+'px;color:#f0e2b8;letter-spacing:1px">QTY</th>'
+      +'<th style="padding:8px 10px;text-align:right;font-size:'+S(9)+'px;color:#f0e2b8;letter-spacing:1px">RATE</th>'
+      +'<th style="padding:8px 10px;text-align:right;font-size:'+S(9)+'px;color:#f0e2b8;letter-spacing:1px">AMOUNT</th>'
+    +'</tr></thead><tbody>'+rows+'</tbody></table>'
+
+  // totals
+  +'<div style="display:flex;justify-content:flex-end;margin-top:12px">'
+    +'<div style="width:'+(big?'56%':'100%')+';min-width:210px">'
+      +tot('Sub-total',_rs(N.subtotal))
+      +(N.discount>0.004?tot('Discount','− '+_rs(N.discount),'#15803d'):'')
+      +(Math.abs(N.roundOff)>0.004?tot('Round off',(N.roundOff>=0?'+ ':'− ')+_rs(Math.abs(N.roundOff))):'')
+      +'<div style="border-top:1px solid #d7dce8;margin:5px 0"></div>'
+      +tot('Order Total',_rs(N.total),'#0d1b4b',true,13)
+      +(N.paid>0.004?tot('Received','− '+_rs(N.paid),'#15803d'):'')
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding:11px 13px;border-radius:9px;'
+        +'background:'+(due?'#fff1f2':'#f0fdf4')+';border:1px solid '+(due?'#b91c1c':'#15803d')+'">'
+        +'<span style="font-size:'+S(11)+'px;font-weight:700;letter-spacing:.5px;color:'+(due?'#b91c1c':'#15803d')+'">'+(due?'BALANCE DUE':'FULLY PAID')+'</span>'
+        +'<span style="font-size:'+S(17)+'px;font-weight:800;color:'+(due?'#b91c1c':'#15803d')+'">'+(due?_rs(N.due):_rs(0))+'</span>'
+      +'</div>'
+    +'</div>'
+  +'</div>'
+
+  // crates notice
+  +'<div style="background:#fffbeb;border:1px solid #c49a2a;border-radius:9px;padding:'+(big?'13px 16px':'11px 12px')+';margin-top:16px">'
+    +'<div style="font-size:'+S(9)+'px;font-weight:700;color:#8a6d1f;letter-spacing:1px">📦 CRATES &amp; CONTAINERS — PLEASE READ</div>'
+    +(crate?'<div style="font-size:'+S(12)+'px;font-weight:700;color:#0d1b4b;margin-top:6px">Issued with this order: '+_esc(crate)+'</div>':'')
+    +'<div style="font-size:'+S(10)+'px;color:#6b5a24;line-height:1.6;margin-top:5px">All crates, cans and containers sent with this order remain the property of Barkat Dairy Plant and are to be returned in good condition after the function. The party is responsible for their safe keeping; any item damaged, broken, lost or not returned will be charged to the party at replacement cost.</div>'
+  +'</div>'
+  +((o.note||'').trim()?'<div style="font-size:'+S(10.5)+'px;color:#6b7280;margin-top:10px;font-style:italic">📝 '+_esc(o.note)+'</div>':'')
+
+  +ORN
+  +'<div style="text-align:center">'
+    +'<div style="font-size:'+S(11)+'px;color:#1a3a8f">Thank you for letting Barkat Dairy be part of your celebration.</div>'
+    +(g.dua?'<div style="font-size:'+S(14)+'px;color:#c49a2a;margin-top:5px;direction:rtl">'+_esc(g.dua)+'</div>'
+           :'<div style="font-size:'+S(10.5)+'px;color:#c49a2a;margin-top:4px">We wish you and your family every happiness.</div>')
+  +'</div>'
+  +'<div style="display:flex;justify-content:space-between;margin-top:'+(big?'46px':'26px')+'">'
+    +'<div style="text-align:center;font-size:'+S(9.5)+'px;color:#6b7280;flex:1"><div style="border-top:1px solid #9aa3b2;width:120px;margin:0 auto 6px"></div>Received by (Party)</div>'
+    +'<div style="text-align:center;font-size:'+S(9.5)+'px;color:#6b7280;flex:1"><div style="border-top:1px solid #9aa3b2;width:120px;margin:0 auto 6px"></div>For Barkat Dairy Plant</div>'
+  +'</div>'
+  +'<div style="text-align:center;font-size:'+S(9)+'px;color:#a9a9a9;margin-top:14px;border-top:1px solid #f0ece0;padding-top:8px">'
+    +'Computer-generated invoice · Prepared by '+_esc(o.savedBy||'Admin')+' · '+new Date().toLocaleString()+'</div>'
+  +'</div></div>';
+}
+// Open the full-screen print overlay with the event bill in it. Printing from
+// here (or "Save as PDF" in the browser) keeps the Urdu script, which the
+// generated PDF cannot carry.
+function evPrintBill(id){
+  var o=_evOrder(id);if(!o)return;
+  _evCurrent=o;
+  _printCtx='event';
+  document.getElementById('billPrintBody').innerHTML=evBillHTML(o,true);
+  document.getElementById('billPrintScreen').classList.add('active');
+  evCloseBill();
+}
+
 // ═══ FIREBASE CLOUD SYNC ═══
 var _fb=null,_fbReady=false,_fbListening=false,_fbAuthed=false,_syncReady=false;
 var _syncKeys=['records','distRecords','testRecords','productionBatches','cipLogs',
   'users','settings','savedSuppliers','savedDistributors','attRecords',
   'invEntries','invOpening','returnsLog','paymentsLog','supplierPayments','auditLog','rateOverride','supplierRates',
   'riderDropLogs','riderCrateReturns','distCrateCounts','fuelLog',
-  'retailers','retailBills','retailPayments','deletedIds'];
+  'retailers','retailBills','retailPayments','eventOrders','eventPayments','deletedIds'];
 
 // ── Deletion tombstones ───────────────────────────────────────────────────
 // Natural key for a record (matches the merge logic in _syncDown).
@@ -10013,7 +11475,7 @@ function _setGlobal(k,v){
     case 'productionBatches':productionBatches=v;break;
     case 'cipLogs':cipLogs=v;break;
     case 'users':users=v;break;
-    case 'settings':settings=v;break;
+    case 'settings':settings=v;migrateCalibration();break;
     case 'savedSuppliers':savedSuppliers=v;break;
     case 'savedDistributors':savedDistributors=v;break;
     case 'attRecords':attRecords=v;break;
@@ -10032,6 +11494,8 @@ function _setGlobal(k,v){
     case 'retailers':retailers=v;break;
     case 'retailBills':retailBills=v;break;
     case 'retailPayments':retailPayments=v;break;
+    case 'eventOrders':eventOrders=v;break;
+    case 'eventPayments':eventPayments=v;break;
     case 'deletedIds':deletedIds=v;break;
     default: try{window[k]=v;}catch(e){}
   }
@@ -10141,6 +11605,7 @@ function _refreshUI(){
     if(typeof renderCIPList==='function')renderCIPList();
     if(typeof renderRiderLogs==='function')renderRiderLogs();
     if(typeof renderRetail==='function')renderRetail();
+    if(typeof renderEvents==='function')renderEvents();
   }catch(e){}
 }
 // Override store to sync to cloud

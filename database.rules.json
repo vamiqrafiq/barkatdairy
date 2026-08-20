@@ -4,7 +4,7 @@
       ".read": "auth != null",
       ".write": "auth != null",
       "$key": {
-        ".validate": "$key.matches(/^(records|distRecords|testRecords|productionBatches|cipLogs|users|settings|savedSuppliers|savedDistributors|attRecords|attSavedName|invEntries|invOpening|returnsLog|paymentsLog|supplierPayments|auditLog|rateOverride|supplierRates|liveLocations|riderDropLogs|riderCrateReturns|distCrateCounts|fuelLog|retailers|retailBills|retailPayments|deletedIds)$/)"
+        ".validate": "$key.matches(/^(records|distRecords|testRecords|productionBatches|cipLogs|users|settings|savedSuppliers|savedDistributors|attRecords|attSavedName|invEntries|invOpening|returnsLog|paymentsLog|supplierPayments|auditLog|rateOverride|supplierRates|liveLocations|riderDropLogs|riderCrateReturns|distCrateCounts|fuelLog|retailers|retailBills|retailPayments|eventOrders|eventPayments|deletedIds)$/)"
       }
     }
   }
